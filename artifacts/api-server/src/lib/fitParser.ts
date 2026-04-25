@@ -26,6 +26,10 @@ interface FitSession {
   total_distance?: number;
   avg_speed?: number;
   total_ascent?: number;
+  avg_heart_rate?: number;
+  max_heart_rate?: number;
+  total_calories?: number;
+  avg_cadence?: number;
 }
 
 interface FitActivity {
@@ -94,6 +98,10 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
             ? 1000 / avgSpeedMps
             : null;
         const totalElevGainMeters: number | null = session.total_ascent ?? null;
+        const avgHeartRate: number | null = session.avg_heart_rate ?? null;
+        const maxHeartRate: number | null = session.max_heart_rate ?? null;
+        const totalCalories: number | null = session.total_calories ?? null;
+        const avgCadence: number | null = session.avg_cadence ?? null;
 
         const dataPoints: Omit<InsertActivityDataPoint, "activityId">[] = records
           .filter((r) => r.timestamp != null)
@@ -128,6 +136,10 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
             avgSpeedMps,
             avgPaceSecPerKm,
             totalElevGainMeters,
+            avgHeartRate,
+            maxHeartRate,
+            totalCalories,
+            avgCadence,
             fileObjectPath: null,
           },
           dataPoints,

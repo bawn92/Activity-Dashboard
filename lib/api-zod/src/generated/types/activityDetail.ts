@@ -22,6 +22,14 @@ export interface ActivityDetail {
   /** @nullable */
   totalElevGainMeters: number | null;
   /** @nullable */
+  avgHeartRate: number | null;
+  /** @nullable */
+  maxHeartRate: number | null;
+  /** @nullable */
+  totalCalories: number | null;
+  /** @nullable */
+  avgCadence: number | null;
+  /** @nullable */
   fileObjectPath: string | null;
   createdAt: Date;
   dataPoints: DataPoint[];

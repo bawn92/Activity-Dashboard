@@ -32,6 +32,10 @@ router.get("/activities", async (req: Request, res: Response) => {
       avgSpeedMps: a.avgSpeedMps,
       avgPaceSecPerKm: a.avgPaceSecPerKm,
       totalElevGainMeters: a.totalElevGainMeters,
+      avgHeartRate: a.avgHeartRate,
+      maxHeartRate: a.maxHeartRate,
+      totalCalories: a.totalCalories,
+      avgCadence: a.avgCadence,
       createdAt: a.createdAt,
     })),
   );
@@ -125,6 +129,10 @@ router.post(
       avgSpeedMps: newActivity.avgSpeedMps,
       avgPaceSecPerKm: newActivity.avgPaceSecPerKm,
       totalElevGainMeters: newActivity.totalElevGainMeters,
+      avgHeartRate: newActivity.avgHeartRate,
+      maxHeartRate: newActivity.maxHeartRate,
+      totalCalories: newActivity.totalCalories,
+      avgCadence: newActivity.avgCadence,
       fileObjectPath: newActivity.fileObjectPath,
       createdAt: newActivity.createdAt,
       dataPoints: insertedDataPoints.map((p) => ({
@@ -213,6 +221,10 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
     avgSpeedMps: activity.avgSpeedMps,
     avgPaceSecPerKm: activity.avgPaceSecPerKm,
     totalElevGainMeters: activity.totalElevGainMeters,
+    avgHeartRate: activity.avgHeartRate,
+    maxHeartRate: activity.maxHeartRate,
+    totalCalories: activity.totalCalories,
+    avgCadence: activity.avgCadence,
     fileObjectPath: activity.fileObjectPath,
     createdAt: activity.createdAt,
     dataPoints: dataPoints.map((p) => ({

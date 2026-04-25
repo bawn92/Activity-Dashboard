@@ -189,6 +189,14 @@ components:
           type: ["number", "null"]
         totalElevGainMeters:
           type: ["number", "null"]
+        avgHeartRate:
+          type: ["number", "null"]
+        maxHeartRate:
+          type: ["number", "null"]
+        totalCalories:
+          type: ["number", "null"]
+        avgCadence:
+          type: ["number", "null"]
         createdAt:
           type: string
           format: date-time
@@ -201,6 +209,10 @@ components:
         - avgSpeedMps
         - avgPaceSecPerKm
         - totalElevGainMeters
+        - avgHeartRate
+        - maxHeartRate
+        - totalCalories
+        - avgCadence
         - createdAt
 
     DataPoint:
@@ -250,6 +262,14 @@ components:
           type: ["number", "null"]
         totalElevGainMeters:
           type: ["number", "null"]
+        avgHeartRate:
+          type: ["number", "null"]
+        maxHeartRate:
+          type: ["number", "null"]
+        totalCalories:
+          type: ["number", "null"]
+        avgCadence:
+          type: ["number", "null"]
         fileObjectPath:
           type: ["string", "null"]
         createdAt:
@@ -268,6 +288,10 @@ components:
         - avgSpeedMps
         - avgPaceSecPerKm
         - totalElevGainMeters
+        - avgHeartRate
+        - maxHeartRate
+        - totalCalories
+        - avgCadence
         - fileObjectPath
         - createdAt
         - dataPoints

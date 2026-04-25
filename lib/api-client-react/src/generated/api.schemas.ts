@@ -27,6 +27,14 @@ export interface ActivitySummary {
   avgPaceSecPerKm: number | null;
   /** @nullable */
   totalElevGainMeters: number | null;
+  /** @nullable */
+  avgHeartRate: number | null;
+  /** @nullable */
+  maxHeartRate: number | null;
+  /** @nullable */
+  totalCalories: number | null;
+  /** @nullable */
+  avgCadence: number | null;
   createdAt: string;
 }
 
@@ -60,6 +68,14 @@ export interface ActivityDetail {
   avgPaceSecPerKm: number | null;
   /** @nullable */
   totalElevGainMeters: number | null;
+  /** @nullable */
+  avgHeartRate: number | null;
+  /** @nullable */
+  maxHeartRate: number | null;
+  /** @nullable */
+  totalCalories: number | null;
+  /** @nullable */
+  avgCadence: number | null;
   /** @nullable */
   fileObjectPath: string | null;
   createdAt: string;

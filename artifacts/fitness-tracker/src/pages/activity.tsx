@@ -10,7 +10,7 @@ import {
 import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
-import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
@@ -150,7 +150,7 @@ export default function ActivityDetail() {
           </AlertDialog>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-testid="activity-metrics">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" data-testid="activity-metrics">
           <MetricCard 
             title="Distance" 
             value={activity.distanceMeters ? (activity.distanceMeters / 1000).toFixed(2) : "0.00"} 
@@ -175,6 +175,43 @@ export default function ActivityDetail() {
             icon={Mountain} 
           />
         </div>
+
+        {(activity.avgHeartRate != null || activity.maxHeartRate != null || activity.totalCalories != null || activity.avgCadence != null) && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {activity.avgHeartRate != null && (
+              <MetricCard
+                title="Avg HR"
+                value={Math.round(activity.avgHeartRate).toString()}
+                unit="bpm"
+                icon={Heart}
+              />
+            )}
+            {activity.maxHeartRate != null && (
+              <MetricCard
+                title="Max HR"
+                value={Math.round(activity.maxHeartRate).toString()}
+                unit="bpm"
+                icon={Heart}
+              />
+            )}
+            {activity.totalCalories != null && (
+              <MetricCard
+                title="Calories"
+                value={Math.round(activity.totalCalories).toString()}
+                unit="kcal"
+                icon={Flame}
+              />
+            )}
+            {activity.avgCadence != null && (
+              <MetricCard
+                title="Cadence"
+                value={Math.round(activity.avgCadence).toString()}
+                unit="spm"
+                icon={Footprints}
+              />
+            )}
+          </div>
+        )}
 
         {hasMapData && (
           <div className="mb-8">

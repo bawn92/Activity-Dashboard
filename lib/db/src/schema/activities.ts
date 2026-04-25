@@ -19,6 +19,10 @@ export const activitiesTable = pgTable("activities", {
   avgSpeedMps: real("avg_speed_mps"),
   avgPaceSecPerKm: real("avg_pace_sec_per_km"),
   totalElevGainMeters: real("total_elev_gain_meters"),
+  avgHeartRate: real("avg_heart_rate"),
+  maxHeartRate: real("max_heart_rate"),
+  totalCalories: real("total_calories"),
+  avgCadence: real("avg_cadence"),
   fileObjectPath: text("file_object_path"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

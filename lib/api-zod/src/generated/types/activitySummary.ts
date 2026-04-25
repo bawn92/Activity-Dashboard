@@ -20,5 +20,13 @@ export interface ActivitySummary {
   avgPaceSecPerKm: number | null;
   /** @nullable */
   totalElevGainMeters: number | null;
+  /** @nullable */
+  avgHeartRate: number | null;
+  /** @nullable */
+  maxHeartRate: number | null;
+  /** @nullable */
+  totalCalories: number | null;
+  /** @nullable */
+  avgCadence: number | null;
   createdAt: Date;
 }
