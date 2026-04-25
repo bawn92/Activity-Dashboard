@@ -1,8 +1,6 @@
 import FitParser from "fit-file-parser";
 import type { InsertActivity, InsertActivityDataPoint } from "@workspace/db";
 
-const SEMICIRCLES_TO_DEGREES = 180 / Math.pow(2, 31);
-
 export interface ParsedFitData {
   activity: InsertActivity;
   dataPoints: Omit<InsertActivityDataPoint, "activityId">[];
@@ -15,8 +13,15 @@ interface FitRecord {
   heart_rate?: number;
   cadence?: number;
   altitude?: number;
+  enhanced_altitude?: number;
   speed?: number;
+  enhanced_speed?: number;
   distance?: number;
+  power?: number;
+}
+
+interface FitLap {
+  records?: FitRecord[];
 }
 
 interface FitSession {
@@ -26,7 +31,9 @@ interface FitSession {
   total_timer_time?: number;
   total_distance?: number;
   avg_speed?: number;
+  enhanced_avg_speed?: number;
   max_speed?: number;
+  enhanced_max_speed?: number;
   total_ascent?: number;
   total_descent?: number;
   avg_heart_rate?: number;
@@ -34,6 +41,12 @@ interface FitSession {
   total_calories?: number;
   avg_cadence?: number;
   avg_power?: number;
+  normalized_power?: number;
+  avg_vertical_oscillation?: number;
+  avg_stance_time?: number;
+  avg_vertical_ratio?: number;
+  avg_step_length?: number;
+  laps?: FitLap[];
 }
 
 interface FitActivity {
@@ -43,6 +56,21 @@ interface FitActivity {
 
 interface FitData {
   activity?: FitActivity;
+}
+
+function flattenRecords(data: FitData): FitRecord[] {
+  const flatRecords = data.activity?.records;
+  if (flatRecords && flatRecords.length > 0) return flatRecords;
+
+  const records: FitRecord[] = [];
+  for (const session of data.activity?.sessions ?? []) {
+    for (const lap of session.laps ?? []) {
+      for (const rec of lap.records ?? []) {
+        records.push(rec);
+      }
+    }
+  }
+  return records;
 }
 
 export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
@@ -91,24 +119,32 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
 
         const sport = String(rawSport);
 
-        const records: FitRecord[] = data?.activity?.records ?? [];
+        const records = flattenRecords(data!);
 
         const durationSeconds: number | null =
           session.total_elapsed_time ?? session.total_timer_time ?? null;
         const distanceMeters: number | null = session.total_distance ?? null;
-        const avgSpeedMps: number | null = session.avg_speed ?? null;
+        const avgSpeedMps: number | null =
+          session.enhanced_avg_speed ?? session.avg_speed ?? null;
         const avgPaceSecPerKm: number | null =
           avgSpeedMps != null && avgSpeedMps > 0
             ? 1000 / avgSpeedMps
             : null;
         const totalElevGainMeters: number | null = session.total_ascent ?? null;
         const totalElevDescMeters: number | null = session.total_descent ?? null;
-        const maxSpeedMps: number | null = session.max_speed ?? null;
+        const maxSpeedMps: number | null =
+          session.enhanced_max_speed ?? session.max_speed ?? null;
         const avgHeartRate: number | null = session.avg_heart_rate ?? null;
         const maxHeartRate: number | null = session.max_heart_rate ?? null;
         const totalCalories: number | null = session.total_calories ?? null;
         const avgCadence: number | null = session.avg_cadence ?? null;
         const avgPower: number | null = session.avg_power ?? null;
+        const normalizedPower: number | null = session.normalized_power ?? null;
+        const avgVerticalOscillationMm: number | null =
+          session.avg_vertical_oscillation ?? null;
+        const avgStanceTimeMs: number | null = session.avg_stance_time ?? null;
+        const avgVerticalRatio: number | null = session.avg_vertical_ratio ?? null;
+        const avgStepLengthMm: number | null = session.avg_step_length ?? null;
 
         const dataPoints: Omit<InsertActivityDataPoint, "activityId">[] = records
           .filter((r) => r.timestamp != null)
@@ -116,22 +152,24 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
             const rawTs = r.timestamp as Date | string | number;
             const ts: Date = rawTs instanceof Date ? rawTs : new Date(rawTs);
 
-            let lat: number | null = null;
-            let lng: number | null = null;
-            if (r.position_lat != null && r.position_long != null) {
-              lat = r.position_lat * SEMICIRCLES_TO_DEGREES;
-              lng = r.position_long * SEMICIRCLES_TO_DEGREES;
-            }
+            const lat: number | null =
+              r.position_lat != null ? Number(r.position_lat) : null;
+            const lng: number | null =
+              r.position_long != null ? Number(r.position_long) : null;
+
+            const altitudeRaw = r.enhanced_altitude ?? r.altitude;
+            const speedRaw = r.enhanced_speed ?? r.speed;
 
             return {
               timestamp: ts,
               heartRate: r.heart_rate != null ? Number(r.heart_rate) : null,
               cadence: r.cadence != null ? Number(r.cadence) : null,
-              altitude: r.altitude != null ? Number(r.altitude) : null,
+              altitude: altitudeRaw != null ? Number(altitudeRaw) : null,
               lat,
               lng,
-              speed: r.speed != null ? Number(r.speed) : null,
+              speed: speedRaw != null ? Number(speedRaw) : null,
               distance: r.distance != null ? Number(r.distance) : null,
+              power: r.power != null ? Number(r.power) : null,
             };
           });
 
@@ -151,6 +189,11 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
             totalCalories,
             avgCadence,
             avgPower,
+            normalizedPower,
+            avgVerticalOscillationMm,
+            avgStanceTimeMs,
+            avgVerticalRatio,
+            avgStepLengthMm,
             fileObjectPath: null,
           },
           dataPoints,

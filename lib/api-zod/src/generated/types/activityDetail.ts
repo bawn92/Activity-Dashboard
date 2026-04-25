@@ -36,6 +36,16 @@ export interface ActivityDetail {
   /** @nullable */
   avgPower: number | null;
   /** @nullable */
+  normalizedPower: number | null;
+  /** @nullable */
+  avgVerticalOscillationMm: number | null;
+  /** @nullable */
+  avgStanceTimeMs: number | null;
+  /** @nullable */
+  avgVerticalRatio: number | null;
+  /** @nullable */
+  avgStepLengthMm: number | null;
+  /** @nullable */
   fileObjectPath: string | null;
   createdAt: Date;
   dataPoints: DataPoint[];

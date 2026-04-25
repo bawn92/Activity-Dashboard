@@ -35,6 +35,11 @@ export const ListActivitiesResponseItem = zod.object({
   totalCalories: zod.number().nullable(),
   avgCadence: zod.number().nullable(),
   avgPower: zod.number().nullable(),
+  normalizedPower: zod.number().nullable(),
+  avgVerticalOscillationMm: zod.number().nullable(),
+  avgStanceTimeMs: zod.number().nullable(),
+  avgVerticalRatio: zod.number().nullable(),
+  avgStepLengthMm: zod.number().nullable(),
   createdAt: zod.coerce.date(),
 });
 export const ListActivitiesResponse = zod.array(ListActivitiesResponseItem);
@@ -81,6 +86,11 @@ export const GetActivityResponse = zod.object({
   totalCalories: zod.number().nullable(),
   avgCadence: zod.number().nullable(),
   avgPower: zod.number().nullable(),
+  normalizedPower: zod.number().nullable(),
+  avgVerticalOscillationMm: zod.number().nullable(),
+  avgStanceTimeMs: zod.number().nullable(),
+  avgVerticalRatio: zod.number().nullable(),
+  avgStepLengthMm: zod.number().nullable(),
   fileObjectPath: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   dataPoints: zod.array(
@@ -93,6 +103,7 @@ export const GetActivityResponse = zod.object({
       lng: zod.number().nullable(),
       speed: zod.number().nullable(),
       distance: zod.number().nullable(),
+      power: zod.number().nullable(),
     }),
   ),
 });

@@ -39,6 +39,11 @@ router.get("/activities", async (req: Request, res: Response) => {
       totalCalories: a.totalCalories,
       avgCadence: a.avgCadence,
       avgPower: a.avgPower,
+      normalizedPower: a.normalizedPower,
+      avgVerticalOscillationMm: a.avgVerticalOscillationMm,
+      avgStanceTimeMs: a.avgStanceTimeMs,
+      avgVerticalRatio: a.avgVerticalRatio,
+      avgStepLengthMm: a.avgStepLengthMm,
       createdAt: a.createdAt,
     })),
   );
@@ -136,6 +141,11 @@ router.post(
       totalCalories: newActivity.totalCalories,
       avgCadence: newActivity.avgCadence,
       avgPower: newActivity.avgPower,
+      normalizedPower: newActivity.normalizedPower,
+      avgVerticalOscillationMm: newActivity.avgVerticalOscillationMm,
+      avgStanceTimeMs: newActivity.avgStanceTimeMs,
+      avgVerticalRatio: newActivity.avgVerticalRatio,
+      avgStepLengthMm: newActivity.avgStepLengthMm,
       fileObjectPath: newActivity.fileObjectPath,
       createdAt: newActivity.createdAt,
       dataPoints: insertedDataPoints.map((p) => ({
@@ -147,6 +157,7 @@ router.post(
         lng: p.lng,
         speed: p.speed,
         distance: p.distance,
+        power: p.power,
       })),
     });
 
@@ -232,6 +243,11 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
     totalCalories: activity.totalCalories,
     avgCadence: activity.avgCadence,
     avgPower: activity.avgPower,
+    normalizedPower: activity.normalizedPower,
+    avgVerticalOscillationMm: activity.avgVerticalOscillationMm,
+    avgStanceTimeMs: activity.avgStanceTimeMs,
+    avgVerticalRatio: activity.avgVerticalRatio,
+    avgStepLengthMm: activity.avgStepLengthMm,
     fileObjectPath: activity.fileObjectPath,
     createdAt: activity.createdAt,
     dataPoints: dataPoints.map((p) => ({
@@ -243,6 +259,7 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
       lng: p.lng,
       speed: p.speed,
       distance: p.distance,
+      power: p.power,
     })),
   });
 

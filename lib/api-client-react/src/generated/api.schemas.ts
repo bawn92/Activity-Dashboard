@@ -41,6 +41,16 @@ export interface ActivitySummary {
   avgCadence: number | null;
   /** @nullable */
   avgPower: number | null;
+  /** @nullable */
+  normalizedPower: number | null;
+  /** @nullable */
+  avgVerticalOscillationMm: number | null;
+  /** @nullable */
+  avgStanceTimeMs: number | null;
+  /** @nullable */
+  avgVerticalRatio: number | null;
+  /** @nullable */
+  avgStepLengthMm: number | null;
   createdAt: string;
 }
 
@@ -60,6 +70,8 @@ export interface DataPoint {
   speed: number | null;
   /** @nullable */
   distance: number | null;
+  /** @nullable */
+  power: number | null;
 }
 
 export interface ActivityDetail {
@@ -90,6 +102,16 @@ export interface ActivityDetail {
   avgCadence: number | null;
   /** @nullable */
   avgPower: number | null;
+  /** @nullable */
+  normalizedPower: number | null;
+  /** @nullable */
+  avgVerticalOscillationMm: number | null;
+  /** @nullable */
+  avgStanceTimeMs: number | null;
+  /** @nullable */
+  avgVerticalRatio: number | null;
+  /** @nullable */
+  avgStepLengthMm: number | null;
   /** @nullable */
   fileObjectPath: string | null;
   createdAt: string;

@@ -11,7 +11,7 @@ import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
-import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
@@ -233,6 +233,51 @@ export default function ActivityDetail() {
                 value={Math.round(activity.avgPower).toString()}
                 unit="W"
                 icon={Gauge}
+              />
+            )}
+          </div>
+        )}
+
+        {(activity.normalizedPower != null || activity.avgVerticalOscillationMm != null || activity.avgStanceTimeMs != null || activity.avgVerticalRatio != null || activity.avgStepLengthMm != null) && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {activity.normalizedPower != null && (
+              <MetricCard
+                title="Norm. Power"
+                value={Math.round(activity.normalizedPower).toString()}
+                unit="W"
+                icon={Zap}
+              />
+            )}
+            {activity.avgVerticalOscillationMm != null && (
+              <MetricCard
+                title="Vert. Oscillation"
+                value={(activity.avgVerticalOscillationMm / 10).toFixed(1)}
+                unit="cm"
+                icon={MoveVertical}
+              />
+            )}
+            {activity.avgStanceTimeMs != null && (
+              <MetricCard
+                title="Gnd Contact"
+                value={Math.round(activity.avgStanceTimeMs).toString()}
+                unit="ms"
+                icon={Clock}
+              />
+            )}
+            {activity.avgVerticalRatio != null && (
+              <MetricCard
+                title="Vert. Ratio"
+                value={activity.avgVerticalRatio.toFixed(1)}
+                unit="%"
+                icon={Percent}
+              />
+            )}
+            {activity.avgStepLengthMm != null && (
+              <MetricCard
+                title="Step Length"
+                value={(activity.avgStepLengthMm / 1000).toFixed(2)}
+                unit="m"
+                icon={ArrowRight}
               />
             )}
           </div>

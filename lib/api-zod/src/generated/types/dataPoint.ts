@@ -22,4 +22,6 @@ export interface DataPoint {
   speed: number | null;
   /** @nullable */
   distance: number | null;
+  /** @nullable */
+  power: number | null;
 }
