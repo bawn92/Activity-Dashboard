@@ -32,10 +32,13 @@ router.get("/activities", async (req: Request, res: Response) => {
       avgSpeedMps: a.avgSpeedMps,
       avgPaceSecPerKm: a.avgPaceSecPerKm,
       totalElevGainMeters: a.totalElevGainMeters,
+      totalElevDescMeters: a.totalElevDescMeters,
+      maxSpeedMps: a.maxSpeedMps,
       avgHeartRate: a.avgHeartRate,
       maxHeartRate: a.maxHeartRate,
       totalCalories: a.totalCalories,
       avgCadence: a.avgCadence,
+      avgPower: a.avgPower,
       createdAt: a.createdAt,
     })),
   );
@@ -126,10 +129,13 @@ router.post(
       avgSpeedMps: newActivity.avgSpeedMps,
       avgPaceSecPerKm: newActivity.avgPaceSecPerKm,
       totalElevGainMeters: newActivity.totalElevGainMeters,
+      totalElevDescMeters: newActivity.totalElevDescMeters,
+      maxSpeedMps: newActivity.maxSpeedMps,
       avgHeartRate: newActivity.avgHeartRate,
       maxHeartRate: newActivity.maxHeartRate,
       totalCalories: newActivity.totalCalories,
       avgCadence: newActivity.avgCadence,
+      avgPower: newActivity.avgPower,
       fileObjectPath: newActivity.fileObjectPath,
       createdAt: newActivity.createdAt,
       dataPoints: insertedDataPoints.map((p) => ({
@@ -140,6 +146,7 @@ router.post(
         lat: p.lat,
         lng: p.lng,
         speed: p.speed,
+        distance: p.distance,
       })),
     });
 
@@ -218,10 +225,13 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
     avgSpeedMps: activity.avgSpeedMps,
     avgPaceSecPerKm: activity.avgPaceSecPerKm,
     totalElevGainMeters: activity.totalElevGainMeters,
+    totalElevDescMeters: activity.totalElevDescMeters,
+    maxSpeedMps: activity.maxSpeedMps,
     avgHeartRate: activity.avgHeartRate,
     maxHeartRate: activity.maxHeartRate,
     totalCalories: activity.totalCalories,
     avgCadence: activity.avgCadence,
+    avgPower: activity.avgPower,
     fileObjectPath: activity.fileObjectPath,
     createdAt: activity.createdAt,
     dataPoints: dataPoints.map((p) => ({
@@ -232,6 +242,7 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
       lat: p.lat,
       lng: p.lng,
       speed: p.speed,
+      distance: p.distance,
     })),
   });
 

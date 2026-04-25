@@ -28,10 +28,13 @@ export const ListActivitiesResponseItem = zod.object({
   avgSpeedMps: zod.number().nullable(),
   avgPaceSecPerKm: zod.number().nullable(),
   totalElevGainMeters: zod.number().nullable(),
+  totalElevDescMeters: zod.number().nullable(),
+  maxSpeedMps: zod.number().nullable(),
   avgHeartRate: zod.number().nullable(),
   maxHeartRate: zod.number().nullable(),
   totalCalories: zod.number().nullable(),
   avgCadence: zod.number().nullable(),
+  avgPower: zod.number().nullable(),
   createdAt: zod.coerce.date(),
 });
 export const ListActivitiesResponse = zod.array(ListActivitiesResponseItem);
@@ -71,10 +74,13 @@ export const GetActivityResponse = zod.object({
   avgSpeedMps: zod.number().nullable(),
   avgPaceSecPerKm: zod.number().nullable(),
   totalElevGainMeters: zod.number().nullable(),
+  totalElevDescMeters: zod.number().nullable(),
+  maxSpeedMps: zod.number().nullable(),
   avgHeartRate: zod.number().nullable(),
   maxHeartRate: zod.number().nullable(),
   totalCalories: zod.number().nullable(),
   avgCadence: zod.number().nullable(),
+  avgPower: zod.number().nullable(),
   fileObjectPath: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   dataPoints: zod.array(
@@ -86,6 +92,7 @@ export const GetActivityResponse = zod.object({
       lat: zod.number().nullable(),
       lng: zod.number().nullable(),
       speed: zod.number().nullable(),
+      distance: zod.number().nullable(),
     }),
   ),
 });

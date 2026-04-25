@@ -28,6 +28,10 @@ export interface ActivitySummary {
   /** @nullable */
   totalElevGainMeters: number | null;
   /** @nullable */
+  totalElevDescMeters: number | null;
+  /** @nullable */
+  maxSpeedMps: number | null;
+  /** @nullable */
   avgHeartRate: number | null;
   /** @nullable */
   maxHeartRate: number | null;
@@ -35,6 +39,8 @@ export interface ActivitySummary {
   totalCalories: number | null;
   /** @nullable */
   avgCadence: number | null;
+  /** @nullable */
+  avgPower: number | null;
   createdAt: string;
 }
 
@@ -52,6 +58,8 @@ export interface DataPoint {
   lng: number | null;
   /** @nullable */
   speed: number | null;
+  /** @nullable */
+  distance: number | null;
 }
 
 export interface ActivityDetail {
@@ -69,6 +77,10 @@ export interface ActivityDetail {
   /** @nullable */
   totalElevGainMeters: number | null;
   /** @nullable */
+  totalElevDescMeters: number | null;
+  /** @nullable */
+  maxSpeedMps: number | null;
+  /** @nullable */
   avgHeartRate: number | null;
   /** @nullable */
   maxHeartRate: number | null;
@@ -76,6 +88,8 @@ export interface ActivityDetail {
   totalCalories: number | null;
   /** @nullable */
   avgCadence: number | null;
+  /** @nullable */
+  avgPower: number | null;
   /** @nullable */
   fileObjectPath: string | null;
   createdAt: string;

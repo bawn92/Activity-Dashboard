@@ -21,6 +21,10 @@ export interface ActivitySummary {
   /** @nullable */
   totalElevGainMeters: number | null;
   /** @nullable */
+  totalElevDescMeters: number | null;
+  /** @nullable */
+  maxSpeedMps: number | null;
+  /** @nullable */
   avgHeartRate: number | null;
   /** @nullable */
   maxHeartRate: number | null;
@@ -28,5 +32,7 @@ export interface ActivitySummary {
   totalCalories: number | null;
   /** @nullable */
   avgCadence: number | null;
+  /** @nullable */
+  avgPower: number | null;
   createdAt: Date;
 }

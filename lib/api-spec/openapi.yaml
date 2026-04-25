@@ -189,6 +189,10 @@ components:
           type: ["number", "null"]
         totalElevGainMeters:
           type: ["number", "null"]
+        totalElevDescMeters:
+          type: ["number", "null"]
+        maxSpeedMps:
+          type: ["number", "null"]
         avgHeartRate:
           type: ["number", "null"]
         maxHeartRate:
@@ -196,6 +200,8 @@ components:
         totalCalories:
           type: ["number", "null"]
         avgCadence:
+          type: ["number", "null"]
+        avgPower:
           type: ["number", "null"]
         createdAt:
           type: string
@@ -209,10 +215,13 @@ components:
         - avgSpeedMps
         - avgPaceSecPerKm
         - totalElevGainMeters
+        - totalElevDescMeters
+        - maxSpeedMps
         - avgHeartRate
         - maxHeartRate
         - totalCalories
         - avgCadence
+        - avgPower
         - createdAt
 
     DataPoint:
@@ -233,6 +242,8 @@ components:
           type: ["number", "null"]
         speed:
           type: ["number", "null"]
+        distance:
+          type: ["number", "null"]
       required:
         - timestamp
         - heartRate
@@ -241,6 +252,7 @@ components:
         - lat
         - lng
         - speed
+        - distance
 
     ActivityDetail:
       type: object
@@ -262,6 +274,10 @@ components:
           type: ["number", "null"]
         totalElevGainMeters:
           type: ["number", "null"]
+        totalElevDescMeters:
+          type: ["number", "null"]
+        maxSpeedMps:
+          type: ["number", "null"]
         avgHeartRate:
           type: ["number", "null"]
         maxHeartRate:
@@ -269,6 +285,8 @@ components:
         totalCalories:
           type: ["number", "null"]
         avgCadence:
+          type: ["number", "null"]
+        avgPower:
           type: ["number", "null"]
         fileObjectPath:
           type: ["string", "null"]
@@ -288,10 +306,13 @@ components:
         - avgSpeedMps
         - avgPaceSecPerKm
         - totalElevGainMeters
+        - totalElevDescMeters
+        - maxSpeedMps
         - avgHeartRate
         - maxHeartRate
         - totalCalories
         - avgCadence
+        - avgPower
         - fileObjectPath
         - createdAt
         - dataPoints

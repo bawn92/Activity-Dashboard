@@ -22,6 +22,10 @@ export interface ActivityDetail {
   /** @nullable */
   totalElevGainMeters: number | null;
   /** @nullable */
+  totalElevDescMeters: number | null;
+  /** @nullable */
+  maxSpeedMps: number | null;
+  /** @nullable */
   avgHeartRate: number | null;
   /** @nullable */
   maxHeartRate: number | null;
@@ -29,6 +33,8 @@ export interface ActivityDetail {
   totalCalories: number | null;
   /** @nullable */
   avgCadence: number | null;
+  /** @nullable */
+  avgPower: number | null;
   /** @nullable */
   fileObjectPath: string | null;
   createdAt: Date;

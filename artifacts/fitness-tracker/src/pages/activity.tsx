@@ -9,8 +9,9 @@ import {
 } from "@workspace/api-client-react";
 import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
+import { ActivitySplits } from "@/components/activity-splits";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
-import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
@@ -176,7 +177,7 @@ export default function ActivityDetail() {
           />
         </div>
 
-        {(activity.avgHeartRate != null || activity.maxHeartRate != null || activity.totalCalories != null || activity.avgCadence != null) && (
+        {(activity.avgHeartRate != null || activity.maxHeartRate != null || activity.totalCalories != null || activity.avgCadence != null || activity.totalElevDescMeters != null || activity.maxSpeedMps != null || activity.avgPower != null) && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {activity.avgHeartRate != null && (
               <MetricCard
@@ -210,6 +211,30 @@ export default function ActivityDetail() {
                 icon={Footprints}
               />
             )}
+            {activity.totalElevDescMeters != null && (
+              <MetricCard
+                title="Descent"
+                value={activity.totalElevDescMeters.toFixed(0)}
+                unit="m"
+                icon={TrendingDown}
+              />
+            )}
+            {activity.maxSpeedMps != null && (
+              <MetricCard
+                title="Max Pace"
+                value={formatPace(1000 / activity.maxSpeedMps).split(" ")[0]}
+                unit="/km"
+                icon={Zap}
+              />
+            )}
+            {activity.avgPower != null && (
+              <MetricCard
+                title="Avg Power"
+                value={Math.round(activity.avgPower).toString()}
+                unit="W"
+                icon={Gauge}
+              />
+            )}
           </div>
         )}
 
@@ -232,6 +257,12 @@ export default function ActivityDetail() {
             <div className="bg-card border border-border rounded-lg p-6">
               <ActivityCharts dataPoints={activity.dataPoints} />
             </div>
+          </div>
+        )}
+
+        {activity.dataPoints.some((p) => p.distance != null) && (
+          <div className="mb-8">
+            <ActivitySplits dataPoints={activity.dataPoints} />
           </div>
         )}
       </div>

@@ -19,10 +19,13 @@ export const activitiesTable = pgTable("activities", {
   avgSpeedMps: real("avg_speed_mps"),
   avgPaceSecPerKm: real("avg_pace_sec_per_km"),
   totalElevGainMeters: real("total_elev_gain_meters"),
+  totalElevDescMeters: real("total_elev_desc_meters"),
+  maxSpeedMps: real("max_speed_mps"),
   avgHeartRate: real("avg_heart_rate"),
   maxHeartRate: real("max_heart_rate"),
   totalCalories: real("total_calories"),
   avgCadence: real("avg_cadence"),
+  avgPower: real("avg_power"),
   fileObjectPath: text("file_object_path"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -48,6 +51,7 @@ export const activityDataPointsTable = pgTable("activity_data_points", {
   lat: real("lat"),
   lng: real("lng"),
   speed: real("speed"),
+  distance: real("distance"),
 });
 
 export const insertActivityDataPointSchema = createInsertSchema(

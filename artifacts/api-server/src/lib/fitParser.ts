@@ -16,6 +16,7 @@ interface FitRecord {
   cadence?: number;
   altitude?: number;
   speed?: number;
+  distance?: number;
 }
 
 interface FitSession {
@@ -25,11 +26,14 @@ interface FitSession {
   total_timer_time?: number;
   total_distance?: number;
   avg_speed?: number;
+  max_speed?: number;
   total_ascent?: number;
+  total_descent?: number;
   avg_heart_rate?: number;
   max_heart_rate?: number;
   total_calories?: number;
   avg_cadence?: number;
+  avg_power?: number;
 }
 
 interface FitActivity {
@@ -98,10 +102,13 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
             ? 1000 / avgSpeedMps
             : null;
         const totalElevGainMeters: number | null = session.total_ascent ?? null;
+        const totalElevDescMeters: number | null = session.total_descent ?? null;
+        const maxSpeedMps: number | null = session.max_speed ?? null;
         const avgHeartRate: number | null = session.avg_heart_rate ?? null;
         const maxHeartRate: number | null = session.max_heart_rate ?? null;
         const totalCalories: number | null = session.total_calories ?? null;
         const avgCadence: number | null = session.avg_cadence ?? null;
+        const avgPower: number | null = session.avg_power ?? null;
 
         const dataPoints: Omit<InsertActivityDataPoint, "activityId">[] = records
           .filter((r) => r.timestamp != null)
@@ -124,6 +131,7 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
               lat,
               lng,
               speed: r.speed != null ? Number(r.speed) : null,
+              distance: r.distance != null ? Number(r.distance) : null,
             };
           });
 
@@ -136,10 +144,13 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
             avgSpeedMps,
             avgPaceSecPerKm,
             totalElevGainMeters,
+            totalElevDescMeters,
+            maxSpeedMps,
             avgHeartRate,
             maxHeartRate,
             totalCalories,
             avgCadence,
+            avgPower,
             fileObjectPath: null,
           },
           dataPoints,
