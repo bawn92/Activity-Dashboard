@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Fitness Activity Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: activities
+    description: Fitness activity operations
+  - name: storage
+    description: Object storage operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,129 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /activities:
+    get:
+      operationId: listActivities
+      tags: [activities]
+      summary: List all activities
+      description: Returns a list of all parsed fitness activities ordered by start time descending
+      responses:
+        "200":
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivitySummary"
+
+  /activities/upload:
+    post:
+      operationId: uploadActivity
+      tags: [activities]
+      summary: Upload a .fit file
+      description: Upload a Garmin .fit file for parsing and storage. Send as multipart/form-data with a field named 'file'.
+      responses:
+        "201":
+          description: Activity parsed and stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityDetail"
+        "400":
+          description: Invalid or malformed .fit file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: FIT file parsed but no useful data found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /activities/stats:
+    get:
+      operationId: getActivityStats
+      tags: [activities]
+      summary: Aggregate stats across all activities
+      description: Returns totals and averages across all activities for a dashboard overview
+      responses:
+        "200":
+          description: Aggregate statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityStats"
+
+  /activities/{id}:
+    get:
+      operationId: getActivity
+      tags: [activities]
+      summary: Get activity detail
+      description: Returns full activity detail including summary and time-series data points
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityDetail"
+        "404":
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteActivity
+      tags: [activities]
+      summary: Delete an activity
+      description: Delete an activity and its associated data points
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Activity deleted
+        "404":
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned upload URL
+      description: Returns a presigned URL for direct file upload to object storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageUploadRequestBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageUploadPresignedUrl"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +161,174 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ActivitySummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        sport:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        durationSeconds:
+          type: ["number", "null"]
+        distanceMeters:
+          type: ["number", "null"]
+        avgSpeedMps:
+          type: ["number", "null"]
+        avgPaceSecPerKm:
+          type: ["number", "null"]
+        totalElevGainMeters:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sport
+        - startTime
+        - durationSeconds
+        - distanceMeters
+        - avgSpeedMps
+        - avgPaceSecPerKm
+        - totalElevGainMeters
+        - createdAt
+
+    DataPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        heartRate:
+          type: ["number", "null"]
+        cadence:
+          type: ["number", "null"]
+        altitude:
+          type: ["number", "null"]
+        lat:
+          type: ["number", "null"]
+        lng:
+          type: ["number", "null"]
+        speed:
+          type: ["number", "null"]
+      required:
+        - timestamp
+        - heartRate
+        - cadence
+        - altitude
+        - lat
+        - lng
+        - speed
+
+    ActivityDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        sport:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        durationSeconds:
+          type: ["number", "null"]
+        distanceMeters:
+          type: ["number", "null"]
+        avgSpeedMps:
+          type: ["number", "null"]
+        avgPaceSecPerKm:
+          type: ["number", "null"]
+        totalElevGainMeters:
+          type: ["number", "null"]
+        fileObjectPath:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        dataPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+      required:
+        - id
+        - sport
+        - startTime
+        - durationSeconds
+        - distanceMeters
+        - avgSpeedMps
+        - avgPaceSecPerKm
+        - totalElevGainMeters
+        - fileObjectPath
+        - createdAt
+        - dataPoints
+
+    ActivityStats:
+      type: object
+      properties:
+        totalActivities:
+          type: integer
+        totalDistanceMeters:
+          type: number
+        totalDurationSeconds:
+          type: number
+        avgDistanceMeters:
+          type: number
+        avgDurationSeconds:
+          type: number
+        sportBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/SportCount"
+      required:
+        - totalActivities
+        - totalDistanceMeters
+        - totalDurationSeconds
+        - avgDistanceMeters
+        - avgDurationSeconds
+        - sportBreakdown
+
+    SportCount:
+      type: object
+      properties:
+        sport:
+          type: string
+        count:
+          type: integer
+      required:
+        - sport
+        - count
+
+    StorageUploadRequestBody:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+      required:
+        - name
+        - size
+        - contentType
+
+    StorageUploadPresignedUrl:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - uploadURL
+        - objectPath
