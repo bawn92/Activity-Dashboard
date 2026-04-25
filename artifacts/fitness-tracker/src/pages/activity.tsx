@@ -11,7 +11,8 @@ import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
-import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, type LucideIcon } from "lucide-react";
+import { generateShareImage } from "@/lib/share-image";
+import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, Share2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
@@ -127,6 +128,16 @@ export default function ActivityDetail() {
             </div>
           </div>
           
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-border text-foreground hover:bg-accent"
+              onClick={() => generateShareImage(activity)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground" data-testid="button-delete">
@@ -149,6 +160,7 @@ export default function ActivityDetail() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" data-testid="activity-metrics">
