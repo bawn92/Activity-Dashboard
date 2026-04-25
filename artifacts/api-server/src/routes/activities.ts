@@ -62,6 +62,16 @@ router.post(
       return;
     }
 
+    let parsed;
+    try {
+      parsed = await parseFitBuffer(req.file.buffer);
+    } catch (parseErr) {
+      req.log.error({ err: parseErr }, "Failed to parse FIT file");
+      const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse .fit file";
+      res.status(422).json({ error: msg });
+      return;
+    }
+
     let fileObjectPath: string | null = null;
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
@@ -77,15 +87,8 @@ router.post(
         throw new Error(`Storage upload failed: ${putResponse.status}`);
       }
     } catch (storageErr) {
-      req.log.warn({ err: storageErr }, "Storage upload failed, continuing without file path");
-    }
-
-    let parsed;
-    try {
-      parsed = await parseFitBuffer(req.file.buffer);
-    } catch (parseErr) {
-      req.log.error({ err: parseErr }, "Failed to parse FIT file");
-      res.status(422).json({ error: "Failed to parse .fit file" });
+      req.log.error({ err: storageErr }, "Object storage upload failed");
+      res.status(500).json({ error: "Failed to store the .fit file. Please try again." });
       return;
     }
 
@@ -107,16 +110,35 @@ router.post(
       }
     }
 
-    res.status(201).json({
+    const insertedDataPoints = parsed.dataPoints.map((p, idx) => ({
+      id: idx,
+      activityId: newActivity.id,
+      ...p,
+    }));
+
+    const result = GetActivityResponse.parse({
       id: newActivity.id,
       sport: newActivity.sport,
-      startTime: newActivity.startTime.toISOString(),
-      durationSeconds: newActivity.durationSeconds ?? undefined,
-      distanceMeters: newActivity.distanceMeters ?? undefined,
-      avgSpeedMps: newActivity.avgSpeedMps ?? undefined,
-      avgPaceSecPerKm: newActivity.avgPaceSecPerKm ?? undefined,
-      totalElevGainMeters: newActivity.totalElevGainMeters ?? undefined,
+      startTime: newActivity.startTime,
+      durationSeconds: newActivity.durationSeconds,
+      distanceMeters: newActivity.distanceMeters,
+      avgSpeedMps: newActivity.avgSpeedMps,
+      avgPaceSecPerKm: newActivity.avgPaceSecPerKm,
+      totalElevGainMeters: newActivity.totalElevGainMeters,
+      fileObjectPath: newActivity.fileObjectPath,
+      createdAt: newActivity.createdAt,
+      dataPoints: insertedDataPoints.map((p) => ({
+        timestamp: p.timestamp,
+        heartRate: p.heartRate,
+        cadence: p.cadence,
+        altitude: p.altitude,
+        lat: p.lat,
+        lng: p.lng,
+        speed: p.speed,
+      })),
     });
+
+    res.status(201).json(result);
   },
 );
 

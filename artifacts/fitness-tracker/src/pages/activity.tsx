@@ -10,7 +10,7 @@ import {
 import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
-import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map } from "lucide-react";
+import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,7 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-function MetricCard({ title, value, icon: Icon, unit }: { title: string; value: string | React.ReactNode; icon: any; unit?: string }) {
+function MetricCard({ title, value, icon: Icon, unit }: { title: string; value: string | React.ReactNode; icon: LucideIcon; unit?: string }) {
   return (
     <div className="bg-card border border-border rounded-lg p-4 flex flex-col justify-center relative overflow-hidden">
       <Icon className="w-24 h-24 text-muted-foreground/5 absolute -right-6 -bottom-6" />
@@ -100,8 +100,8 @@ export default function ActivityDetail() {
     );
   }
 
-  const hasMapData = activity.dataPoints && activity.dataPoints.some((dp: any) => dp.lat != null && dp.lng != null);
-  const hasChartData = activity.dataPoints && activity.dataPoints.length > 0;
+  const hasMapData = activity.dataPoints?.some((dp) => dp.lat != null && dp.lng != null) ?? false;
+  const hasChartData = (activity.dataPoints?.length ?? 0) > 0;
 
   return (
     <Layout>
