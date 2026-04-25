@@ -58,10 +58,7 @@ router.post(
       return;
     }
 
-    if (
-      !req.file.originalname.toLowerCase().endsWith(".fit") &&
-      req.file.mimetype !== "application/octet-stream"
-    ) {
+    if (!req.file.originalname.toLowerCase().endsWith(".fit")) {
       res.status(400).json({ error: "Only .fit files are accepted" });
       return;
     }
