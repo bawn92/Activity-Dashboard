@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { UploadCloud, Loader2, CheckCircle2 } from "lucide-react";
+import { UploadCloud, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import {
   getUploadActivityUrl,
   getListActivitiesQueryKey,
@@ -7,15 +7,18 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 export function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -43,11 +46,7 @@ export function UploadZone() {
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".fit")) {
-      toast({
-        title: "Invalid file",
-        description: "Please upload a .fit file",
-        variant: "destructive",
-      });
+      setUploadError("Only .fit files are accepted");
       return;
     }
 
@@ -56,6 +55,7 @@ export function UploadZone() {
 
     setIsPending(true);
     setIsSuccess(false);
+    setUploadError(null);
 
     try {
       const resp = await fetch(getUploadActivityUrl(), {
@@ -69,18 +69,13 @@ export function UploadZone() {
       }
 
       setIsSuccess(true);
-      toast({ title: "Upload successful", description: "Activity saved." });
       queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey() });
-      queryClient.invalidateQueries({
-        queryKey: getGetActivityStatsQueryKey(),
-      });
+      queryClient.invalidateQueries({ queryKey: getGetActivityStatsQueryKey() });
+      toast({ title: "Activity uploaded", description: "Redirecting to your activities..." });
+      setTimeout(() => setLocation("/activities"), 800);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      toast({
-        title: "Upload failed",
-        description: msg,
-        variant: "destructive",
-      });
+      setUploadError(msg);
     } finally {
       setIsPending(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -93,7 +88,9 @@ export function UploadZone() {
         "relative flex flex-col items-center justify-center p-8 rounded-lg border border-dashed transition-colors cursor-pointer",
         isDragging
           ? "border-primary bg-primary/5"
-          : "border-border bg-card hover:bg-secondary/50",
+          : uploadError
+            ? "border-destructive/60 bg-destructive/5"
+            : "border-border bg-card hover:bg-secondary/50",
         isPending && "pointer-events-none opacity-50",
       )}
       onDragOver={handleDragOver}
@@ -115,16 +112,33 @@ export function UploadZone() {
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
       ) : isSuccess ? (
         <CheckCircle2 className="w-8 h-8 text-green-500 mb-4" />
+      ) : uploadError ? (
+        <AlertCircle className="w-8 h-8 text-destructive mb-4" />
       ) : (
         <UploadCloud className="w-8 h-8 text-muted-foreground mb-4" />
       )}
 
-      <div className="text-sm font-medium text-foreground text-center">
-        {isPending ? "Uploading..." : "Upload .fit file"}
+      <div className="text-sm font-medium text-center" data-testid="upload-status">
+        {isPending
+          ? "Uploading..."
+          : isSuccess
+            ? "Uploaded!"
+            : uploadError
+              ? "Upload failed"
+              : "Upload .fit file"}
       </div>
-      <div className="text-xs text-muted-foreground mt-1 text-center">
-        Drag & drop or click to select
-      </div>
+      {uploadError ? (
+        <div
+          className="text-xs text-destructive mt-1 text-center max-w-xs"
+          data-testid="upload-error"
+        >
+          {uploadError}
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground mt-1 text-center">
+          Drag & drop or click to select
+        </div>
+      )}
     </div>
   );
 }

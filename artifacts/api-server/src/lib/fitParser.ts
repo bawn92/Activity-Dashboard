@@ -19,7 +19,7 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
       mode: "both",
     });
 
-    parser.parse(buffer, (error: any, data: any) => {
+    parser.parse(buffer as unknown as ArrayBuffer, (error: any, data: any) => {
       if (error) {
         reject(new Error(`FIT parse error: ${error}`));
         return;

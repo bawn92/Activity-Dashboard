@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import ActivitiesListPage from "@/pages/activities-list";
 import ActivityDetail from "@/pages/activity";
 
 const queryClient = new QueryClient({
@@ -19,6 +20,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/activities" component={ActivitiesListPage} />
       <Route path="/activities/:id" component={ActivityDetail} />
       <Route component={NotFound} />
     </Switch>

@@ -1,22 +1,16 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
-import { db } from "@workspace/db";
-import {
-  activitiesTable,
-  activityDataPointsTable,
-  type Activity,
-} from "@workspace/db";
+import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
 import {
   GetActivityParams,
   DeleteActivityParams,
   GetActivityResponse,
   GetActivityStatsResponse,
   ListActivitiesResponse,
-  ListActivitiesResponseItem,
 } from "@workspace/api-zod";
 import { parseFitBuffer } from "../lib/fitParser";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -32,12 +26,13 @@ router.get("/activities", async (req: Request, res: Response) => {
     activities.map((a) => ({
       id: a.id,
       sport: a.sport,
-      startTime: a.startTime.toISOString(),
-      durationSeconds: a.durationSeconds ?? undefined,
-      distanceMeters: a.distanceMeters ?? undefined,
-      avgSpeedMps: a.avgSpeedMps ?? undefined,
-      avgPaceSecPerKm: a.avgPaceSecPerKm ?? undefined,
-      totalElevGainMeters: a.totalElevGainMeters ?? undefined,
+      startTime: a.startTime,
+      durationSeconds: a.durationSeconds,
+      distanceMeters: a.distanceMeters,
+      avgSpeedMps: a.avgSpeedMps,
+      avgPaceSecPerKm: a.avgPaceSecPerKm,
+      totalElevGainMeters: a.totalElevGainMeters,
+      createdAt: a.createdAt,
     })),
   );
 
@@ -190,20 +185,22 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
   const result = GetActivityResponse.parse({
     id: activity.id,
     sport: activity.sport,
-    startTime: activity.startTime.toISOString(),
-    durationSeconds: activity.durationSeconds ?? undefined,
-    distanceMeters: activity.distanceMeters ?? undefined,
-    avgSpeedMps: activity.avgSpeedMps ?? undefined,
-    avgPaceSecPerKm: activity.avgPaceSecPerKm ?? undefined,
-    totalElevGainMeters: activity.totalElevGainMeters ?? undefined,
+    startTime: activity.startTime,
+    durationSeconds: activity.durationSeconds,
+    distanceMeters: activity.distanceMeters,
+    avgSpeedMps: activity.avgSpeedMps,
+    avgPaceSecPerKm: activity.avgPaceSecPerKm,
+    totalElevGainMeters: activity.totalElevGainMeters,
+    fileObjectPath: activity.fileObjectPath,
+    createdAt: activity.createdAt,
     dataPoints: dataPoints.map((p) => ({
-      timestamp: p.timestamp.toISOString(),
-      heartRate: p.heartRate ?? undefined,
-      cadence: p.cadence ?? undefined,
-      altitude: p.altitude ?? undefined,
-      lat: p.lat ?? undefined,
-      lng: p.lng ?? undefined,
-      speed: p.speed ?? undefined,
+      timestamp: p.timestamp,
+      heartRate: p.heartRate,
+      cadence: p.cadence,
+      altitude: p.altitude,
+      lat: p.lat,
+      lng: p.lng,
+      speed: p.speed,
     })),
   });
 
