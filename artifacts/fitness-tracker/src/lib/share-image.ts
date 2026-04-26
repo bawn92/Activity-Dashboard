@@ -6,7 +6,7 @@ export interface ShareTheme {
   id: string;
   name: string;
   tagline: string;
-  category: "solid" | "transparent";
+  category: "solid" | "transparent" | "bare";
   bgBase: string;
   bgGradientStops: [number, string][];
   routeStroke: string;
@@ -16,6 +16,7 @@ export interface ShareTheme {
   textPrimary: string;
   textMuted: string;
   divider: string;
+  textShadow?: { color: string; blur: number };
 }
 
 export const SHARE_THEMES: ShareTheme[] = [
@@ -231,6 +232,72 @@ export const SHARE_THEMES: ShareTheme[] = [
     textMuted: "rgba(12,26,46,0.52)",
     divider: "rgba(8,145,178,0.14)",
   },
+
+  // ── Bare (no background) ───────────────────────────────────────────────
+  {
+    id: "bare-light",
+    name: "Bare Light",
+    tagline: "White text on any photo",
+    category: "bare",
+    bgBase: "rgba(0,0,0,0)",
+    bgGradientStops: [],
+    routeStroke: "rgba(255,255,255,0.95)",
+    routeGlow: "rgba(255,255,255,0.6)",
+    startDot: "#4ade80",
+    endDot: "#ffffff",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(255,255,255,0.65)",
+    divider: "rgba(255,255,255,0.18)",
+    textShadow: { color: "rgba(0,0,0,0.85)", blur: 28 },
+  },
+  {
+    id: "bare-dark",
+    name: "Bare Dark",
+    tagline: "Black text on any photo",
+    category: "bare",
+    bgBase: "rgba(0,0,0,0)",
+    bgGradientStops: [],
+    routeStroke: "rgba(15,23,42,0.92)",
+    routeGlow: "rgba(15,23,42,0.4)",
+    startDot: "#16a34a",
+    endDot: "#1d4ed8",
+    textPrimary: "#0f172a",
+    textMuted: "rgba(15,23,42,0.6)",
+    divider: "rgba(15,23,42,0.18)",
+    textShadow: { color: "rgba(255,255,255,0.9)", blur: 28 },
+  },
+  {
+    id: "bare-neon",
+    name: "Bare Neon",
+    tagline: "Electric glow, no background",
+    category: "bare",
+    bgBase: "rgba(0,0,0,0)",
+    bgGradientStops: [],
+    routeStroke: "#00f5ff",
+    routeGlow: "rgba(0,245,255,0.75)",
+    startDot: "#00f5ff",
+    endDot: "#bf5af2",
+    textPrimary: "#00f5ff",
+    textMuted: "rgba(0,245,255,0.65)",
+    divider: "rgba(0,245,255,0.22)",
+    textShadow: { color: "rgba(0,0,0,0.9)", blur: 32 },
+  },
+  {
+    id: "bare-fire",
+    name: "Bare Fire",
+    tagline: "Flame tones, no background",
+    category: "bare",
+    bgBase: "rgba(0,0,0,0)",
+    bgGradientStops: [],
+    routeStroke: "#fb923c",
+    routeGlow: "rgba(251,146,60,0.75)",
+    startDot: "#fbbf24",
+    endDot: "#ef4444",
+    textPrimary: "#fb923c",
+    textMuted: "rgba(251,146,60,0.65)",
+    divider: "rgba(251,146,60,0.22)",
+    textShadow: { color: "rgba(0,0,0,0.9)", blur: 32 },
+  },
 ];
 
 const W = 1080;
@@ -278,6 +345,18 @@ function drawDivider(ctx: CanvasRenderingContext2D, y: number, theme: ShareTheme
   ctx.stroke();
 }
 
+function setTextShadow(ctx: CanvasRenderingContext2D, theme: ShareTheme) {
+  if (theme.textShadow) {
+    ctx.shadowColor = theme.textShadow.color;
+    ctx.shadowBlur = theme.textShadow.blur;
+  }
+}
+
+function clearShadow(ctx: CanvasRenderingContext2D) {
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+}
+
 function drawBigStat(
   ctx: CanvasRenderingContext2D,
   theme: ShareTheme,
@@ -287,12 +366,14 @@ function drawBigStat(
   y: number,
 ) {
   ctx.textAlign = "left";
+  setTextShadow(ctx, theme);
   ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = theme.textMuted;
   ctx.fillText(label.toUpperCase(), x, y);
   ctx.font = `700 86px ${FONT}`;
   ctx.fillStyle = theme.textPrimary;
   ctx.fillText(value, x, y + 96);
+  clearShadow(ctx);
 }
 
 function drawMiniStat(
@@ -304,12 +385,14 @@ function drawMiniStat(
   y: number,
 ) {
   ctx.textAlign = "center";
+  setTextShadow(ctx, theme);
   ctx.font = `700 50px ${FONT}`;
   ctx.fillStyle = theme.textPrimary;
   ctx.fillText(value, x, y);
   ctx.font = `400 24px ${FONT}`;
   ctx.fillStyle = theme.textMuted;
   ctx.fillText(label, x, y + 36);
+  clearShadow(ctx);
 }
 
 function drawRoute(
@@ -400,13 +483,16 @@ export function renderShareCard(
   ctx.fillStyle = theme.bgBase;
   ctx.fillRect(0, 0, W, H);
 
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  theme.bgGradientStops.forEach(([stop, color]) => grad.addColorStop(stop, color));
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  if (theme.bgGradientStops.length > 0) {
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    theme.bgGradientStops.forEach(([stop, color]) => grad.addColorStop(stop, color));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   let y = 160;
 
+  setTextShadow(ctx, theme);
   ctx.font = `700 88px ${FONT}`;
   ctx.fillStyle = theme.textPrimary;
   ctx.textAlign = "left";
@@ -416,6 +502,7 @@ export function renderShareCard(
   ctx.font = `400 32px ${FONT}`;
   ctx.fillStyle = theme.textMuted;
   ctx.fillText(formatDate(activity.startTime), PAD, y);
+  clearShadow(ctx);
   y += 64;
 
   drawDivider(ctx, y, theme);
@@ -487,10 +574,12 @@ export function renderShareCard(
     }
   }
 
+  setTextShadow(ctx, theme);
   ctx.textAlign = "center";
   ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = theme.textMuted;
   ctx.fillText("Fitness Logbook", W / 2, H - 72);
+  clearShadow(ctx);
 }
 
 export function generateShareImage(activity: Activity, theme: ShareTheme): void {
