@@ -198,6 +198,24 @@ export async function renderActivityVideo(
         onProgress: ({ progress }) => {
           onProgress({ progress, stage: "rendering" });
         },
+        // Forward Chromium console output (warn/error always, [map-frame]
+        // tracing always) to our server logs so we can diagnose per-frame
+        // slowdowns and failures from production logs alone. We filter info
+        // logs to just our tagged traces to avoid drowning the log stream.
+        onBrowserLog: (log) => {
+          const text = log.text ?? "";
+          if (
+            log.type === "error" ||
+            log.type === "warning" ||
+            text.startsWith("[map-frame]") ||
+            text.startsWith("maplibre")
+          ) {
+            logger.info(
+              { browserLogType: log.type, jobId },
+              `[browser:${log.type}] ${text}`,
+            );
+          }
+        },
         // Pixel format that Instagram/Reels expects
         pixelFormat: "yuv420p",
         // Overwrite the temp file if it somehow already exists

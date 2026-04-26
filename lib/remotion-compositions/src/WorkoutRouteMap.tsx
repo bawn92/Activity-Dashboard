@@ -268,6 +268,13 @@ const MapScene: React.FC<MapSceneProps> = ({
     if (!map || !map.getLayer(ROUTE_LAYER_ID)) return;
     if (coords.length === 0) return;
 
+    // Per-frame timing trace. Forwarded to the server via Remotion's
+    // `onBrowserLog`, so a slow frame is immediately visible in API logs
+    // (look for `[map-frame]`). Cheap (one log + a few perf marks) and
+    // invaluable for diagnosing per-frame slowdowns / puppeteer timeouts.
+    const t0 =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+
     // Draw progress: starts a beat after fade-in, finishes shortly before
     // the scene ends.
     const drawProgress = interpolate(
@@ -286,6 +293,8 @@ const MapScene: React.FC<MapSceneProps> = ({
     // line-cap "round" gives us a tiny dot at the very start.
     const drawnCoords = coords.slice(0, idx + 1);
 
+    const tBeforeRouteSetData =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
     const routeSrc = map.getSource(ROUTE_SOURCE_ID) as
       | maplibregl.GeoJSONSource
       | undefined;
@@ -296,6 +305,8 @@ const MapScene: React.FC<MapSceneProps> = ({
         geometry: { type: "LineString", coordinates: drawnCoords },
       });
     }
+    const tAfterRouteSetData =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
 
     const currentSrc = map.getSource(CURRENT_SOURCE_ID) as
       | maplibregl.GeoJSONSource
@@ -307,12 +318,15 @@ const MapScene: React.FC<MapSceneProps> = ({
         geometry: { type: "Point", coordinates: coords[idx] },
       });
     }
+    const tAfterCurrentSetData =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
 
     // Follow-camera: move the camera each frame so the runner marker stays
     // centered. We start from the user's framed camera (so the very first
     // frame matches the static preview), then ease into a tighter follow
     // zoom that flies along with the marker. Bearing/pitch are preserved
     // from the framed camera so the user's chosen "look" is respected.
+    let jumpToMs = 0;
     if (mode === "follow") {
       // Linear ease into the follow zoom over the first ~half-second of the
       // draw. Avoids a jarring instant zoom on frame 1.
@@ -330,13 +344,32 @@ const MapScene: React.FC<MapSceneProps> = ({
         camera.zoom + (followZoom - camera.zoom) * zoomEaseProgress;
 
       const [lng, lat] = coords[idx];
+      const tBeforeJump =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
       map.jumpTo({
         center: [lng, lat],
         zoom: targetZoom,
         bearing: camera.bearing,
         pitch: camera.pitch,
       });
+      jumpToMs =
+        (typeof performance !== "undefined"
+          ? performance.now()
+          : Date.now()) - tBeforeJump;
     }
+
+    const tEnd =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    // eslint-disable-next-line no-console
+    console.log(
+      `[map-frame] f=${frame} mode=${mode} drawnPts=${drawnCoords.length}/${coords.length} routeSetData=${(
+        tAfterRouteSetData - tBeforeRouteSetData
+      ).toFixed(1)}ms currentSetData=${(
+        tAfterCurrentSetData - tAfterRouteSetData
+      ).toFixed(1)}ms jumpTo=${jumpToMs.toFixed(1)}ms total=${(
+        tEnd - t0
+      ).toFixed(1)}ms`,
+    );
   }, [frame, durationFrames, coords, mode, camera]);
 
   const titleOpacity = interpolate(
