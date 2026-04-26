@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateRenderJob,
@@ -60,12 +60,19 @@ export function VideoGeneratorPanel({ activityId }: VideoGeneratorPanelProps) {
     },
   });
 
+  // Track which job ids we've already toasted for so polling doesn't fire
+  // the same "Video ready" / "Video render failed" toast on every refetch.
+  const notifiedJobIdRef = useRef<number | null>(null);
+
   // When the polled job transitions to a terminal state, refresh the list
+  // and notify the user — exactly once per job.
   useEffect(() => {
     if (
       polledJob &&
-      (polledJob.status === "complete" || polledJob.status === "failed")
+      (polledJob.status === "complete" || polledJob.status === "failed") &&
+      notifiedJobIdRef.current !== polledJob.id
     ) {
+      notifiedJobIdRef.current = polledJob.id;
       queryClient.invalidateQueries({
         queryKey: getListActivityRenderJobsQueryKey(activityId),
       });

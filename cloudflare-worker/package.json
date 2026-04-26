@@ -5,7 +5,7 @@
   "description": "Cloudflare Worker scaffold for offloading Remotion renders. NOT DEPLOYED.",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "echo 'Deploys are intentionally disabled for this scaffold.' && exit 1",
+    "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
