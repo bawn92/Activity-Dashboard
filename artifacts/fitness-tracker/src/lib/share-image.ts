@@ -6,6 +6,7 @@ export interface ShareTheme {
   id: string;
   name: string;
   tagline: string;
+  category: "solid" | "transparent";
   bgBase: string;
   bgGradientStops: [number, string][];
   routeStroke: string;
@@ -18,10 +19,12 @@ export interface ShareTheme {
 }
 
 export const SHARE_THEMES: ShareTheme[] = [
+  // ── Solid ──────────────────────────────────────────────────────────────
   {
     id: "dark-minimal",
     name: "Dark Minimal",
-    tagline: "Clean & translucent",
+    tagline: "Clean dark overlay",
+    category: "solid",
     bgBase: "rgba(8,8,18,0.88)",
     bgGradientStops: [
       [0, "rgba(94,106,210,0.07)"],
@@ -40,6 +43,7 @@ export const SHARE_THEMES: ShareTheme[] = [
     id: "neon-night",
     name: "Neon Night",
     tagline: "Vibrant electric style",
+    category: "solid",
     bgBase: "rgba(4,4,14,0.92)",
     bgGradientStops: [
       [0, "rgba(0,245,255,0.06)"],
@@ -58,6 +62,7 @@ export const SHARE_THEMES: ShareTheme[] = [
     id: "golden-hour",
     name: "Golden Hour",
     tagline: "Warm amber tones",
+    category: "solid",
     bgBase: "rgba(18,8,3,0.90)",
     bgGradientStops: [
       [0, "rgba(245,158,11,0.10)"],
@@ -76,6 +81,7 @@ export const SHARE_THEMES: ShareTheme[] = [
     id: "forest",
     name: "Forest",
     tagline: "Deep in the green",
+    category: "solid",
     bgBase: "rgba(4,14,6,0.91)",
     bgGradientStops: [
       [0, "rgba(74,222,128,0.08)"],
@@ -94,6 +100,7 @@ export const SHARE_THEMES: ShareTheme[] = [
     id: "dusk",
     name: "Dusk",
     tagline: "Purple twilight vibes",
+    category: "solid",
     bgBase: "rgba(12,6,20,0.91)",
     bgGradientStops: [
       [0, "rgba(167,139,250,0.09)"],
@@ -112,6 +119,7 @@ export const SHARE_THEMES: ShareTheme[] = [
     id: "arctic",
     name: "Arctic",
     tagline: "Light & airy",
+    category: "solid",
     bgBase: "rgba(240,245,255,0.92)",
     bgGradientStops: [
       [0, "rgba(29,78,216,0.05)"],
@@ -125,6 +133,103 @@ export const SHARE_THEMES: ShareTheme[] = [
     textPrimary: "#0f172a",
     textMuted: "rgba(15,23,42,0.48)",
     divider: "rgba(15,23,42,0.10)",
+  },
+
+  // ── Transparent ────────────────────────────────────────────────────────
+  {
+    id: "ghost",
+    name: "Ghost",
+    tagline: "Almost invisible overlay",
+    category: "transparent",
+    bgBase: "rgba(0,0,0,0.30)",
+    bgGradientStops: [
+      [0, "rgba(255,255,255,0.04)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(255,255,255,0.02)"],
+    ],
+    routeStroke: "rgba(255,255,255,0.95)",
+    routeGlow: "rgba(255,255,255,0.55)",
+    startDot: "#ffffff",
+    endDot: "rgba(255,255,255,0.6)",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(255,255,255,0.50)",
+    divider: "rgba(255,255,255,0.10)",
+  },
+  {
+    id: "mist",
+    name: "Mist",
+    tagline: "Frosted white glass",
+    category: "transparent",
+    bgBase: "rgba(255,255,255,0.32)",
+    bgGradientStops: [
+      [0, "rgba(200,220,255,0.10)"],
+      [0.5, "rgba(255,255,255,0)"],
+      [1, "rgba(180,210,255,0.06)"],
+    ],
+    routeStroke: "#1e3a5f",
+    routeGlow: "rgba(30,58,95,0.35)",
+    startDot: "#16a34a",
+    endDot: "#1d4ed8",
+    textPrimary: "#0f172a",
+    textMuted: "rgba(15,23,42,0.52)",
+    divider: "rgba(15,23,42,0.10)",
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    tagline: "Barely-there heat tones",
+    category: "transparent",
+    bgBase: "rgba(20,5,2,0.38)",
+    bgGradientStops: [
+      [0, "rgba(245,158,11,0.12)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(239,68,68,0.08)"],
+    ],
+    routeStroke: "#fb923c",
+    routeGlow: "rgba(251,146,60,0.60)",
+    startDot: "#fbbf24",
+    endDot: "#ef4444",
+    textPrimary: "#fff7ed",
+    textMuted: "rgba(255,220,180,0.58)",
+    divider: "rgba(251,146,60,0.16)",
+  },
+  {
+    id: "haze",
+    name: "Haze",
+    tagline: "Translucent purple fog",
+    category: "transparent",
+    bgBase: "rgba(10,4,22,0.36)",
+    bgGradientStops: [
+      [0, "rgba(167,139,250,0.14)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(236,72,153,0.08)"],
+    ],
+    routeStroke: "#d8b4fe",
+    routeGlow: "rgba(216,180,254,0.65)",
+    startDot: "#e879f9",
+    endDot: "#c4b5fd",
+    textPrimary: "#faf5ff",
+    textMuted: "rgba(230,210,255,0.55)",
+    divider: "rgba(216,180,254,0.14)",
+  },
+  {
+    id: "ice",
+    name: "Ice",
+    tagline: "See-through cool blue",
+    category: "transparent",
+    bgBase: "rgba(210,235,255,0.33)",
+    bgGradientStops: [
+      [0, "rgba(6,182,212,0.10)"],
+      [0.5, "rgba(255,255,255,0)"],
+      [1, "rgba(99,102,241,0.06)"],
+    ],
+    routeStroke: "#0891b2",
+    routeGlow: "rgba(8,145,178,0.55)",
+    startDot: "#06b6d4",
+    endDot: "#6366f1",
+    textPrimary: "#0c1a2e",
+    textMuted: "rgba(12,26,46,0.52)",
+    divider: "rgba(8,145,178,0.14)",
   },
 ];
 

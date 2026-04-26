@@ -130,16 +130,34 @@ export function ActivitySharePage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-          {SHARE_THEMES.map((theme) => (
-            <ThemeCard
-              key={theme.id}
-              theme={theme}
-              activity={activity}
-              onDownload={() => generateShareImage(activity, theme)}
-            />
-          ))}
-        </div>
+        {(["solid", "transparent"] as const).map((cat) => {
+          const themes = SHARE_THEMES.filter((t) => t.category === cat);
+          return (
+            <div key={cat} className="mb-12">
+              <div className="flex items-center gap-3 mb-5">
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  {cat === "solid" ? "Solid" : "Transparent"}
+                </h2>
+                <div className="flex-1 h-px bg-border" />
+                {cat === "transparent" && (
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    photo background shows through
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                {themes.map((theme) => (
+                  <ThemeCard
+                    key={theme.id}
+                    theme={theme}
+                    activity={activity}
+                    onDownload={() => generateShareImage(activity, theme)}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Layout>
   );
