@@ -64,8 +64,17 @@ const MapScene: React.FC<MapSceneProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [handle] = useState(() =>
-    delayRender("Loading maplibre map", { timeoutInMilliseconds: 45_000 }),
+    delayRender("Loading maplibre map", { timeoutInMilliseconds: 60_000 }),
   );
+  // Guard against double-release. The map's `load` / `idle` / our hard
+  // safety timeout / cleanup can each try to release the same handle and
+  // Remotion treats double-continueRender as an error.
+  const releasedRef = useRef(false);
+  const safelyContinue = () => {
+    if (releasedRef.current) return;
+    releasedRef.current = true;
+    continueRender(handle);
+  };
 
   // Filtered list of valid [lng, lat] coords used by every layer.
   const coords = useMemo<Array<[number, number]>>(() => {
@@ -114,6 +123,14 @@ const MapScene: React.FC<MapSceneProps> = ({
     // Force the map to use the full composition canvas, not whatever the
     // container measured at construction time.
     map.resize();
+
+    // Tile load failures (CARTO/OSM rate-limiting, transient network errors
+    // from the deployed Replit Chromium) must not hang the render. Log and
+    // keep going — the map will still draw whatever tiles did succeed.
+    map.on("error", (e) => {
+      // eslint-disable-next-line no-console
+      console.warn("maplibre error (ignored, render continues):", e?.error);
+    });
 
     map.on("load", () => {
       map.resize();
@@ -205,12 +222,37 @@ const MapScene: React.FC<MapSceneProps> = ({
       });
     });
 
+    // Release the render as soon as the style is loaded + a short paint
+    // grace, OR when the map goes idle, OR after a hard 20s safety timeout
+    // — whichever happens first. Waiting for `idle` alone is unreliable in
+    // headless Chromium because tile fetches from external CDNs (CARTO)
+    // can stall indefinitely.
+    let paintTimer: ReturnType<typeof setTimeout> | null = null;
+    map.on("load", () => {
+      // Give maplibre ~1.5s after `load` to paint the visible tiles, then
+      // release the handle. Per-frame draws don't need new tiles in most
+      // cases — we're at one camera position for the whole scene (or
+      // smoothly panning along it in follow mode).
+      paintTimer = setTimeout(() => safelyContinue(), 1500);
+    });
     map.once("idle", () => {
       map.resize();
-      continueRender(handle);
+      safelyContinue();
     });
+    const safetyTimer = setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "maplibre safety timeout fired — releasing render with whatever tiles loaded.",
+      );
+      safelyContinue();
+    }, 20_000);
 
     return () => {
+      if (paintTimer) clearTimeout(paintTimer);
+      clearTimeout(safetyTimer);
+      // If we tear down before either event fires (e.g. component unmount
+      // during dev hot-reload), still release so we don't leak handles.
+      safelyContinue();
       map.remove();
       mapRef.current = null;
     };
