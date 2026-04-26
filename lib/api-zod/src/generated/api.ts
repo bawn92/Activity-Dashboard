@@ -156,6 +156,12 @@ export const CreateRenderJobBody = zod
       .describe(
         'Map camera pitch in degrees, 0–85 (only used when style = \"map\").',
       ),
+    cameraMode: zod
+      .enum(["static", "follow"])
+      .optional()
+      .describe(
+        'Camera behaviour during the map render. \"static\" (default) keeps the framed camera locked; \"follow\" pans\/zooms each frame to keep the moving runner marker centered.',
+      ),
   })
   .describe(
     'Optional render-job parameters. When omitted, defaults to a \"cinematic\" render with no camera params.',
@@ -183,6 +189,11 @@ export const ListActivityRenderJobsResponseItem = zod.object({
   zoom: zod.number().nullable(),
   bearing: zod.number().nullable(),
   pitch: zod.number().nullable(),
+  cameraMode: zod
+    .enum(["static", "follow"])
+    .describe(
+      'Map camera behaviour during the render. \"static\" keeps the framed camera locked; \"follow\" pans\/zooms each frame to track the moving runner marker.',
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -212,6 +223,11 @@ export const GetRenderJobResponse = zod.object({
   zoom: zod.number().nullable(),
   bearing: zod.number().nullable(),
   pitch: zod.number().nullable(),
+  cameraMode: zod
+    .enum(["static", "follow"])
+    .describe(
+      'Map camera behaviour during the render. \"static\" keeps the framed camera locked; \"follow\" pans\/zooms each frame to track the moving runner marker.',
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

@@ -49,6 +49,7 @@ async function buildInputProps(
     bearing: number | null;
     pitch: number | null;
   },
+  cameraMode: "static" | "follow",
 ) {
   const [activity] = await db
     .select()
@@ -111,6 +112,7 @@ async function buildInputProps(
         bearing: camera.bearing ?? 0,
         pitch: camera.pitch ?? 0,
       },
+      cameraMode,
     };
   }
 
@@ -148,13 +150,21 @@ export async function renderActivityVideo(
   onProgress({ progress: 0, stage: "bundling" });
   const serveUrl = await getRemotionServeUrl();
 
-  const inputProps = await buildInputProps(job.activityId, style, {
-    centerLat: job.centerLat,
-    centerLng: job.centerLng,
-    zoom: job.zoom,
-    bearing: job.bearing,
-    pitch: job.pitch,
-  });
+  const cameraMode: "static" | "follow" =
+    job.cameraMode === "follow" ? "follow" : "static";
+
+  const inputProps = await buildInputProps(
+    job.activityId,
+    style,
+    {
+      centerLat: job.centerLat,
+      centerLng: job.centerLng,
+      zoom: job.zoom,
+      bearing: job.bearing,
+      pitch: job.pitch,
+    },
+    cameraMode,
+  );
 
   const composition = await selectComposition({
     serveUrl,

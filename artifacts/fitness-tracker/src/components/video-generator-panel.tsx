@@ -14,6 +14,7 @@ import { Film, Download, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export type VideoStyle = "cinematic" | "map";
+export type MapCameraMode = "static" | "follow";
 
 export interface VideoGeneratorCamera {
   centerLat: number;
@@ -40,6 +41,12 @@ interface VideoGeneratorPanelProps {
    * starting camera for the render.
    */
   getCamera?: () => VideoGeneratorCamera | null;
+  /**
+   * For style="map": whether the renderer should keep the framed camera
+   * locked ("static") or pan it to follow the moving runner marker
+   * ("follow"). Defaults to "static" when omitted.
+   */
+  cameraMode?: MapCameraMode;
 }
 
 /**
@@ -60,6 +67,7 @@ export function VideoGeneratorPanel({
   style,
   description,
   getCamera,
+  cameraMode,
 }: VideoGeneratorPanelProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -163,6 +171,7 @@ export function VideoGeneratorPanel({
                 zoom: camera.zoom,
                 bearing: camera.bearing,
                 pitch: camera.pitch,
+                cameraMode: cameraMode ?? "static",
               }
             : { style },
       },

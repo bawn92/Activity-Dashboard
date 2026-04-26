@@ -28,6 +28,11 @@ export const renderJobsTable = pgTable("render_jobs", {
   zoom: real("zoom"),
   bearing: real("bearing"),
   pitch: real("pitch"),
+  // Map-style camera behaviour during the render. "static" keeps the framed
+  // camera locked for the whole draw; "follow" pans the camera each frame to
+  // keep the moving runner marker centered. Defaults to "static" for
+  // backwards-compat with existing rows.
+  cameraMode: text("camera_mode").notNull().default("static"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -41,3 +46,4 @@ export type InsertRenderJob = typeof renderJobsTable.$inferInsert;
 
 export type RenderJobStatus = "queued" | "rendering" | "complete" | "failed";
 export type RenderJobStyle = "cinematic" | "map";
+export type RenderJobCameraMode = "static" | "follow";

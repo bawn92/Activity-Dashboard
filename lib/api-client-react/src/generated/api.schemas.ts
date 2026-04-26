@@ -156,6 +156,17 @@ export const RenderJobStyle = {
   map: "map",
 } as const;
 
+/**
+ * Map camera behaviour during the render. "static" keeps the framed camera locked; "follow" pans/zooms each frame to track the moving runner marker.
+ */
+export type RenderJobCameraMode =
+  (typeof RenderJobCameraMode)[keyof typeof RenderJobCameraMode];
+
+export const RenderJobCameraMode = {
+  static: "static",
+  follow: "follow",
+} as const;
+
 export interface RenderJob {
   id: number;
   activityId: number;
@@ -178,6 +189,8 @@ export interface RenderJob {
   bearing: number | null;
   /** @nullable */
   pitch: number | null;
+  /** Map camera behaviour during the render. "static" keeps the framed camera locked; "follow" pans/zooms each frame to track the moving runner marker. */
+  cameraMode: RenderJobCameraMode;
   createdAt: string;
   updatedAt: string;
 }
@@ -191,6 +204,17 @@ export type CreateRenderJobBodyStyle =
 export const CreateRenderJobBodyStyle = {
   cinematic: "cinematic",
   map: "map",
+} as const;
+
+/**
+ * Camera behaviour during the map render. "static" (default) keeps the framed camera locked; "follow" pans/zooms each frame to keep the moving runner marker centered.
+ */
+export type CreateRenderJobBodyCameraMode =
+  (typeof CreateRenderJobBodyCameraMode)[keyof typeof CreateRenderJobBodyCameraMode];
+
+export const CreateRenderJobBodyCameraMode = {
+  static: "static",
+  follow: "follow",
 } as const;
 
 /**
@@ -209,6 +233,8 @@ export interface CreateRenderJobBody {
   bearing?: number;
   /** Map camera pitch in degrees, 0–85 (only used when style = "map"). */
   pitch?: number;
+  /** Camera behaviour during the map render. "static" (default) keeps the framed camera locked; "follow" pans/zooms each frame to keep the moving runner marker centered. */
+  cameraMode?: CreateRenderJobBodyCameraMode;
 }
 
 export interface StorageUploadPresignedUrl {

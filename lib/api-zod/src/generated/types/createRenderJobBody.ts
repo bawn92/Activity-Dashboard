@@ -5,6 +5,7 @@
  * Fitness Activity Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateRenderJobBodyCameraMode } from "./createRenderJobBodyCameraMode";
 import type { CreateRenderJobBodyStyle } from "./createRenderJobBodyStyle";
 
 /**
@@ -23,4 +24,6 @@ export interface CreateRenderJobBody {
   bearing?: number;
   /** Map camera pitch in degrees, 0–85 (only used when style = "map"). */
   pitch?: number;
+  /** Camera behaviour during the map render. "static" (default) keeps the framed camera locked; "follow" pans/zooms each frame to keep the moving runner marker centered. */
+  cameraMode?: CreateRenderJobBodyCameraMode;
 }

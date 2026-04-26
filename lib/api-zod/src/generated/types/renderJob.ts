@@ -5,6 +5,7 @@
  * Fitness Activity Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { RenderJobCameraMode } from "./renderJobCameraMode";
 import type { RenderJobStatus } from "./renderJobStatus";
 import type { RenderJobStyle } from "./renderJobStyle";
 
@@ -30,6 +31,8 @@ export interface RenderJob {
   bearing: number | null;
   /** @nullable */
   pitch: number | null;
+  /** Map camera behaviour during the render. "static" keeps the framed camera locked; "follow" pans/zooms each frame to track the moving runner marker. */
+  cameraMode: RenderJobCameraMode;
   createdAt: Date;
   updatedAt: Date;
 }

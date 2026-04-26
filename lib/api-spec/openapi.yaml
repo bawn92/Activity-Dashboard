@@ -519,6 +519,10 @@ components:
           type: ["number", "null"]
         pitch:
           type: ["number", "null"]
+        cameraMode:
+          type: string
+          enum: [static, follow]
+          description: Map camera behaviour during the render. "static" keeps the framed camera locked; "follow" pans/zooms each frame to track the moving runner marker.
         createdAt:
           type: string
           format: date-time
@@ -539,6 +543,7 @@ components:
         - zoom
         - bearing
         - pitch
+        - cameraMode
         - createdAt
         - updatedAt
 
@@ -565,6 +570,10 @@ components:
         pitch:
           type: number
           description: Map camera pitch in degrees, 0–85 (only used when style = "map").
+        cameraMode:
+          type: string
+          enum: [static, follow]
+          description: Camera behaviour during the map render. "static" (default) keeps the framed camera locked; "follow" pans/zooms each frame to keep the moving runner marker centered.
 
     StorageUploadPresignedUrl:
       type: object

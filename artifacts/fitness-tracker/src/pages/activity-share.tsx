@@ -131,6 +131,7 @@ function ShareCardsTab({ activity }: { activity: ActivityDetail }) {
  */
 function VideoTab({ activity }: { activity: ActivityDetail }) {
   const [subStyle, setSubStyle] = useState<"cinematic" | "map">("cinematic");
+  const [cameraMode, setCameraMode] = useState<"static" | "follow">("static");
   const mapRef = useRef<ActivityMapPreviewHandle>(null);
 
   const hasMapData =
@@ -213,6 +214,50 @@ function VideoTab({ activity }: { activity: ActivityDetail }) {
                 ref={mapRef}
                 dataPoints={activity.dataPoints}
               />
+
+              <div className="mt-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div
+                    role="radiogroup"
+                    aria-label="Camera mode"
+                    className="inline-flex items-center rounded-lg border border-border bg-muted p-1"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={cameraMode === "static"}
+                      onClick={() => setCameraMode("static")}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                        cameraMode === "static"
+                          ? "bg-background text-foreground shadow"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="camera-mode-static"
+                    >
+                      Static frame
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={cameraMode === "follow"}
+                      onClick={() => setCameraMode("follow")}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                        cameraMode === "follow"
+                          ? "bg-background text-foreground shadow"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="camera-mode-follow"
+                    >
+                      Follow runner
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {cameraMode === "static"
+                      ? "The camera stays put — what you see in the preview is exactly what gets rendered."
+                      : "The camera flies along with the runner marker, zooming in for a fly-along feel. Preview shows the starting frame."}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <VideoGeneratorPanel
@@ -220,6 +265,7 @@ function VideoTab({ activity }: { activity: ActivityDetail }) {
               style="map"
               description="A 6-second vertical clip (1080×1920) of your route on the framed map."
               getCamera={() => mapRef.current?.getCamera() ?? null}
+              cameraMode={cameraMode}
             />
           </div>
         ) : (

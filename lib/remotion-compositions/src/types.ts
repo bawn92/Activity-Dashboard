@@ -20,8 +20,16 @@ export type WorkoutVideoProps = {
   brandName: string;
 } & Record<string, unknown>;
 
+export type MapCameraMode = "static" | "follow";
+
 export type WorkoutMapVideoProps = WorkoutVideoProps & {
   camera: MapCamera;
+  /**
+   * "static" keeps the framed camera locked for the entire draw.
+   * "follow" pans (and gently zooms in) each frame so the moving runner
+   * marker stays roughly centered. Defaults to "static" when omitted.
+   */
+  cameraMode?: MapCameraMode;
 };
 
 export const DEFAULT_WORKOUT_PROPS: WorkoutVideoProps = {

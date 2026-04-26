@@ -51,12 +51,14 @@ interface MapSceneProps extends WorkoutMapVideoProps {
 const MapScene: React.FC<MapSceneProps> = ({
   routePoints,
   camera,
+  cameraMode,
   distanceMeters,
   durationSeconds,
   sport,
   date,
   durationFrames,
 }) => {
+  const mode: "static" | "follow" = cameraMode === "follow" ? "follow" : "static";
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -217,7 +219,8 @@ const MapScene: React.FC<MapSceneProps> = ({
 
   // Per-frame: grow the route polyline AND move the "current location" marker
   // from the same index, so the head of the line and the marker are always
-  // at the exact same coordinate.
+  // at the exact same coordinate. When `mode === "follow"`, also pan the
+  // camera each frame so the marker stays roughly centered.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.getLayer(ROUTE_LAYER_ID)) return;
@@ -262,7 +265,37 @@ const MapScene: React.FC<MapSceneProps> = ({
         geometry: { type: "Point", coordinates: coords[idx] },
       });
     }
-  }, [frame, durationFrames, coords]);
+
+    // Follow-camera: move the camera each frame so the runner marker stays
+    // centered. We start from the user's framed camera (so the very first
+    // frame matches the static preview), then ease into a tighter follow
+    // zoom that flies along with the marker. Bearing/pitch are preserved
+    // from the framed camera so the user's chosen "look" is respected.
+    if (mode === "follow") {
+      // Linear ease into the follow zoom over the first ~half-second of the
+      // draw. Avoids a jarring instant zoom on frame 1.
+      const zoomEaseProgress = interpolate(
+        frame,
+        [0, 18],
+        [0, 1],
+        { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+      );
+      // 1.5 zoom levels tighter than the framed camera by default — enough
+      // to feel like a fly-along without losing context. Capped at 17 so
+      // we never punch through the basemap's max detail.
+      const followZoom = Math.min(17, camera.zoom + 1.5);
+      const targetZoom =
+        camera.zoom + (followZoom - camera.zoom) * zoomEaseProgress;
+
+      const [lng, lat] = coords[idx];
+      map.jumpTo({
+        center: [lng, lat],
+        zoom: targetZoom,
+        bearing: camera.bearing,
+        pitch: camera.pitch,
+      });
+    }
+  }, [frame, durationFrames, coords, mode, camera]);
 
   const titleOpacity = interpolate(
     frame,

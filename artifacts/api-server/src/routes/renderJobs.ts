@@ -16,6 +16,7 @@ import type { RenderJob } from "@workspace/db";
 const router: IRouter = Router();
 
 const VALID_STYLES = new Set(["cinematic", "map"]);
+const VALID_CAMERA_MODES = new Set(["static", "follow"]);
 
 /**
  * Convert a DB row into the API response shape, augmenting with the public
@@ -40,6 +41,7 @@ function serialize(job: RenderJob): Record<string, unknown> {
     zoom: job.zoom,
     bearing: job.bearing,
     pitch: job.pitch,
+    cameraMode: job.cameraMode,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
   };
@@ -62,6 +64,7 @@ router.post(
       zoom?: number;
       bearing?: number;
       pitch?: number;
+      cameraMode?: string;
     };
 
     const style = body.style ?? "cinematic";
@@ -69,6 +72,14 @@ router.post(
       res
         .status(400)
         .json({ error: `Invalid style: must be "cinematic" or "map"` });
+      return;
+    }
+
+    const cameraMode = body.cameraMode ?? "static";
+    if (!VALID_CAMERA_MODES.has(cameraMode)) {
+      res
+        .status(400)
+        .json({ error: `Invalid cameraMode: must be "static" or "follow"` });
       return;
     }
 
@@ -136,6 +147,7 @@ router.post(
         zoom,
         bearing,
         pitch,
+        cameraMode,
       })
       .returning();
 
