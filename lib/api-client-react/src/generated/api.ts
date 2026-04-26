@@ -20,6 +20,7 @@ import type {
   ActivityDetail,
   ActivityStats,
   ActivitySummary,
+  CreateRenderJobBody,
   ErrorResponse,
   HealthStatus,
   RenderJob,
@@ -529,11 +530,14 @@ export const getCreateRenderJobUrl = (id: number) => {
 
 export const createRenderJob = async (
   id: number,
+  createRenderJobBody?: CreateRenderJobBody,
   options?: RequestInit,
 ): Promise<RenderJob> => {
   return customFetch<RenderJob>(getCreateRenderJobUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRenderJobBody),
   });
 };
 
@@ -544,14 +548,14 @@ export const getCreateRenderJobMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createRenderJob>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<CreateRenderJobBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof createRenderJob>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<CreateRenderJobBody> },
   TContext
 > => {
   const mutationKey = ["createRenderJob"];
@@ -565,11 +569,11 @@ export const getCreateRenderJobMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof createRenderJob>>,
-    { id: number }
+    { id: number; data: BodyType<CreateRenderJobBody> }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return createRenderJob(id, requestOptions);
+    return createRenderJob(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -578,7 +582,7 @@ export const getCreateRenderJobMutationOptions = <
 export type CreateRenderJobMutationResult = NonNullable<
   Awaited<ReturnType<typeof createRenderJob>>
 >;
-
+export type CreateRenderJobMutationBody = BodyType<CreateRenderJobBody>;
 export type CreateRenderJobMutationError = ErrorType<ErrorResponse>;
 
 /**
@@ -591,14 +595,14 @@ export const useCreateRenderJob = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createRenderJob>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<CreateRenderJobBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof createRenderJob>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<CreateRenderJobBody> },
   TContext
 > => {
   return useMutation(getCreateRenderJobMutationOptions(options));

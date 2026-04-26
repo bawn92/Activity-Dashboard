@@ -148,6 +148,14 @@ export const RenderJobStatus = {
   failed: "failed",
 } as const;
 
+export type RenderJobStyle =
+  (typeof RenderJobStyle)[keyof typeof RenderJobStyle];
+
+export const RenderJobStyle = {
+  cinematic: "cinematic",
+  map: "map",
+} as const;
+
 export interface RenderJob {
   id: number;
   activityId: number;
@@ -159,8 +167,48 @@ export interface RenderJob {
   videoUrl: string | null;
   /** @nullable */
   errorMessage: string | null;
+  style: RenderJobStyle;
+  /** @nullable */
+  centerLat: number | null;
+  /** @nullable */
+  centerLng: number | null;
+  /** @nullable */
+  zoom: number | null;
+  /** @nullable */
+  bearing: number | null;
+  /** @nullable */
+  pitch: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Which composition to render. Defaults to "cinematic".
+ */
+export type CreateRenderJobBodyStyle =
+  (typeof CreateRenderJobBodyStyle)[keyof typeof CreateRenderJobBodyStyle];
+
+export const CreateRenderJobBodyStyle = {
+  cinematic: "cinematic",
+  map: "map",
+} as const;
+
+/**
+ * Optional render-job parameters. When omitted, defaults to a "cinematic" render with no camera params.
+ */
+export interface CreateRenderJobBody {
+  /** Which composition to render. Defaults to "cinematic". */
+  style?: CreateRenderJobBodyStyle;
+  /** Map camera center latitude (only used when style = "map"). */
+  centerLat?: number;
+  /** Map camera center longitude (only used when style = "map"). */
+  centerLng?: number;
+  /** Map camera zoom level (only used when style = "map"). */
+  zoom?: number;
+  /** Map camera bearing in degrees (only used when style = "map"). */
+  bearing?: number;
+  /** Map camera pitch in degrees, 0–85 (only used when style = "map"). */
+  pitch?: number;
 }
 
 export interface StorageUploadPresignedUrl {

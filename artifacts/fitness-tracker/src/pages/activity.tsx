@@ -10,7 +10,6 @@ import {
 import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
-import { VideoGeneratorPanel } from "@/components/video-generator-panel";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
 import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, Share2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -302,8 +301,6 @@ export default function ActivityDetail() {
             <ActivityMap dataPoints={activity.dataPoints} />
           </div>
         )}
-
-        <VideoGeneratorPanel activityId={id} />
 
         {hasChartData && (
           <div>

@@ -15,6 +15,8 @@ import type { RenderJob } from "@workspace/db";
 
 const router: IRouter = Router();
 
+const VALID_STYLES = new Set(["cinematic", "map"]);
+
 /**
  * Convert a DB row into the API response shape, augmenting with the public
  * URL the browser uses to fetch the rendered MP4.
@@ -32,6 +34,12 @@ function serialize(job: RenderJob): Record<string, unknown> {
     videoObjectPath: job.videoObjectPath,
     videoUrl,
     errorMessage: job.errorMessage,
+    style: job.style,
+    centerLat: job.centerLat,
+    centerLng: job.centerLng,
+    zoom: job.zoom,
+    bearing: job.bearing,
+    pitch: job.pitch,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
   };
@@ -44,6 +52,66 @@ router.post(
     if (!Number.isFinite(activityId) || activityId <= 0) {
       res.status(400).json({ error: "Invalid activity id" });
       return;
+    }
+
+    // Body is optional. Defaults to a "cinematic" render with no camera.
+    const body = (req.body ?? {}) as {
+      style?: string;
+      centerLat?: number;
+      centerLng?: number;
+      zoom?: number;
+      bearing?: number;
+      pitch?: number;
+    };
+
+    const style = body.style ?? "cinematic";
+    if (!VALID_STYLES.has(style)) {
+      res
+        .status(400)
+        .json({ error: `Invalid style: must be "cinematic" or "map"` });
+      return;
+    }
+
+    // Validate camera params when present. They're only meaningful for "map"
+    // but we still accept (and persist) them for "cinematic" if provided —
+    // the renderer simply ignores them.
+    const cameraNumberOrNull = (
+      v: unknown,
+      name: string,
+    ): number | null => {
+      if (v == null) return null;
+      if (typeof v !== "number" || !Number.isFinite(v)) {
+        throw new Error(`Invalid ${name}: must be a finite number`);
+      }
+      return v;
+    };
+
+    let centerLat: number | null;
+    let centerLng: number | null;
+    let zoom: number | null;
+    let bearing: number | null;
+    let pitch: number | null;
+    try {
+      centerLat = cameraNumberOrNull(body.centerLat, "centerLat");
+      centerLng = cameraNumberOrNull(body.centerLng, "centerLng");
+      zoom = cameraNumberOrNull(body.zoom, "zoom");
+      bearing = cameraNumberOrNull(body.bearing, "bearing");
+      pitch = cameraNumberOrNull(body.pitch, "pitch");
+    } catch (err) {
+      res
+        .status(400)
+        .json({ error: err instanceof Error ? err.message : String(err) });
+      return;
+    }
+
+    if (style === "map") {
+      if (centerLat == null || centerLng == null || zoom == null) {
+        res.status(400).json({
+          error:
+            'Map style requires "centerLat", "centerLng", and "zoom" in the request body',
+        });
+        return;
+      }
     }
 
     const [activity] = await db
@@ -62,6 +130,12 @@ router.post(
         activityId,
         status: "queued",
         progress: 0,
+        style,
+        centerLat,
+        centerLng,
+        zoom,
+        bearing,
+        pitch,
       })
       .returning();
 

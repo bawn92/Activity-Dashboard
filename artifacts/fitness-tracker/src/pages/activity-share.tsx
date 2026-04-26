@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "wouter";
 import { Layout } from "@/components/layout";
 import { useGetActivity, type ActivityDetail } from "@workspace/api-client-react";
@@ -7,6 +7,12 @@ import { formatDate } from "@/lib/format";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { VideoGeneratorPanel } from "@/components/video-generator-panel";
+import {
+  ActivityMapPreview,
+  type ActivityMapPreviewHandle,
+} from "@/components/activity-map-preview";
 
 function ThemeCard({
   theme,
@@ -66,6 +72,166 @@ function ThemeCard({
   );
 }
 
+function ShareCardsTab({ activity }: { activity: ActivityDetail }) {
+  return (
+    <div className="mt-6">
+      <p className="text-muted-foreground mb-8 text-sm">
+        Download any style as a 1080×1920 PNG for Instagram Stories.
+      </p>
+      {(["solid", "transparent", "bare"] as const).map((cat) => {
+        const themes = SHARE_THEMES.filter((t) => t.category === cat);
+        const label =
+          cat === "solid"
+            ? "Solid"
+            : cat === "transparent"
+              ? "Transparent"
+              : "No Background";
+        const hint =
+          cat === "transparent"
+            ? "photo shows through"
+            : cat === "bare"
+              ? "pure PNG — no background at all, just stats and route"
+              : null;
+        return (
+          <div key={cat} className="mb-12">
+            <div className="flex items-center gap-3 mb-5">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                {label}
+              </h2>
+              <div className="flex-1 h-px bg-border" />
+              {hint && (
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
+                  {hint}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+              {themes.map((theme) => (
+                <ThemeCard
+                  key={theme.id}
+                  theme={theme}
+                  activity={activity}
+                  onDownload={() => generateShareImage(activity, theme)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The Video tab is split into two sub-styles. We deliberately mount BOTH
+ * sub-style components and toggle visibility with CSS rather than using
+ * Radix `TabsContent` (which unmounts inactive panels). This preserves
+ * in-flight render state and the interactive map's camera position when the
+ * user switches between Cinematic and Map sub-tabs.
+ */
+function VideoTab({ activity }: { activity: ActivityDetail }) {
+  const [subStyle, setSubStyle] = useState<"cinematic" | "map">("cinematic");
+  const mapRef = useRef<ActivityMapPreviewHandle>(null);
+
+  const hasMapData =
+    activity.dataPoints?.some((dp) => dp.lat != null && dp.lng != null) ??
+    false;
+
+  return (
+    <div className="mt-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <div
+          role="tablist"
+          aria-label="Video style"
+          className="inline-flex items-center rounded-lg border border-border bg-muted p-1"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={subStyle === "cinematic"}
+            onClick={() => setSubStyle("cinematic")}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+              subStyle === "cinematic"
+                ? "bg-background text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            data-testid="sub-tab-cinematic"
+          >
+            Cinematic
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={subStyle === "map"}
+            onClick={() => setSubStyle("map")}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+              subStyle === "map"
+                ? "bg-background text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            data-testid="sub-tab-map"
+          >
+            Map
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Compare looks side-by-side — switching tabs keeps any in-flight
+          render running.
+        </p>
+      </div>
+
+      {/* Cinematic — kept mounted so render state persists across tab switches */}
+      <div
+        style={{ display: subStyle === "cinematic" ? "block" : "none" }}
+        data-testid="video-pane-cinematic"
+      >
+        <VideoGeneratorPanel
+          activityId={activity.id}
+          style="cinematic"
+          description="A 12-second vertical clip (1080×1920) of your route and stats."
+        />
+      </div>
+
+      {/* Map — kept mounted so the map camera and render state persist */}
+      <div
+        style={{ display: subStyle === "map" ? "block" : "none" }}
+        data-testid="video-pane-map"
+      >
+        {hasMapData ? (
+          <div className="space-y-4">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Frame your shot
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Pan, zoom, rotate, and tilt to choose the starting camera —
+                  then hit Generate to render a 6-second MP4 of the route.
+                </p>
+              </div>
+              <ActivityMapPreview
+                ref={mapRef}
+                dataPoints={activity.dataPoints}
+              />
+            </div>
+
+            <VideoGeneratorPanel
+              activityId={activity.id}
+              style="map"
+              description="A 6-second vertical clip (1080×1920) of your route on the framed map."
+              getCamera={() => mapRef.current?.getCamera() ?? null}
+            />
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-lg p-8 text-center text-sm text-muted-foreground">
+            This activity has no GPS data, so a map render isn't available.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ActivitySharePage() {
   const { id } = useParams<{ id: string }>();
   const { data: activity, isLoading, isError } = useGetActivity(Number(id));
@@ -119,53 +285,31 @@ export function ActivitySharePage() {
 
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Share Card Styles
+            Share this activity
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {activity.sport ? activity.sport.charAt(0).toUpperCase() + activity.sport.slice(1) : "Activity"}
             {" · "}
             {formatDate(activity.startTime)}
-            {" · "}
-            Download any style as a 1080×1920 PNG for Instagram Stories
           </p>
         </div>
 
-        {(["solid", "transparent", "bare"] as const).map((cat) => {
-          const themes = SHARE_THEMES.filter((t) => t.category === cat);
-          const label =
-            cat === "solid" ? "Solid" : cat === "transparent" ? "Transparent" : "No Background";
-          const hint =
-            cat === "transparent"
-              ? "photo shows through"
-              : cat === "bare"
-                ? "pure PNG — no background at all, just stats and route"
-                : null;
-          return (
-            <div key={cat} className="mb-12">
-              <div className="flex items-center gap-3 mb-5">
-                <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                  {label}
-                </h2>
-                <div className="flex-1 h-px bg-border" />
-                {hint && (
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
-                    {hint}
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-                {themes.map((theme) => (
-                  <ThemeCard
-                    key={theme.id}
-                    theme={theme}
-                    activity={activity}
-                    onDownload={() => generateShareImage(activity, theme)}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+        <Tabs defaultValue="cards" className="w-full">
+          <TabsList>
+            <TabsTrigger value="cards" data-testid="top-tab-cards">
+              Share cards
+            </TabsTrigger>
+            <TabsTrigger value="video" data-testid="top-tab-video">
+              Video
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="cards">
+            <ShareCardsTab activity={activity} />
+          </TabsContent>
+          <TabsContent value="video">
+            <VideoTab activity={activity} />
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

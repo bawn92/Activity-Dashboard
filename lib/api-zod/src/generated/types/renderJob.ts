@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RenderJobStatus } from "./renderJobStatus";
+import type { RenderJobStyle } from "./renderJobStyle";
 
 export interface RenderJob {
   id: number;
@@ -18,6 +19,17 @@ export interface RenderJob {
   videoUrl: string | null;
   /** @nullable */
   errorMessage: string | null;
+  style: RenderJobStyle;
+  /** @nullable */
+  centerLat: number | null;
+  /** @nullable */
+  centerLng: number | null;
+  /** @nullable */
+  zoom: number | null;
+  /** @nullable */
+  bearing: number | null;
+  /** @nullable */
+  pitch: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

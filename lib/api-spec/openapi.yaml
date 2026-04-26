@@ -145,6 +145,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRenderJobBody"
       responses:
         "201":
           description: Job created and queued
@@ -152,6 +158,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RenderJob"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Activity not found
           content:
@@ -494,6 +506,19 @@ components:
           type: ["string", "null"]
         errorMessage:
           type: ["string", "null"]
+        style:
+          type: string
+          enum: [cinematic, map]
+        centerLat:
+          type: ["number", "null"]
+        centerLng:
+          type: ["number", "null"]
+        zoom:
+          type: ["number", "null"]
+        bearing:
+          type: ["number", "null"]
+        pitch:
+          type: ["number", "null"]
         createdAt:
           type: string
           format: date-time
@@ -508,8 +533,38 @@ components:
         - videoObjectPath
         - videoUrl
         - errorMessage
+        - style
+        - centerLat
+        - centerLng
+        - zoom
+        - bearing
+        - pitch
         - createdAt
         - updatedAt
+
+    CreateRenderJobBody:
+      type: object
+      description: Optional render-job parameters. When omitted, defaults to a "cinematic" render with no camera params.
+      properties:
+        style:
+          type: string
+          enum: [cinematic, map]
+          description: Which composition to render. Defaults to "cinematic".
+        centerLat:
+          type: number
+          description: Map camera center latitude (only used when style = "map").
+        centerLng:
+          type: number
+          description: Map camera center longitude (only used when style = "map").
+        zoom:
+          type: number
+          description: Map camera zoom level (only used when style = "map").
+        bearing:
+          type: number
+          description: Map camera bearing in degrees (only used when style = "map").
+        pitch:
+          type: number
+          description: Map camera pitch in degrees, 0–85 (only used when style = "map").
 
     StorageUploadPresignedUrl:
       type: object

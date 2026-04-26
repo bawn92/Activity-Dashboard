@@ -6,13 +6,19 @@ import {
   renderMedia,
   selectComposition,
 } from "@remotion/renderer";
-import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
+import {
+  db,
+  activitiesTable,
+  activityDataPointsTable,
+  renderJobsTable,
+} from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { ObjectStorageService } from "../objectStorage";
 import { getRemotionServeUrl } from "./bundle";
 import { logger } from "../logger";
 
-const COMPOSITION_ID = "WorkoutRouteShareable";
+const CINEMATIC_COMPOSITION_ID = "WorkoutRouteShareable";
+const MAP_COMPOSITION_ID = "WorkoutRouteMap";
 const objectStorage = new ObjectStorageService();
 
 export interface RenderProgressUpdate {
@@ -27,11 +33,23 @@ export interface RenderResult {
 }
 
 /**
- * Build the inputProps object the Remotion composition expects.
- * Pulled from this file (instead of the composition package) so the API
- * server fully owns the data shape it sends in.
+ * Build the inputProps object the Remotion compositions expect.
+ *
+ * The cinematic composition uses the full activity summary; the map composition
+ * uses the same data plus camera params (center/zoom/bearing/pitch) that the
+ * frontend captures from the user's interactive maplibre preview.
  */
-async function buildInputProps(activityId: number) {
+async function buildInputProps(
+  activityId: number,
+  style: "cinematic" | "map",
+  camera: {
+    centerLat: number | null;
+    centerLng: number | null;
+    zoom: number | null;
+    bearing: number | null;
+    pitch: number | null;
+  },
+) {
   const [activity] = await db
     .select()
     .from(activitiesTable)
@@ -62,7 +80,7 @@ async function buildInputProps(activityId: number) {
       ? filtered.filter((_, i) => i % stride === 0)
       : filtered;
 
-  return {
+  const baseProps = {
     title: `${activity.sport} on ${new Date(activity.startTime).toDateString()}`,
     sport: activity.sport,
     date: activity.startTime.toISOString(),
@@ -73,6 +91,30 @@ async function buildInputProps(activityId: number) {
     routePoints,
     brandName: "Fitness Logbook",
   };
+
+  if (style === "map") {
+    if (
+      camera.centerLat == null ||
+      camera.centerLng == null ||
+      camera.zoom == null
+    ) {
+      throw new Error(
+        "Map render requires centerLat, centerLng, and zoom on the job row",
+      );
+    }
+    return {
+      ...baseProps,
+      camera: {
+        centerLat: camera.centerLat,
+        centerLng: camera.centerLng,
+        zoom: camera.zoom,
+        bearing: camera.bearing ?? 0,
+        pitch: camera.pitch ?? 0,
+      },
+    };
+  }
+
+  return baseProps;
 }
 
 /**
@@ -82,21 +124,41 @@ async function buildInputProps(activityId: number) {
  *
  * `jobId` controls the deterministic object key — the rendered MP4 is
  * stored at `videos/<jobId>.mp4` so it can be looked up directly from the
- * render-job row.
+ * render-job row. The `style` and optional camera params are read from the
+ * job row, so a single signature handles both cinematic and map renders.
  */
 export async function renderActivityVideo(
-  activityId: number,
   jobId: number,
   onProgress: (u: RenderProgressUpdate) => void,
 ): Promise<RenderResult> {
+  const [job] = await db
+    .select()
+    .from(renderJobsTable)
+    .where(eq(renderJobsTable.id, jobId))
+    .limit(1);
+  if (!job) {
+    throw new Error(`Render job ${jobId} not found`);
+  }
+
+  const style: "cinematic" | "map" =
+    job.style === "map" ? "map" : "cinematic";
+  const compositionId =
+    style === "map" ? MAP_COMPOSITION_ID : CINEMATIC_COMPOSITION_ID;
+
   onProgress({ progress: 0, stage: "bundling" });
   const serveUrl = await getRemotionServeUrl();
 
-  const inputProps = await buildInputProps(activityId);
+  const inputProps = await buildInputProps(job.activityId, style, {
+    centerLat: job.centerLat,
+    centerLng: job.centerLng,
+    zoom: job.zoom,
+    bearing: job.bearing,
+    pitch: job.pitch,
+  });
 
   const composition = await selectComposition({
     serveUrl,
-    id: COMPOSITION_ID,
+    id: compositionId,
     inputProps,
   });
 
@@ -105,7 +167,11 @@ export async function renderActivityVideo(
   const tmpFile = path.join(tmpDir, `${randomUUID()}.mp4`);
 
   logger.info(
-    { activityId, durationInFrames: composition.durationInFrames },
+    {
+      activityId: job.activityId,
+      style,
+      durationInFrames: composition.durationInFrames,
+    },
     "Starting Remotion render",
   );
 
@@ -126,9 +192,15 @@ export async function renderActivityVideo(
         pixelFormat: "yuv420p",
         // Overwrite the temp file if it somehow already exists
         overwrite: true,
+        // Maplibre-gl is a large WebGL bundle — give the bundle/page a bigger
+        // timeout so its initial setup doesn't trip Remotion's default.
+        timeoutInMilliseconds: 60_000,
       });
     } catch (err) {
-      logger.error({ err, activityId }, "Remotion render failed");
+      logger.error(
+        { err, activityId: job.activityId, style },
+        "Remotion render failed",
+      );
       throw err;
     }
 

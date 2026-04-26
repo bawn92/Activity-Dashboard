@@ -124,6 +124,43 @@ export const CreateRenderJobParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const CreateRenderJobBody = zod
+  .object({
+    style: zod
+      .enum(["cinematic", "map"])
+      .optional()
+      .describe('Which composition to render. Defaults to \"cinematic\".'),
+    centerLat: zod
+      .number()
+      .optional()
+      .describe('Map camera center latitude (only used when style = \"map\").'),
+    centerLng: zod
+      .number()
+      .optional()
+      .describe(
+        'Map camera center longitude (only used when style = \"map\").',
+      ),
+    zoom: zod
+      .number()
+      .optional()
+      .describe('Map camera zoom level (only used when style = \"map\").'),
+    bearing: zod
+      .number()
+      .optional()
+      .describe(
+        'Map camera bearing in degrees (only used when style = \"map\").',
+      ),
+    pitch: zod
+      .number()
+      .optional()
+      .describe(
+        'Map camera pitch in degrees, 0–85 (only used when style = \"map\").',
+      ),
+  })
+  .describe(
+    'Optional render-job parameters. When omitted, defaults to a \"cinematic\" render with no camera params.',
+  );
+
 /**
  * Returns render jobs for the given activity, newest first.
  * @summary List render jobs for an activity
@@ -140,6 +177,12 @@ export const ListActivityRenderJobsResponseItem = zod.object({
   videoObjectPath: zod.string().nullable(),
   videoUrl: zod.string().nullable(),
   errorMessage: zod.string().nullable(),
+  style: zod.enum(["cinematic", "map"]),
+  centerLat: zod.number().nullable(),
+  centerLng: zod.number().nullable(),
+  zoom: zod.number().nullable(),
+  bearing: zod.number().nullable(),
+  pitch: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -163,6 +206,12 @@ export const GetRenderJobResponse = zod.object({
   videoObjectPath: zod.string().nullable(),
   videoUrl: zod.string().nullable(),
   errorMessage: zod.string().nullable(),
+  style: zod.enum(["cinematic", "map"]),
+  centerLat: zod.number().nullable(),
+  centerLng: zod.number().nullable(),
+  zoom: zod.number().nullable(),
+  bearing: zod.number().nullable(),
+  pitch: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
