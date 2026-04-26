@@ -79,9 +79,14 @@ async function buildInputProps(activityId: number) {
  * Renders a Remotion composition to an MP4 file on disk, then uploads the
  * MP4 to Replit Object Storage. Returns the object path the client uses to
  * fetch the video via /api/storage/objects/*.
+ *
+ * `jobId` controls the deterministic object key — the rendered MP4 is
+ * stored at `videos/<jobId>.mp4` so it can be looked up directly from the
+ * render-job row.
  */
 export async function renderActivityVideo(
   activityId: number,
+  jobId: number,
   onProgress: (u: RenderProgressUpdate) => void,
 ): Promise<RenderResult> {
   onProgress({ progress: 0, stage: "bundling" });
@@ -134,6 +139,7 @@ export async function renderActivityVideo(
     const objectPath = await objectStorage.uploadBufferToObjectEntity(
       buf,
       "video/mp4",
+      `videos/${jobId}.mp4`,
     );
 
     return { objectPath };

@@ -1,52 +1,69 @@
-# Cloudflare Worker — Remotion Render Offload (scaffold, not deployed)
+# Fitness render Worker (proxy + KV cache)
 
-This directory contains a **non-deployed** Cloudflare Worker scaffold that
-mirrors the in-process Remotion render endpoints currently served by the
-Express API (`/api/activities/:id/render-video`, etc.).
+> **NOT DEPLOYED.** This directory is an isolated Cloudflare Worker
+> scaffold kept outside the pnpm workspace. It is not built by
+> `pnpm install` at the repo root and does not affect the main app.
 
-## Why this exists
+## What it does
 
-The hybrid Replit-native path keeps in-process rendering on the Express API
-on Replit Object Storage. If render volume or latency outgrows the single
-Replit container, this Worker is a ready-to-cut migration target:
+The Worker is a thin **edge proxy** in front of the Replit-hosted
+render backend (the Express API that runs Remotion in-process):
 
-- The Worker terminates HTTP requests at Cloudflare's edge and writes job
-  rows to a remote Postgres (Hyperdrive or Neon).
-- A separate Containers/Cron worker (or Cloudflare Queues + Container) runs
-  Chromium + FFmpeg to do the actual Remotion render.
-- Rendered MP4s land in **R2** instead of Replit Object Storage.
+| Method | Path                       | Forwards to                                                     |
+| ------ | -------------------------- | --------------------------------------------------------------- |
+| `POST` | `/render-video`            | `${RENDER_BACKEND_URL}/api/activities/:id/render-video`         |
+| `GET`  | `/render-status/:jobId`    | `${RENDER_BACKEND_URL}/api/render-jobs/:jobId`                  |
 
-## Deliberately excluded from the pnpm workspace
+The `POST /render-video` body is `{ "activityId": <number> }`. The
+response is the same `RenderJob` shape the backend returns.
 
-This directory is *not* listed in `pnpm-workspace.yaml`, so `pnpm install`
-at the repo root will not pull its dependencies. To work on it locally,
-`cd cloudflare-worker && npm install` (or `pnpm install --ignore-workspace`).
+For `GET /render-status/:jobId`, the Worker uses a **read-through KV
+cache** (`RENDER_STATUS`):
 
-## Layout
+- Terminal statuses (`complete`, `failed`) are served straight from KV.
+- In-flight statuses (`queued`, `rendering`) are always re-validated
+  against the backend, then written back to KV.
+- KV entries expire after 10 minutes.
 
+The `videoUrl` returned by the backend is relative (e.g.
+`/api/storage/objects/videos/42.mp4`). The Worker rewrites it to an
+absolute URL using `PUBLIC_BASE_URL` so clients can hit the MP4
+directly.
+
+## Required environment / bindings
+
+| Name                  | Type     | Description                                                                              |
+| --------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `RENDER_BACKEND_URL`  | var      | Base URL of the Replit render backend, e.g. `https://fitness.replit.app`.                |
+| `PUBLIC_BASE_URL`     | var      | Public base URL prefixed onto returned `videoUrl` values (often same as backend URL).    |
+| `RENDER_STATUS`       | KV       | KV namespace caching render-job status. Bind via `wrangler kv:namespace create`.         |
+| `KV_NAMESPACE_ID`     | wrangler | The id returned by `wrangler kv:namespace create RENDER_STATUS` — paste into `wrangler.toml`. |
+
+## Deploying (when you're ready)
+
+```bash
+# 1. Create the KV namespace and copy its id into wrangler.toml
+wrangler kv:namespace create RENDER_STATUS
+
+# 2. Set the env vars (or edit [vars] in wrangler.toml)
+wrangler secret put RENDER_BACKEND_URL
+wrangler secret put PUBLIC_BASE_URL
+
+# 3. Deploy
+pnpm run deploy        # blocks by default — see below
+wrangler deploy        # the actual deploy command
 ```
-cloudflare-worker/
-├── README.md           ← this file
-├── wrangler.toml       ← Worker config (no account_id, no deploy bindings)
-├── package.json        ← isolated package — not part of pnpm workspace
-├── tsconfig.json
-└── src/
-    ├── index.ts        ← Worker entry — POST /render, GET /render/:id
-    ├── env.ts          ← Env bindings type
-    ├── db.ts           ← Hyperdrive / Postgres helpers (placeholder)
-    └── render.ts       ← Calls the renderer container (placeholder)
-```
 
-## How it would map to the current API
+The `deploy` script in `package.json` intentionally exits with a
+warning so you don't accidentally publish the scaffold without
+filling in the bindings. Once you've configured `wrangler.toml`,
+either invoke `wrangler deploy` directly or remove the guard in
+`package.json`.
 
-| Express (current)                              | Worker (future)                  |
-| ---------------------------------------------- | -------------------------------- |
-| `POST /api/activities/:id/render-video`        | `POST /render`                   |
-| `GET  /api/render-jobs/:jobId`                 | `GET  /render/:jobId`            |
-| `GET  /api/activities/:id/render-jobs`         | `GET  /render?activityId=:id`    |
-| Replit Object Storage `/objects/uploads/<id>`  | R2 bucket key `videos/<id>.mp4`  |
+## Why a separate directory (not in pnpm workspace)?
 
-## Status
-
-**Scaffold only.** No deploy, no account binding, no R2 bucket, no
-Hyperdrive config. Treat the code in `src/` as illustrative.
+Keeping this scaffold under the top-level `cloudflare-worker/` (rather
+than `artifacts/` or `lib/`) means the workspace `pnpm install` never
+pulls Worker-only deps (`wrangler`, `@cloudflare/workers-types`) into
+the main app. Run `pnpm install` from inside `cloudflare-worker/` when
+you actually want to work on the Worker.

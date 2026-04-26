@@ -3,16 +3,21 @@ main = "src/index.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Intentionally NO account_id, NO routes, NO bindings. This is a scaffold.
-# To take this live you would add:
-#   [[r2_buckets]]
-#   binding = "VIDEO_BUCKET"
-#   bucket_name = "fitness-videos"
-#
-#   [[hyperdrive]]
-#   binding = "HYPERDRIVE"
-#   id = "<hyperdrive-id>"
-#
-#   [[queues.producers]]
-#   queue = "render-jobs"
-#   binding = "RENDER_QUEUE"
+# Public base URL the Worker uses to rewrite `videoUrl` returned to clients.
+# Override per-environment by setting the secret instead of editing this file.
+[vars]
+PUBLIC_BASE_URL = "https://example.replit.app"
+RENDER_BACKEND_URL = "https://example.replit.app"
+
+# KV namespace that mirrors render-job status from the backend so polling
+# requests can be served from the edge. Provision with:
+#   wrangler kv:namespace create RENDER_STATUS
+# then paste the returned `id` below.
+[[kv_namespaces]]
+binding = "RENDER_STATUS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Optional: pin the Worker to a route on your zone.
+# [[routes]]
+# pattern = "render.example.com/*"
+# zone_name = "example.com"

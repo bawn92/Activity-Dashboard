@@ -130,13 +130,19 @@ export class ObjectStorageService {
 
   /**
    * Upload an in-memory buffer directly to a new private object entity.
-   * Returns the canonical /objects/<id> path the client can fetch via
+   * Returns the canonical /objects/<key> path the client can fetch via
    * /api/storage/objects/*. Used by server-side renderers (Remotion video
    * generation, etc.) where there's no browser to do a presigned PUT.
+   *
+   * If `key` is provided (e.g. "videos/42.mp4"), the object is stored at
+   * `<PRIVATE_OBJECT_DIR>/<key>` deterministically — useful for resources
+   * that have a stable id (e.g. one MP4 per render job). Otherwise falls
+   * back to a random "uploads/<uuid>" key.
    */
   async uploadBufferToObjectEntity(
     data: Buffer,
     contentType: string,
+    key?: string,
   ): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
@@ -146,8 +152,8 @@ export class ObjectStorageService {
       );
     }
 
-    const objectId = randomUUID();
-    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const objectKey = key ?? `uploads/${randomUUID()}`;
+    const fullPath = `${privateObjectDir}/${objectKey}`;
     const { bucketName, objectName } = parseObjectPath(fullPath);
     const bucket = objectStorageClient.bucket(bucketName);
     const file = bucket.file(objectName);
@@ -160,7 +166,7 @@ export class ObjectStorageService {
     });
 
     // Canonical path matches what getObjectEntityFile() expects on read
-    return `/objects/uploads/${objectId}`;
+    return `/objects/${objectKey}`;
   }
 
   async getObjectEntityFile(objectPath: string): Promise<File> {

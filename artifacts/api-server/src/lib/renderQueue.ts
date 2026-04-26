@@ -72,7 +72,7 @@ async function runOne({ jobId, activityId }: QueueItem): Promise<void> {
   let lastPersistedProgress = 0;
 
   try {
-    const result = await renderActivityVideo(activityId, ({ progress }) => {
+    const result = await renderActivityVideo(activityId, jobId, ({ progress }) => {
       if (progress - lastPersistedProgress >= 0.02 || progress === 1) {
         lastPersistedProgress = progress;
         // Fire-and-forget; we don't want to await DB on every progress tick
