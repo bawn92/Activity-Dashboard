@@ -12,6 +12,8 @@ export * from "./activitySummary";
 export * from "./dataPoint";
 export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./renderJob";
+export * from "./renderJobStatus";
 export * from "./sportCount";
 export * from "./storageUploadPresignedUrl";
 export * from "./storageUploadRequestBody";

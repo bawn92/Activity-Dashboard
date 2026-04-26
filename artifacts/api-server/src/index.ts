@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { recoverPendingJobs } from "./lib/renderQueue";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Re-enqueue any render jobs left behind by a previous run.
+  recoverPendingJobs().catch((recoverErr) => {
+    logger.error({ err: recoverErr }, "Failed to recover pending render jobs");
+  });
 });

@@ -22,6 +22,7 @@ import type {
   ActivitySummary,
   ErrorResponse,
   HealthStatus,
+  RenderJob,
   StorageUploadPresignedUrl,
   StorageUploadRequestBody,
 } from "./api.schemas";
@@ -517,6 +518,268 @@ export const useDeleteActivity = <
 > => {
   return useMutation(getDeleteActivityMutationOptions(options));
 };
+
+/**
+ * Creates a render job and enqueues an in-process Remotion render. Returns immediately with the new job's status.
+ * @summary Start a video render job for an activity
+ */
+export const getCreateRenderJobUrl = (id: number) => {
+  return `/api/activities/${id}/render-video`;
+};
+
+export const createRenderJob = async (
+  id: number,
+  options?: RequestInit,
+): Promise<RenderJob> => {
+  return customFetch<RenderJob>(getCreateRenderJobUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateRenderJobMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRenderJob>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRenderJob>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["createRenderJob"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRenderJob>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createRenderJob(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRenderJobMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRenderJob>>
+>;
+
+export type CreateRenderJobMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Start a video render job for an activity
+ */
+export const useCreateRenderJob = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRenderJob>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRenderJob>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCreateRenderJobMutationOptions(options));
+};
+
+/**
+ * Returns render jobs for the given activity, newest first.
+ * @summary List render jobs for an activity
+ */
+export const getListActivityRenderJobsUrl = (id: number) => {
+  return `/api/activities/${id}/render-jobs`;
+};
+
+export const listActivityRenderJobs = async (
+  id: number,
+  options?: RequestInit,
+): Promise<RenderJob[]> => {
+  return customFetch<RenderJob[]>(getListActivityRenderJobsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListActivityRenderJobsQueryKey = (id: number) => {
+  return [`/api/activities/${id}/render-jobs`] as const;
+};
+
+export const getListActivityRenderJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActivityRenderJobs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActivityRenderJobs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListActivityRenderJobsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listActivityRenderJobs>>
+  > = ({ signal }) => listActivityRenderJobs(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActivityRenderJobs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActivityRenderJobsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActivityRenderJobs>>
+>;
+export type ListActivityRenderJobsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List render jobs for an activity
+ */
+
+export function useListActivityRenderJobs<
+  TData = Awaited<ReturnType<typeof listActivityRenderJobs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActivityRenderJobs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActivityRenderJobsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the current state of a render job, including the video URL when complete.
+ * @summary Get a render job by ID
+ */
+export const getGetRenderJobUrl = (jobId: number) => {
+  return `/api/render-jobs/${jobId}`;
+};
+
+export const getRenderJob = async (
+  jobId: number,
+  options?: RequestInit,
+): Promise<RenderJob> => {
+  return customFetch<RenderJob>(getGetRenderJobUrl(jobId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRenderJobQueryKey = (jobId: number) => {
+  return [`/api/render-jobs/${jobId}`] as const;
+};
+
+export const getGetRenderJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRenderJob>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  jobId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRenderJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRenderJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRenderJob>>> = ({
+    signal,
+  }) => getRenderJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRenderJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRenderJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRenderJob>>
+>;
+export type GetRenderJobQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a render job by ID
+ */
+
+export function useGetRenderJob<
+  TData = Awaited<ReturnType<typeof getRenderJob>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  jobId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRenderJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRenderJobQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns a presigned URL for direct file upload to object storage

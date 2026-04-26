@@ -1,6 +1,6 @@
-import type { GetActivityResponse } from "@workspace/api-client-react";
+import type { ActivityDetail } from "@workspace/api-client-react";
 
-type Activity = NonNullable<GetActivityResponse>;
+type Activity = ActivityDetail;
 
 export interface ShareTheme {
   id: string;
@@ -402,7 +402,10 @@ function drawRoute(
   areaTop: number,
   areaH: number,
 ) {
-  const pts = activity.dataPoints.filter((p) => p.lat != null && p.lng != null);
+  const pts = activity.dataPoints.filter(
+    (p): p is typeof p & { lat: number; lng: number } =>
+      p.lat != null && p.lng != null,
+  );
   if (pts.length < 2) {
     ctx.textAlign = "center";
     ctx.font = `400 32px ${FONT}`;
@@ -411,8 +414,8 @@ function drawRoute(
     return;
   }
 
-  const lats = pts.map((p) => p.lat!);
-  const lngs = pts.map((p) => p.lng!);
+  const lats = pts.map((p) => p.lat);
+  const lngs = pts.map((p) => p.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
@@ -445,8 +448,8 @@ function drawRoute(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   pts.forEach((p, i) => {
-    const x = toX(p.lng!);
-    const y = toY(p.lat!);
+    const x = toX(p.lng);
+    const y = toY(p.lat);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
@@ -464,9 +467,9 @@ function drawRoute(
     ctx.restore();
   };
 
-  dot(toX(pts[0].lng!), toY(pts[0].lat!), theme.startDot);
+  dot(toX(pts[0].lng), toY(pts[0].lat), theme.startDot);
   const last = pts[pts.length - 1];
-  dot(toX(last.lng!), toY(last.lat!), theme.endDot);
+  dot(toX(last.lng), toY(last.lat), theme.endDot);
 }
 
 export function renderShareCard(

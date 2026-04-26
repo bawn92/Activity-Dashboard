@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { Layout } from "@/components/layout";
-import { useGetActivity } from "@workspace/api-client-react";
+import { useGetActivity, type ActivityDetail } from "@workspace/api-client-react";
 import { SHARE_THEMES, renderShareCard, generateShareImage, type ShareTheme } from "@/lib/share-image";
 import { formatDate } from "@/lib/format";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
@@ -14,7 +14,7 @@ function ThemeCard({
   onDownload,
 }: {
   theme: ShareTheme;
-  activity: NonNullable<ReturnType<typeof useGetActivity>["data"]>;
+  activity: ActivityDetail;
   onDownload: () => void;
 }) {
   const imgRef = useRef<HTMLImageElement>(null);

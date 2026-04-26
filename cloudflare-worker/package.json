@@ -1,0 +1,16 @@
+{
+  "name": "fitness-render-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cloudflare Worker scaffold for offloading Remotion renders. NOT DEPLOYED.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "echo 'Deploys are intentionally disabled for this scaffold.' && exit 1",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.78.0"
+  }
+}

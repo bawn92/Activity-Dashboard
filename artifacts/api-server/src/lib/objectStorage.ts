@@ -128,6 +128,41 @@ export class ObjectStorageService {
     });
   }
 
+  /**
+   * Upload an in-memory buffer directly to a new private object entity.
+   * Returns the canonical /objects/<id> path the client can fetch via
+   * /api/storage/objects/*. Used by server-side renderers (Remotion video
+   * generation, etc.) where there's no browser to do a presigned PUT.
+   */
+  async uploadBufferToObjectEntity(
+    data: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    if (!privateObjectDir) {
+      throw new Error(
+        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
+          "tool and set PRIVATE_OBJECT_DIR env var.",
+      );
+    }
+
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+
+    await file.save(data, {
+      contentType,
+      // Don't let GCS guess the type from the (random UUID) extension
+      metadata: { contentType },
+      resumable: false,
+    });
+
+    // Canonical path matches what getObjectEntityFile() expects on read
+    return `/objects/uploads/${objectId}`;
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();

@@ -14,6 +14,8 @@ tags:
     description: Fitness activity operations
   - name: storage
     description: Object storage operations
+  - name: render
+    description: Video render job operations
 paths:
   /healthz:
     get:
@@ -126,6 +128,80 @@ paths:
           description: Activity deleted
         "404":
           description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /activities/{id}/render-video:
+    post:
+      operationId: createRenderJob
+      tags: [render]
+      summary: Start a video render job for an activity
+      description: Creates a render job and enqueues an in-process Remotion render. Returns immediately with the new job's status.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Job created and queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderJob"
+        "404":
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /activities/{id}/render-jobs:
+    get:
+      operationId: listActivityRenderJobs
+      tags: [render]
+      summary: List render jobs for an activity
+      description: Returns render jobs for the given activity, newest first.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of render jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RenderJob"
+
+  /render-jobs/{jobId}:
+    get:
+      operationId: getRenderJob
+      tags: [render]
+      summary: Get a render job by ID
+      description: Returns the current state of a render job, including the video URL when complete.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Render job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderJob"
+        "404":
+          description: Render job not found
           content:
             application/json:
               schema:
@@ -399,6 +475,41 @@ components:
         - name
         - size
         - contentType
+
+    RenderJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        activityId:
+          type: integer
+        status:
+          type: string
+          enum: [queued, rendering, complete, failed]
+        progress:
+          type: number
+        videoObjectPath:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - activityId
+        - status
+        - progress
+        - videoObjectPath
+        - videoUrl
+        - errorMessage
+        - createdAt
+        - updatedAt
 
     StorageUploadPresignedUrl:
       type: object

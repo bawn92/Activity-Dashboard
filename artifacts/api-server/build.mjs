@@ -100,6 +100,9 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "@remotion/*",
+      "remotion",
+      "@workspace/remotion-compositions",
     ],
     sourcemap: "linked",
     plugins: [

@@ -117,6 +117,57 @@ export const DeleteActivityParams = zod.object({
 });
 
 /**
+ * Creates a render job and enqueues an in-process Remotion render. Returns immediately with the new job's status.
+ * @summary Start a video render job for an activity
+ */
+export const CreateRenderJobParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * Returns render jobs for the given activity, newest first.
+ * @summary List render jobs for an activity
+ */
+export const ListActivityRenderJobsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListActivityRenderJobsResponseItem = zod.object({
+  id: zod.number(),
+  activityId: zod.number(),
+  status: zod.enum(["queued", "rendering", "complete", "failed"]),
+  progress: zod.number(),
+  videoObjectPath: zod.string().nullable(),
+  videoUrl: zod.string().nullable(),
+  errorMessage: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListActivityRenderJobsResponse = zod.array(
+  ListActivityRenderJobsResponseItem,
+);
+
+/**
+ * Returns the current state of a render job, including the video URL when complete.
+ * @summary Get a render job by ID
+ */
+export const GetRenderJobParams = zod.object({
+  jobId: zod.coerce.number(),
+});
+
+export const GetRenderJobResponse = zod.object({
+  id: zod.number(),
+  activityId: zod.number(),
+  status: zod.enum(["queued", "rendering", "complete", "failed"]),
+  progress: zod.number(),
+  videoObjectPath: zod.string().nullable(),
+  videoUrl: zod.string().nullable(),
+  errorMessage: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * Returns a presigned URL for direct file upload to object storage
  * @summary Request a presigned upload URL
  */

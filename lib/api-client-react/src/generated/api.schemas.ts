@@ -138,6 +138,31 @@ export interface StorageUploadRequestBody {
   contentType: string;
 }
 
+export type RenderJobStatus =
+  (typeof RenderJobStatus)[keyof typeof RenderJobStatus];
+
+export const RenderJobStatus = {
+  queued: "queued",
+  rendering: "rendering",
+  complete: "complete",
+  failed: "failed",
+} as const;
+
+export interface RenderJob {
+  id: number;
+  activityId: number;
+  status: RenderJobStatus;
+  progress: number;
+  /** @nullable */
+  videoObjectPath: string | null;
+  /** @nullable */
+  videoUrl: string | null;
+  /** @nullable */
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StorageUploadPresignedUrl {
   uploadURL: string;
   objectPath: string;

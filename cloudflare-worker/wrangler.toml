@@ -1,0 +1,18 @@
+name = "fitness-render-worker"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Intentionally NO account_id, NO routes, NO bindings. This is a scaffold.
+# To take this live you would add:
+#   [[r2_buckets]]
+#   binding = "VIDEO_BUCKET"
+#   bucket_name = "fitness-videos"
+#
+#   [[hyperdrive]]
+#   binding = "HYPERDRIVE"
+#   id = "<hyperdrive-id>"
+#
+#   [[queues.producers]]
+#   queue = "render-jobs"
+#   binding = "RENDER_QUEUE"
