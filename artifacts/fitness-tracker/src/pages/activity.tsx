@@ -11,7 +11,6 @@ import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
 import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
-import { generateShareImage } from "@/lib/share-image";
 import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, Share2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -129,14 +128,12 @@ export default function ActivityDetail() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="border-border text-foreground hover:bg-accent"
-              onClick={() => generateShareImage(activity)}
-            >
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
+            <Link href={`/activities/${id}/share`}>
+              <Button variant="outline" className="border-border text-foreground hover:bg-accent">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
+            </Link>
 
           <AlertDialog>
             <AlertDialogTrigger asChild>

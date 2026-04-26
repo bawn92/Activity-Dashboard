@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import ActivitiesListPage from "@/pages/activities-list";
 import ActivityDetail from "@/pages/activity";
+import { ActivitySharePage } from "@/pages/activity-share";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +22,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/activities" component={ActivitiesListPage} />
+      <Route path="/activities/:id/share" component={ActivitySharePage} />
       <Route path="/activities/:id" component={ActivityDetail} />
       <Route component={NotFound} />
     </Switch>

@@ -2,17 +2,136 @@ import type { GetActivityResponse } from "@workspace/api-client-react";
 
 type Activity = NonNullable<GetActivityResponse>;
 
+export interface ShareTheme {
+  id: string;
+  name: string;
+  tagline: string;
+  bgBase: string;
+  bgGradientStops: [number, string][];
+  routeStroke: string;
+  routeGlow: string;
+  startDot: string;
+  endDot: string;
+  textPrimary: string;
+  textMuted: string;
+  divider: string;
+}
+
+export const SHARE_THEMES: ShareTheme[] = [
+  {
+    id: "dark-minimal",
+    name: "Dark Minimal",
+    tagline: "Clean & translucent",
+    bgBase: "rgba(8,8,18,0.88)",
+    bgGradientStops: [
+      [0, "rgba(94,106,210,0.07)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(74,222,128,0.04)"],
+    ],
+    routeStroke: "rgba(255,255,255,0.88)",
+    routeGlow: "rgba(255,255,255,0.35)",
+    startDot: "#4ade80",
+    endDot: "#5e6ad2",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(255,255,255,0.42)",
+    divider: "rgba(255,255,255,0.09)",
+  },
+  {
+    id: "neon-night",
+    name: "Neon Night",
+    tagline: "Vibrant electric style",
+    bgBase: "rgba(4,4,14,0.92)",
+    bgGradientStops: [
+      [0, "rgba(0,245,255,0.06)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(191,90,242,0.06)"],
+    ],
+    routeStroke: "#00f5ff",
+    routeGlow: "rgba(0,245,255,0.55)",
+    startDot: "#00f5ff",
+    endDot: "#bf5af2",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(200,240,255,0.5)",
+    divider: "rgba(0,245,255,0.12)",
+  },
+  {
+    id: "golden-hour",
+    name: "Golden Hour",
+    tagline: "Warm amber tones",
+    bgBase: "rgba(18,8,3,0.90)",
+    bgGradientStops: [
+      [0, "rgba(245,158,11,0.10)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(239,68,68,0.06)"],
+    ],
+    routeStroke: "#f59e0b",
+    routeGlow: "rgba(245,158,11,0.5)",
+    startDot: "#fbbf24",
+    endDot: "#ef4444",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(255,210,130,0.55)",
+    divider: "rgba(245,158,11,0.14)",
+  },
+  {
+    id: "forest",
+    name: "Forest",
+    tagline: "Deep in the green",
+    bgBase: "rgba(4,14,6,0.91)",
+    bgGradientStops: [
+      [0, "rgba(74,222,128,0.08)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(21,128,61,0.06)"],
+    ],
+    routeStroke: "#4ade80",
+    routeGlow: "rgba(74,222,128,0.5)",
+    startDot: "#86efac",
+    endDot: "#22c55e",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(190,255,210,0.5)",
+    divider: "rgba(74,222,128,0.14)",
+  },
+  {
+    id: "dusk",
+    name: "Dusk",
+    tagline: "Purple twilight vibes",
+    bgBase: "rgba(12,6,20,0.91)",
+    bgGradientStops: [
+      [0, "rgba(167,139,250,0.09)"],
+      [0.5, "rgba(0,0,0,0)"],
+      [1, "rgba(236,72,153,0.06)"],
+    ],
+    routeStroke: "#a78bfa",
+    routeGlow: "rgba(167,139,250,0.5)",
+    startDot: "#c4b5fd",
+    endDot: "#ec4899",
+    textPrimary: "#ffffff",
+    textMuted: "rgba(220,200,255,0.5)",
+    divider: "rgba(167,139,250,0.14)",
+  },
+  {
+    id: "arctic",
+    name: "Arctic",
+    tagline: "Light & airy",
+    bgBase: "rgba(240,245,255,0.92)",
+    bgGradientStops: [
+      [0, "rgba(29,78,216,0.05)"],
+      [0.5, "rgba(255,255,255,0)"],
+      [1, "rgba(6,182,212,0.04)"],
+    ],
+    routeStroke: "#1d4ed8",
+    routeGlow: "rgba(29,78,216,0.3)",
+    startDot: "#16a34a",
+    endDot: "#1d4ed8",
+    textPrimary: "#0f172a",
+    textMuted: "rgba(15,23,42,0.48)",
+    divider: "rgba(15,23,42,0.10)",
+  },
+];
+
 const W = 1080;
 const H = 1920;
 const PAD = 90;
 const FONT = `"system-ui", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-
-const COLOR_BG = "rgba(8, 8, 18, 0.88)";
-const COLOR_WHITE = "#ffffff";
-const COLOR_MUTED = "rgba(255,255,255,0.42)";
-const COLOR_DIVIDER = "rgba(255,255,255,0.09)";
-const COLOR_ACCENT = "#5e6ad2";
-const COLOR_START = "#4ade80";
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -36,7 +155,8 @@ function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  if (h > 0)
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
@@ -44,8 +164,8 @@ function formatDistance(m: number): string {
   return `${(m / 1000).toFixed(2)} km`;
 }
 
-function divider(ctx: CanvasRenderingContext2D, y: number) {
-  ctx.strokeStyle = COLOR_DIVIDER;
+function drawDivider(ctx: CanvasRenderingContext2D, y: number, theme: ShareTheme) {
+  ctx.strokeStyle = theme.divider;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(PAD, y);
@@ -53,27 +173,26 @@ function divider(ctx: CanvasRenderingContext2D, y: number) {
   ctx.stroke();
 }
 
-function bigStat(
+function drawBigStat(
   ctx: CanvasRenderingContext2D,
+  theme: ShareTheme,
   label: string,
   value: string,
   x: number,
   y: number,
-  align: CanvasTextAlign = "left",
 ) {
-  ctx.textAlign = align;
+  ctx.textAlign = "left";
   ctx.font = `400 26px ${FONT}`;
-  ctx.fillStyle = COLOR_MUTED;
-  ctx.letterSpacing = "2px";
+  ctx.fillStyle = theme.textMuted;
   ctx.fillText(label.toUpperCase(), x, y);
-  ctx.letterSpacing = "0px";
   ctx.font = `700 86px ${FONT}`;
-  ctx.fillStyle = COLOR_WHITE;
+  ctx.fillStyle = theme.textPrimary;
   ctx.fillText(value, x, y + 96);
 }
 
-function miniStat(
+function drawMiniStat(
   ctx: CanvasRenderingContext2D,
+  theme: ShareTheme,
   label: string,
   value: string,
   x: number,
@@ -81,19 +200,25 @@ function miniStat(
 ) {
   ctx.textAlign = "center";
   ctx.font = `700 50px ${FONT}`;
-  ctx.fillStyle = COLOR_WHITE;
+  ctx.fillStyle = theme.textPrimary;
   ctx.fillText(value, x, y);
   ctx.font = `400 24px ${FONT}`;
-  ctx.fillStyle = COLOR_MUTED;
+  ctx.fillStyle = theme.textMuted;
   ctx.fillText(label, x, y + 36);
 }
 
-function drawRoute(ctx: CanvasRenderingContext2D, activity: Activity, areaTop: number, areaH: number) {
+function drawRoute(
+  ctx: CanvasRenderingContext2D,
+  theme: ShareTheme,
+  activity: Activity,
+  areaTop: number,
+  areaH: number,
+) {
   const pts = activity.dataPoints.filter((p) => p.lat != null && p.lng != null);
   if (pts.length < 2) {
     ctx.textAlign = "center";
     ctx.font = `400 32px ${FONT}`;
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillStyle = theme.textMuted;
     ctx.fillText("No GPS data", W / 2, areaTop + areaH / 2);
     return;
   }
@@ -124,10 +249,10 @@ function drawRoute(ctx: CanvasRenderingContext2D, activity: Activity, areaTop: n
   const toY = (lat: number) => offY + routeH - (lat - minLat) * scale;
 
   ctx.save();
-  ctx.shadowColor = "rgba(255,255,255,0.35)";
-  ctx.shadowBlur = 14;
+  ctx.shadowColor = theme.routeGlow;
+  ctx.shadowBlur = 16;
   ctx.beginPath();
-  ctx.strokeStyle = "rgba(255,255,255,0.88)";
+  ctx.strokeStyle = theme.routeStroke;
   ctx.lineWidth = 4.5;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -140,67 +265,69 @@ function drawRoute(ctx: CanvasRenderingContext2D, activity: Activity, areaTop: n
   ctx.stroke();
   ctx.restore();
 
-  const dot = (x: number, y: number, color: string, r = 11) => {
+  const dot = (x: number, y: number, color: string) => {
     ctx.save();
     ctx.shadowColor = color;
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 22;
     ctx.beginPath();
     ctx.fillStyle = color;
-    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   };
 
-  dot(toX(pts[0].lng!), toY(pts[0].lat!), COLOR_START);
+  dot(toX(pts[0].lng!), toY(pts[0].lat!), theme.startDot);
   const last = pts[pts.length - 1];
-  dot(toX(last.lng!), toY(last.lat!), COLOR_ACCENT);
+  dot(toX(last.lng!), toY(last.lat!), theme.endDot);
 }
 
-export function generateShareImage(activity: Activity): void {
-  const canvas = document.createElement("canvas");
+export function renderShareCard(
+  canvas: HTMLCanvasElement,
+  activity: Activity,
+  theme: ShareTheme,
+): void {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
 
   ctx.clearRect(0, 0, W, H);
 
-  ctx.fillStyle = COLOR_BG;
+  ctx.fillStyle = theme.bgBase;
   ctx.fillRect(0, 0, W, H);
 
   const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, "rgba(94,106,210,0.07)");
-  grad.addColorStop(0.5, "rgba(0,0,0,0)");
-  grad.addColorStop(1, "rgba(74,222,128,0.04)");
+  theme.bgGradientStops.forEach(([stop, color]) => grad.addColorStop(stop, color));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
   let y = 160;
 
   ctx.font = `700 88px ${FONT}`;
-  ctx.fillStyle = COLOR_WHITE;
+  ctx.fillStyle = theme.textPrimary;
   ctx.textAlign = "left";
   ctx.fillText(capitalize(activity.sport), PAD, y);
   y += 58;
 
   ctx.font = `400 32px ${FONT}`;
-  ctx.fillStyle = COLOR_MUTED;
+  ctx.fillStyle = theme.textMuted;
   ctx.fillText(formatDate(activity.startTime), PAD, y);
   y += 64;
 
-  divider(ctx, y);
+  drawDivider(ctx, y, theme);
   y += 64;
 
   const routeH = 680;
-  drawRoute(ctx, activity, y, routeH);
+  drawRoute(ctx, theme, activity, y, routeH);
   y += routeH + 64;
 
-  divider(ctx, y);
+  drawDivider(ctx, y, theme);
   y += 80;
 
   const halfX = W / 2 + 20;
-  bigStat(ctx, "Distance", formatDistance(activity.distanceMeters ?? 0), PAD, y);
-  bigStat(
+  drawBigStat(ctx, theme, "Distance", formatDistance(activity.distanceMeters ?? 0), PAD, y);
+  drawBigStat(
     ctx,
+    theme,
     "Pace",
     activity.avgPaceSecPerKm ? formatPace(activity.avgPaceSecPerKm) : "—",
     halfX,
@@ -208,17 +335,16 @@ export function generateShareImage(activity: Activity): void {
   );
   y += 140;
 
-  const hasTime = activity.durationSeconds != null;
-  const hasHR = activity.avgHeartRate != null;
-  if (hasTime || hasHR) {
-    if (hasTime) {
-      bigStat(ctx, "Time", formatDuration(activity.durationSeconds!), PAD, y);
+  if (activity.durationSeconds != null || activity.avgHeartRate != null) {
+    if (activity.durationSeconds != null) {
+      drawBigStat(ctx, theme, "Time", formatDuration(activity.durationSeconds), PAD, y);
     }
-    if (hasHR) {
-      bigStat(
+    if (activity.avgHeartRate != null) {
+      drawBigStat(
         ctx,
+        theme,
         "Avg HR",
-        `${Math.round(activity.avgHeartRate!)} bpm`,
+        `${Math.round(activity.avgHeartRate)} bpm`,
         halfX,
         y,
       );
@@ -226,50 +352,50 @@ export function generateShareImage(activity: Activity): void {
     y += 140;
   }
 
-  const secondaryStats: { label: string; value: string }[] = [];
+  const secondary: { label: string; value: string }[] = [];
   if (activity.totalElevGainMeters != null)
-    secondaryStats.push({ label: "Ascent", value: `↑ ${Math.round(activity.totalElevGainMeters)}m` });
+    secondary.push({ label: "Ascent", value: `↑ ${Math.round(activity.totalElevGainMeters)}m` });
   if (activity.totalElevDescMeters != null)
-    secondaryStats.push({ label: "Descent", value: `↓ ${Math.round(activity.totalElevDescMeters)}m` });
+    secondary.push({ label: "Descent", value: `↓ ${Math.round(activity.totalElevDescMeters)}m` });
   if (activity.avgCadence != null)
-    secondaryStats.push({ label: "Cadence", value: `${Math.round(activity.avgCadence)} spm` });
+    secondary.push({ label: "Cadence", value: `${Math.round(activity.avgCadence)} spm` });
   if (activity.avgPower != null)
-    secondaryStats.push({ label: "Power", value: `${Math.round(activity.avgPower)} W` });
+    secondary.push({ label: "Power", value: `${Math.round(activity.avgPower)} W` });
   if (activity.totalCalories != null)
-    secondaryStats.push({ label: "Calories", value: `${Math.round(activity.totalCalories)} kcal` });
+    secondary.push({ label: "Calories", value: `${Math.round(activity.totalCalories)} kcal` });
 
-  if (secondaryStats.length > 0) {
-    divider(ctx, y + 16);
+  if (secondary.length > 0) {
+    drawDivider(ctx, y + 16, theme);
     y += 72;
-
-    const cols = Math.min(secondaryStats.length, 4);
+    const cols = Math.min(secondary.length, 4);
     const colW = (W - 2 * PAD) / cols;
-    secondaryStats.slice(0, cols).forEach((s, i) => {
-      miniStat(ctx, s.label, s.value, PAD + i * colW + colW / 2, y + 52);
+    secondary.slice(0, cols).forEach((s, i) => {
+      drawMiniStat(ctx, theme, s.label, s.value, PAD + i * colW + colW / 2, y + 52);
     });
     y += 100;
-
-    if (secondaryStats.length > 4) {
-      const rem = secondaryStats.slice(4);
-      const remCols = rem.length;
-      const remColW = (W - 2 * PAD) / remCols;
+    if (secondary.length > 4) {
+      const rem = secondary.slice(4);
+      const remColW = (W - 2 * PAD) / rem.length;
       rem.forEach((s, i) => {
-        miniStat(ctx, s.label, s.value, PAD + i * remColW + remColW / 2, y + 52);
+        drawMiniStat(ctx, theme, s.label, s.value, PAD + i * remColW + remColW / 2, y + 52);
       });
-      y += 100;
     }
   }
 
   ctx.textAlign = "center";
   ctx.font = `400 26px ${FONT}`;
-  ctx.fillStyle = "rgba(255,255,255,0.2)";
+  ctx.fillStyle = theme.textMuted;
   ctx.fillText("Fitness Logbook", W / 2, H - 72);
+}
 
+export function generateShareImage(activity: Activity, theme: ShareTheme): void {
+  const canvas = document.createElement("canvas");
+  renderShareCard(canvas, activity, theme);
   canvas.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.download = `activity-${activity.id}-share.png`;
+    link.download = `activity-${activity.id}-${theme.id}.png`;
     link.href = url;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
