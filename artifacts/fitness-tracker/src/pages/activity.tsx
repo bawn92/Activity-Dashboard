@@ -30,15 +30,15 @@ import {
 
 function MetricCard({ title, value, icon: Icon, unit }: { title: string; value: string | React.ReactNode; icon: LucideIcon; unit?: string }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-4 flex flex-col justify-center relative overflow-hidden">
+    <div className="bg-card border border-border rounded-xl shadow-card p-5 flex flex-col justify-center relative overflow-hidden">
       <Icon className="w-24 h-24 text-muted-foreground/5 absolute -right-6 -bottom-6" />
-      <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-        <Icon className="w-4 h-4" />
-        <span className="text-xs font-medium uppercase tracking-wider">{title}</span>
+      <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
+        <Icon className="w-3.5 h-3.5" />
+        <span className="label-mono">{title}</span>
       </div>
       <div className="flex items-baseline gap-1 relative z-10">
-        <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{value}</span>
-        {unit && <span className="text-sm font-medium text-muted-foreground">{unit}</span>}
+        <span className="text-2xl sm:text-3xl font-medium tracking-tight text-foreground">{value}</span>
+        {unit && <span className="label-mono text-muted-foreground ml-0.5">{unit}</span>}
       </div>
     </div>
   );
@@ -92,7 +92,7 @@ export default function ActivityDetail() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8 max-w-5xl text-center">
-          <h2 className="text-2xl font-bold mb-4">Activity not found</h2>
+          <h2 className="text-2xl font-medium mb-4">Activity not found</h2>
           <Link href="/">
             <Button variant="outline" className="border-border hover:bg-card">Return home</Button>
           </Link>
@@ -117,7 +117,7 @@ export default function ActivityDetail() {
                 <Activity className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight capitalize text-foreground">
+                <h1 className="text-2xl sm:text-3xl font-medium tracking-tight capitalize text-foreground">
                   {activity.sport || "Activity"}
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -294,7 +294,7 @@ export default function ActivityDetail() {
 
         {hasMapData && (
           <div className="mb-8">
-            <h2 className="text-lg font-bold mb-4 tracking-tight flex items-center gap-2">
+            <h2 className="text-lg font-medium mb-4 tracking-tight flex items-center gap-2">
               <Map className="w-5 h-5 text-muted-foreground" />
               GPS Route
             </h2>
@@ -304,7 +304,7 @@ export default function ActivityDetail() {
 
         {hasChartData && (
           <div>
-            <h2 className="text-lg font-bold mb-4 tracking-tight flex items-center gap-2">
+            <h2 className="text-lg font-medium mb-4 tracking-tight flex items-center gap-2">
               <Activity className="w-5 h-5 text-muted-foreground" />
               Metrics
             </h2>

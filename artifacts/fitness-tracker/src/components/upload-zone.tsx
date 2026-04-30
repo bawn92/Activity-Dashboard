@@ -100,12 +100,12 @@ export function UploadZone() {
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center p-8 rounded-lg border border-dashed transition-colors cursor-pointer",
+        "relative flex flex-col items-center justify-center p-10 rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer shadow-card",
         isDragging
-          ? "border-primary bg-primary/5"
+          ? "border-primary bg-primary/5 scale-[1.01]"
           : uploadError
             ? "border-destructive/60 bg-destructive/5"
-            : "border-border bg-card hover:bg-secondary/50",
+            : "border-border bg-card hover:border-primary/40 hover:bg-muted/40",
         isPending && "pointer-events-none opacity-50",
       )}
       onDragOver={handleDragOver}
@@ -133,7 +133,7 @@ export function UploadZone() {
         <UploadCloud className="w-8 h-8 text-muted-foreground mb-4" />
       )}
 
-      <div className="text-sm font-medium text-center" data-testid="upload-status">
+      <div className="label-mono text-foreground text-center mt-1" data-testid="upload-status">
         {isPending
           ? "Uploading..."
           : isSuccess
@@ -144,13 +144,13 @@ export function UploadZone() {
       </div>
       {uploadError ? (
         <div
-          className="text-xs text-destructive mt-1 text-center max-w-xs"
+          className="text-xs text-destructive mt-2 text-center max-w-xs"
           data-testid="upload-error"
         >
           {uploadError}
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground mt-1 text-center">
+        <div className="text-xs text-muted-foreground mt-2 text-center">
           Drag & drop or click to select
         </div>
       )}
