@@ -129,7 +129,7 @@ export default function ActivityDetail() {
           
           <div className="flex items-center gap-2">
             <Link href={`/activities/${id}/share`}>
-              <Button variant="outline" className="border-border text-foreground hover:bg-accent">
+              <Button variant="outline" className="border-border text-foreground hover:bg-muted">
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
@@ -160,7 +160,7 @@ export default function ActivityDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" data-testid="activity-metrics">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-testid="activity-metrics">
           <MetricCard 
             title="Distance" 
             value={activity.distanceMeters ? (activity.distanceMeters / 1000).toFixed(2) : "0.00"} 
@@ -294,21 +294,21 @@ export default function ActivityDetail() {
 
         {hasMapData && (
           <div className="mb-8">
-            <h2 className="text-lg font-medium mb-4 tracking-tight flex items-center gap-2">
-              <Map className="w-5 h-5 text-muted-foreground" />
+            <p className="label-mono text-muted-foreground mb-4 flex items-center gap-2">
+              <Map className="w-3.5 h-3.5" />
               GPS Route
-            </h2>
+            </p>
             <ActivityMap dataPoints={activity.dataPoints} />
           </div>
         )}
 
         {hasChartData && (
-          <div>
-            <h2 className="text-lg font-medium mb-4 tracking-tight flex items-center gap-2">
-              <Activity className="w-5 h-5 text-muted-foreground" />
+          <div className="mb-8">
+            <p className="label-mono text-muted-foreground mb-4 flex items-center gap-2">
+              <Activity className="w-3.5 h-3.5" />
               Metrics
-            </h2>
-            <div className="bg-card border border-border rounded-lg p-6">
+            </p>
+            <div className="bg-card border border-border rounded-xl shadow-card p-6">
               <ActivityCharts dataPoints={activity.dataPoints} />
             </div>
           </div>

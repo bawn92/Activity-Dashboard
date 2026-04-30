@@ -9,7 +9,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16 max-w-2xl">
         <div className="text-center mb-10">
           <h1
-            className="text-3xl font-bold tracking-tight text-foreground mb-2"
+            className="text-3xl font-medium tracking-tight text-foreground mb-2"
             data-testid="page-title-upload"
           >
             Upload Activity

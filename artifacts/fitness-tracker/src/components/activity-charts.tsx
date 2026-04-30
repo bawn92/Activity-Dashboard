@@ -61,14 +61,14 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 }
 
 const AXIS_STYLE = {
-  stroke: "rgba(255,255,255,0.3)",
-  fontSize: 12,
+  stroke: "rgba(0,0,0,0)",
+  tick: { fill: "#736E67", fontSize: 11, fontFamily: "JetBrains Mono" },
   tickLine: false,
 } as const;
 
 const GRID_STYLE = {
   strokeDasharray: "3 3",
-  stroke: "rgba(255,255,255,0.05)",
+  stroke: "rgba(0,0,0,0.06)",
   vertical: false,
 } as const;
 
@@ -77,7 +77,7 @@ const MARGIN = { top: 5, right: 0, left: -20, bottom: 0 };
 function ChartBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="h-[200px] w-full">
-      <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+      <h3 className="label-mono text-muted-foreground mb-3">
         {title}
       </h3>
       <ResponsiveContainer width="100%" height="100%">

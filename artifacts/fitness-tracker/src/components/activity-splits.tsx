@@ -83,9 +83,9 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   const sec = payload[0].value;
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm">
-      <p className="text-zinc-400 mb-1">Km {label}</p>
-      <p className="text-white font-semibold">{formatPaceAxis(sec)} /km</p>
+    <div className="bg-card border border-border rounded-xl px-3 py-2 text-sm shadow-card">
+      <p className="label-mono text-muted-foreground mb-1">Km {label}</p>
+      <p className="font-medium text-foreground">{formatPaceAxis(sec)} /km</p>
     </div>
   );
 }
@@ -103,13 +103,8 @@ export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
     splits.reduce((sum, s) => sum + s.paceSecPerKm, 0) / splits.length;
 
   return (
-    <div
-      className="rounded-xl p-6"
-      style={{ background: "var(--color-surface)" }}
-    >
-      <h2 className="text-base font-semibold mb-5 text-zinc-100 tracking-tight">
-        Km Splits
-      </h2>
+    <div className="bg-card border border-border rounded-xl shadow-card p-6">
+      <h2 className="label-mono text-muted-foreground mb-5">Km Splits</h2>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart
           data={splits}
@@ -119,40 +114,40 @@ export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(0,0,0,0.06)"
           />
           <XAxis
             dataKey="km"
             tickFormatter={(v) => `${v}`}
-            tick={{ fill: "#71717a", fontSize: 12 }}
+            tick={{ fill: "#736E67", fontSize: 11, fontFamily: "JetBrains Mono" }}
             axisLine={false}
             tickLine={false}
             label={{
               value: "Km",
               position: "insideBottomRight",
               offset: -4,
-              fill: "#52525b",
+              fill: "#736E67",
               fontSize: 11,
             }}
           />
           <YAxis
             domain={["auto", "auto"]}
             tickFormatter={formatPaceAxis}
-            tick={{ fill: "#71717a", fontSize: 12 }}
+            tick={{ fill: "#736E67", fontSize: 11, fontFamily: "JetBrains Mono" }}
             axisLine={false}
             tickLine={false}
             width={48}
             reversed
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
           <Bar dataKey="paceSecPerKm" radius={[4, 4, 0, 0]}>
             {splits.map((s) => (
               <Cell
                 key={s.km}
                 fill={
                   s.paceSecPerKm <= avgPace
-                    ? "hsl(var(--chart-1))"
-                    : "hsl(var(--chart-2))"
+                    ? "hsl(21 95% 48%)"
+                    : "hsl(21 95% 72%)"
                 }
               />
             ))}
@@ -163,12 +158,12 @@ export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
         {splits.map((s) => (
           <div
             key={s.km}
-            className="flex items-center gap-1.5 text-xs bg-zinc-800/60 rounded px-2.5 py-1.5"
+            className="flex items-center gap-1.5 bg-muted rounded-lg px-2.5 py-1.5"
           >
-            <span className="text-zinc-500 font-medium">
+            <span className="label-mono text-muted-foreground">
               Km {s.km}
             </span>
-            <span className="text-zinc-200 font-mono font-semibold">
+            <span className="label-mono text-foreground font-medium">
               {s.label}
             </span>
           </div>

@@ -202,7 +202,7 @@ export function VideoGeneratorPanel({
 
   if (jobsLoading) {
     return (
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card border border-border rounded-xl shadow-card p-6">
         <Skeleton className="h-8 w-64 bg-border" />
       </div>
     );
@@ -210,16 +210,16 @@ export function VideoGeneratorPanel({
 
   return (
     <div
-      className="bg-card border border-border rounded-lg p-6"
+      className="bg-card border border-border rounded-xl shadow-card p-6"
       data-testid={`video-generator-panel-${style}`}
     >
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
             <Film className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-foreground">
+            <h2 className="text-base font-medium tracking-tight text-foreground">
               {style === "map" ? "Map style" : "Cinematic style"}
             </h2>
             <p className="text-sm text-muted-foreground">{description}</p>
@@ -280,7 +280,7 @@ export function VideoGeneratorPanel({
           className="mt-4 space-y-4"
           data-testid={`video-generator-result-${style}`}
         >
-          <div className="rounded-lg overflow-hidden border border-border bg-black flex items-center justify-center">
+          <div className="rounded-xl overflow-hidden border border-border bg-black flex items-center justify-center">
             <video
               src={display.videoUrl}
               controls

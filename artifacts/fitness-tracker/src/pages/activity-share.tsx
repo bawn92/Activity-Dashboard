@@ -56,7 +56,7 @@ function ThemeCard({
 
       <div className="p-4 flex flex-col gap-3">
         <div>
-          <p className="font-semibold text-foreground leading-tight">{theme.name}</p>
+          <p className="font-medium text-foreground leading-tight">{theme.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{theme.tagline}</p>
         </div>
         <Button
@@ -95,7 +95,7 @@ function ShareCardsTab({ activity }: { activity: ActivityDetail }) {
         return (
           <div key={cat} className="mb-12">
             <div className="flex items-center gap-3 mb-5">
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              <h2 className="label-mono text-muted-foreground">
                 {label}
               </h2>
               <div className="flex-1 h-px bg-border" />
@@ -200,9 +200,9 @@ function VideoTab({ activity }: { activity: ActivityDetail }) {
       >
         {hasMapData ? (
           <div className="space-y-4">
-            <div className="bg-card border border-border rounded-lg p-4">
+            <div className="bg-card border border-border rounded-xl shadow-card p-5">
               <div className="mb-3">
-                <h3 className="text-sm font-semibold text-foreground">
+                <h3 className="label-mono text-muted-foreground mb-1">
                   Frame your shot
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -269,7 +269,7 @@ function VideoTab({ activity }: { activity: ActivityDetail }) {
             />
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-lg p-8 text-center text-sm text-muted-foreground">
+          <div className="bg-card border border-border rounded-xl shadow-card p-8 text-center label-mono text-muted-foreground">
             This activity has no GPS data, so a map render isn't available.
           </div>
         )}
@@ -330,7 +330,7 @@ export function ActivitySharePage() {
         </Link>
 
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-foreground">
             Share this activity
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
