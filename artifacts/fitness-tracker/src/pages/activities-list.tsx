@@ -108,7 +108,7 @@ function ActivitiesList() {
   }
 
   return (
-    <div className="space-y-6" data-testid="activities-list">
+    <div className="space-y-10" data-testid="activities-list">
       {activities.map((activity) => (
         <Link key={activity.id} href={`/activities/${activity.id}`}>
           <div
