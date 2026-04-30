@@ -85,11 +85,11 @@ function ActivitiesList() {
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-20 w-full bg-card border border-border rounded-lg animate-pulse"
+            className="h-24 w-full bg-card border border-border rounded-lg animate-pulse"
           />
         ))}
       </div>
@@ -116,11 +116,11 @@ function ActivitiesList() {
   }
 
   return (
-    <div className="space-y-3" data-testid="activities-list">
+    <div className="space-y-4" data-testid="activities-list">
       {activities.map((activity) => (
         <Link key={activity.id} href={`/activities/${activity.id}`}>
           <div
-            className="group flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:border-primary/50 hover:bg-card/80 transition-colors cursor-pointer"
+            className="group flex items-center justify-between p-5 bg-card border border-border rounded-lg hover:border-primary/50 hover:bg-card/80 transition-colors cursor-pointer"
             data-testid={`activity-card-${activity.id}`}
           >
             <div className="flex items-center gap-4">
