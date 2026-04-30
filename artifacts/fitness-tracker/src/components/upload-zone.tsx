@@ -68,10 +68,25 @@ export function UploadZone() {
         throw new Error(body?.error ?? `Upload failed: ${resp.status}`);
       }
 
+      const body = await resp.json().catch(() => ({}));
+      const isDuplicate = body?.duplicate === true;
+
       setIsSuccess(true);
       queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetActivityStatsQueryKey() });
-      toast({ title: "Activity uploaded", description: "Redirecting to your activities..." });
+
+      if (isDuplicate) {
+        toast({
+          title: "Already uploaded",
+          description: "This activity is already in your library.",
+        });
+      } else {
+        toast({
+          title: "Activity uploaded",
+          description: "Redirecting to your activities...",
+        });
+      }
+
       setTimeout(() => setLocation("/activities"), 800);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";

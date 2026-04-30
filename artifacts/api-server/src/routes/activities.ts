@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
+import { createHash } from "node:crypto";
 import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
 import {
   GetActivityParams,
@@ -71,6 +72,65 @@ router.post(
       return;
     }
 
+    // Compute SHA-256 of the raw bytes before doing any expensive work.
+    // If this exact file was already uploaded we short-circuit and return the
+    // existing activity so the user doesn't get duplicates.
+    const fileHash = createHash("sha256").update(req.file.buffer).digest("hex");
+
+    const [existing] = await db
+      .select()
+      .from(activitiesTable)
+      .where(eq(activitiesTable.fileHash, fileHash))
+      .limit(1);
+
+    if (existing) {
+      req.log.info({ activityId: existing.id }, "Duplicate .fit upload detected, returning existing activity");
+      const dataPoints = await db
+        .select()
+        .from(activityDataPointsTable)
+        .where(eq(activityDataPointsTable.activityId, existing.id))
+        .orderBy(activityDataPointsTable.timestamp);
+
+      const result = GetActivityResponse.parse({
+        id: existing.id,
+        sport: existing.sport,
+        startTime: existing.startTime,
+        durationSeconds: existing.durationSeconds,
+        distanceMeters: existing.distanceMeters,
+        avgSpeedMps: existing.avgSpeedMps,
+        avgPaceSecPerKm: existing.avgPaceSecPerKm,
+        totalElevGainMeters: existing.totalElevGainMeters,
+        totalElevDescMeters: existing.totalElevDescMeters,
+        maxSpeedMps: existing.maxSpeedMps,
+        avgHeartRate: existing.avgHeartRate,
+        maxHeartRate: existing.maxHeartRate,
+        totalCalories: existing.totalCalories,
+        avgCadence: existing.avgCadence,
+        avgPower: existing.avgPower,
+        normalizedPower: existing.normalizedPower,
+        avgVerticalOscillationMm: existing.avgVerticalOscillationMm,
+        avgStanceTimeMs: existing.avgStanceTimeMs,
+        avgVerticalRatio: existing.avgVerticalRatio,
+        avgStepLengthMm: existing.avgStepLengthMm,
+        fileObjectPath: existing.fileObjectPath,
+        createdAt: existing.createdAt,
+        dataPoints: dataPoints.map((p) => ({
+          timestamp: p.timestamp,
+          heartRate: p.heartRate,
+          cadence: p.cadence,
+          altitude: p.altitude,
+          lat: p.lat,
+          lng: p.lng,
+          speed: p.speed,
+          distance: p.distance,
+          power: p.power,
+        })),
+      });
+
+      res.status(200).json({ ...result, duplicate: true });
+      return;
+    }
+
     let parsed;
     try {
       parsed = await parseFitBuffer(req.file.buffer);
@@ -103,7 +163,7 @@ router.post(
 
     const [newActivity] = await db
       .insert(activitiesTable)
-      .values({ ...parsed.activity, fileObjectPath })
+      .values({ ...parsed.activity, fileObjectPath, fileHash })
       .returning();
 
     if (parsed.dataPoints.length > 0) {

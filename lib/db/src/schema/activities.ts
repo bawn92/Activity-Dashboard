@@ -6,6 +6,7 @@ import {
   real,
   integer,
   foreignKey,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -32,10 +33,12 @@ export const activitiesTable = pgTable("activities", {
   avgVerticalRatio: real("avg_vertical_ratio"),
   avgStepLengthMm: real("avg_step_length_mm"),
   fileObjectPath: text("file_object_path"),
+  fileHash: text("file_hash"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+(t) => [unique("activities_file_hash_unique").on(t.fileHash)]);
 
 export const insertActivitySchema = createInsertSchema(activitiesTable).omit({
   id: true,
