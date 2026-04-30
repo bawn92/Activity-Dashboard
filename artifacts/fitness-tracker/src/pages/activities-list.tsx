@@ -108,9 +108,9 @@ function ActivitiesList() {
   }
 
   return (
-    <div className="space-y-10" data-testid="activities-list">
+    <div className="flex flex-col gap-6" data-testid="activities-list">
       {activities.map((activity) => (
-        <Link key={activity.id} href={`/activities/${activity.id}`}>
+        <Link key={activity.id} href={`/activities/${activity.id}`} className="block">
           <div
             className="group flex items-center justify-between p-5 bg-card border border-border rounded-xl shadow-card hover:border-primary/40 transition-all duration-200 cursor-pointer"
             data-testid={`activity-card-${activity.id}`}
