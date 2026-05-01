@@ -304,19 +304,75 @@ export function mountGlobeScene(
     return line;
   }
 
-  // Goal ring: the full eastward circle at start latitude (faded)
-  const goalRing: [number, number][] = [];
-  for (let i = 0; i <= 360; i += 1) {
-    goalRing.push([data.start.lon + i, data.start.lat]);
+  // Build a full latitude ring around the world from Galway (back to Galway).
+  // Then split it into two segments: the portion equal to the user's real
+  // travelled distance is rendered as the bright "progress" line, and the
+  // remainder is rendered as the faded "to-go" line.
+  const ringSegments = 720; // 0.5° resolution
+  const fullRing: [number, number][] = [];
+  for (let i = 0; i <= ringSegments; i += 1) {
+    fullRing.push([data.start.lon + (i / ringSegments) * 360, data.start.lat]);
   }
-  const goalPts = samplePathToSphere(goalRing, ROUTE_RADIUS - 0.002, 1);
-  routesRoot.add(makeThickLine(goalPts, COLOR_GOAL, 1.5, 0.35));
+  const fullRingPts = samplePathToSphere(fullRing, ROUTE_RADIUS, 0.5);
 
-  // Progress line: your real cumulative distance
-  if (data.journey.length >= 2) {
-    const progressPts = samplePathToSphere(data.journey, ROUTE_RADIUS, 0.5);
+  const fraction = Math.min(
+    1,
+    Math.max(
+      0,
+      data.goalDistanceMeters > 0
+        ? data.totalDistanceMeters / data.goalDistanceMeters
+        : 0,
+    ),
+  );
+  const splitIdx = Math.max(
+    1,
+    Math.min(fullRingPts.length - 1, Math.round(fullRingPts.length * fraction)),
+  );
+
+  const progressPts = fullRingPts.slice(0, splitIdx + 1);
+  const remainingPts = fullRingPts.slice(splitIdx);
+
+  // Faded "remaining" segment: shows the rest of the world to circumnavigate
+  if (remainingPts.length >= 2) {
+    routesRoot.add(makeThickLine(remainingPts, COLOR_GOAL, 2, 0.45));
+  }
+
+  // Bright "progress" segment: equal in length to your real total distance
+  if (progressPts.length >= 2) {
     routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 14, 0.28));
-    routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 4, 1.0));
+    routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 5, 1.0));
+  }
+
+  // "You are here" head marker at the leading edge of the progress segment
+  if (fraction > 0 && progressPts.length > 0) {
+    const head = progressPts[progressPts.length - 1]!.clone();
+    const headDir = head.clone().normalize();
+    const headMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.018, 16, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: COLOR_PROGRESS,
+        emissiveIntensity: 2.5,
+        metalness: 0.2,
+        roughness: 0.4,
+      }),
+    );
+    headMesh.position.copy(head).add(headDir.clone().multiplyScalar(0.012));
+    routesRoot.add(headMesh);
+
+    // Soft halo behind it
+    const headHalo = new THREE.Mesh(
+      new THREE.SphereGeometry(0.045, 16, 16),
+      new THREE.MeshBasicMaterial({
+        color: COLOR_PROGRESS,
+        transparent: true,
+        opacity: 0.18,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    headHalo.position.copy(headMesh.position);
+    routesRoot.add(headHalo);
   }
 
   // ── Galway beacon ─────────────────────────────────────────────────────────
