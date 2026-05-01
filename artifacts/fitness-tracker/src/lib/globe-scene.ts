@@ -301,20 +301,40 @@ export function mountGlobeScene(
   }
 
   // ── Draw per-sport coloured segments ───────────────────────────────────────
-  // Strategy: one BOLD solid line per sport (no glow wash that blends colours)
-  // plus small coloured spheres at each transition so boundaries are obvious.
-  let cursor = 0;
-
+  // Individual activities can be tiny (e.g. 8 km runs) and each rounds to
+  // 0 ring-points, meaning their distance is silently skipped by the integer
+  // cursor — producing invisible sport colours.  Fix: aggregate ALL distance
+  // per sport (preserving chronological first-appearance order) so each sport
+  // gets one large, correctly-proportioned block.
+  const sportOrder: string[] = [];
+  const sportTotals = new Map<string, number>();
   for (const act of data.activities) {
-    const actFrac = data.goalDistanceMeters > 0
-      ? act.distanceMeters / data.goalDistanceMeters
+    if (!sportTotals.has(act.sport)) {
+      sportOrder.push(act.sport);
+      sportTotals.set(act.sport, 0);
+    }
+    sportTotals.set(act.sport, sportTotals.get(act.sport)! + act.distanceMeters);
+  }
+  const sportSegments = sportOrder.map((s) => ({
+    sport: s,
+    distanceMeters: sportTotals.get(s)!,
+  }));
+
+  // Use a floating-point accumulator so rounding only happens once per sport
+  // rather than compounding across many tiny activities.
+  let accumFrac = 0;
+
+  for (const seg of sportSegments) {
+    const segFrac = data.goalDistanceMeters > 0
+      ? seg.distanceMeters / data.goalDistanceMeters
       : 0;
-    const endIdx = Math.min(
-      totalPts - 1,
-      Math.round((cursor / totalPts + actFrac) * totalPts),
-    );
-    const segPts = fullRingPts.slice(cursor, endIdx + 1);
-    const col = sportColor(act.sport);
+
+    const startIdx = Math.min(totalPts - 1, Math.round(accumFrac * totalPts));
+    accumFrac += segFrac;
+    const endIdx = Math.min(totalPts - 1, Math.round(accumFrac * totalPts));
+
+    const segPts = fullRingPts.slice(startIdx, endIdx + 1);
+    const col = sportColor(seg.sport);
 
     if (segPts.length >= 2) {
       // Bold solid line — no additive blending so colours stay pure
@@ -325,9 +345,9 @@ export function mountGlobeScene(
       if (glow) routesRoot.add(glow);
     }
 
-    // Transition dot at the START of each new segment (skip the very first)
-    if (cursor > 0) {
-      const junctionPt = fullRingPts[cursor]!.clone();
+    // Transition dot at sport boundaries (skip the very first)
+    if (startIdx > 0) {
+      const junctionPt = fullRingPts[startIdx]!.clone();
       const junctionOut = junctionPt.clone().normalize().multiplyScalar(0.012);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.014, 12, 12),
@@ -342,8 +362,6 @@ export function mountGlobeScene(
       dot.position.copy(junctionPt).add(junctionOut);
       routesRoot.add(dot);
     }
-
-    cursor = endIdx;
   }
 
   // ── "You are here" dot at leading edge of progress ────────────────────────
