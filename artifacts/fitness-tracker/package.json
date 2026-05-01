@@ -47,6 +47,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/three": "0.160.0",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
     "class-variance-authority": "catalog:",
@@ -75,11 +76,11 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "three": "0.160.0",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "maplibre-gl": "^4.7.1",
     "react-leaflet": "^5.0.0",
-    "react-map-gl": "^7.1.7"
+    "react-map-gl": "^7.1.7",
+    "three": "0.160.0"
   }
 }

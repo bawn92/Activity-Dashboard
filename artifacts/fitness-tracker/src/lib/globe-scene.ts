@@ -29,12 +29,8 @@ function latLonToVector3(lat: number, lon: number, radius: number) {
 }
 
 function slerpVec(a: THREE.Vector3, b: THREE.Vector3, t: number) {
-  const ax = a.x,
-    ay = a.y,
-    az = a.z;
-  const bx = b.x,
-    by = b.y,
-    bz = b.z;
+  const ax = a.x, ay = a.y, az = a.z;
+  const bx = b.x, by = b.y, bz = b.z;
   let dot = ax * bx + ay * by + az * bz;
   dot = Math.min(1, Math.max(-1, dot));
   const omega = Math.acos(dot);
@@ -107,6 +103,99 @@ function disposeObject(root: THREE.Object3D) {
   });
 }
 
+function addStarField(scene: THREE.Scene) {
+  const count = 2200;
+  const pos = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 30 + Math.random() * 20;
+    pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    pos[i * 3 + 2] = r * Math.cos(phi);
+    sizes[i] = Math.random();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.055,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.85,
+  });
+  scene.add(new THREE.Points(geo, mat));
+}
+
+function addGlobeGrid(group: THREE.Group) {
+  const r = GLOBE_RADIUS + 0.004;
+
+  const gridMat = new THREE.LineBasicMaterial({
+    color: 0x1e4a6a,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+  });
+  const equatorMat = new THREE.LineBasicMaterial({
+    color: 0x2a6090,
+    transparent: true,
+    opacity: 0.75,
+    depthWrite: false,
+  });
+
+  const LATS = [-60, -30, 0, 30, 60];
+  const LONS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+
+  for (const lat of LATS) {
+    const pts: THREE.Vector3[] = [];
+    for (let lon = 0; lon <= 360; lon += 2) {
+      pts.push(latLonToVector3(lat, lon, r));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.LineLoop(geo, lat === 0 ? equatorMat : gridMat));
+  }
+
+  for (const lon of LONS) {
+    const pts: THREE.Vector3[] = [];
+    for (let lat = -90; lat <= 90; lat += 2) {
+      pts.push(latLonToVector3(lat, lon, r));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.Line(geo, gridMat));
+  }
+}
+
+function addAtmosphere(group: THREE.Group) {
+  // Outer glow (backside rendering = visible from outside)
+  const outerMat = new THREE.MeshBasicMaterial({
+    color: 0x2255aa,
+    transparent: true,
+    opacity: 0.18,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  group.add(new THREE.Mesh(
+    new THREE.SphereGeometry(GLOBE_RADIUS * 1.18, 32, 32),
+    outerMat,
+  ));
+
+  // Thinner, brighter inner haze
+  const innerMat = new THREE.MeshBasicMaterial({
+    color: 0x4488cc,
+    transparent: true,
+    opacity: 0.10,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  group.add(new THREE.Mesh(
+    new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 32, 32),
+    innerMat,
+  ));
+}
+
 /**
  * Mounts the Three.js globe into `container`. Returns dispose.
  */
@@ -115,14 +204,13 @@ export function mountGlobeScene(
   data: GlobeDataResponse,
 ): () => void {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050508);
-  scene.fog = new THREE.FogExp2(0x06080f, 0.18);
+  scene.background = new THREE.Color(0x030509);
 
   const camera = new THREE.PerspectiveCamera(
     42,
     container.clientWidth / Math.max(container.clientHeight, 1),
     0.08,
-    40,
+    100,
   );
   camera.position.set(0, 0.35, 3.4);
 
@@ -135,43 +223,41 @@ export function mountGlobeScene(
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.2;
   container.appendChild(renderer.domElement);
+
+  addStarField(scene);
 
   const globeGroup = new THREE.Group();
   scene.add(globeGroup);
 
-  const icosphere = new THREE.IcosahedronGeometry(GLOBE_RADIUS, 3);
+  // ── Globe surface ──────────────────────────────────────────────────────────
+  const icosphere = new THREE.IcosahedronGeometry(GLOBE_RADIUS, 5);
   const faceMat = new THREE.MeshStandardMaterial({
-    color: 0x0c1018,
-    metalness: 0.55,
-    roughness: 0.42,
-    emissive: 0x0a1628,
-    emissiveIntensity: 0.35,
-    flatShading: true,
-    side: THREE.DoubleSide,
+    color: 0x0d2240,
+    metalness: 0.35,
+    roughness: 0.65,
+    emissive: 0x0a1e3a,
+    emissiveIntensity: 0.55,
   });
   globeGroup.add(new THREE.Mesh(icosphere, faceMat));
 
-  const edges = new THREE.EdgesGeometry(icosphere, 15);
-  const edgeMat = new THREE.LineBasicMaterial({
-    color: 0x2a3d52,
+  // Subtle faceted overlay for the low-poly look
+  const lowPolyGeo = new THREE.IcosahedronGeometry(GLOBE_RADIUS * 1.0005, 3);
+  const edgeMat = new THREE.MeshBasicMaterial({
+    color: 0x1a4060,
+    wireframe: true,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.18,
+    depthWrite: false,
   });
-  globeGroup.add(new THREE.LineSegments(edges, edgeMat));
+  globeGroup.add(new THREE.Mesh(lowPolyGeo, edgeMat));
 
-  globeGroup.add(
-    new THREE.Mesh(
-      new THREE.IcosahedronGeometry(GLOBE_RADIUS * 0.985, 2),
-      new THREE.MeshBasicMaterial({
-        color: 0x050a12,
-        transparent: true,
-        opacity: 0.9,
-      }),
-    ),
-  );
+  // ── Grid, atmosphere ───────────────────────────────────────────────────────
+  addGlobeGrid(globeGroup);
+  addAtmosphere(globeGroup);
 
+  // ── Routes ────────────────────────────────────────────────────────────────
   const routesRoot = new THREE.Group();
   globeGroup.add(routesRoot);
 
@@ -215,11 +301,11 @@ export function mountGlobeScene(
     const positions = buildRoutePositions(path, ROUTE_RADIUS, 56);
     if (positions.length < 2) return;
 
-    const glow = makeThickRouteLine(positions, color, 10, 0.22);
+    const glow = makeThickRouteLine(positions, color, 12, 0.25);
     glow.mat.blending = THREE.AdditiveBlending;
     lineMaterials.push(glow.mat);
 
-    const core = makeThickRouteLine(positions, color, 3.2, 0.92);
+    const core = makeThickRouteLine(positions, color, 3.5, 0.95);
     core.mat.blending = THREE.AdditiveBlending;
     lineMaterials.push(core.mat);
 
@@ -251,7 +337,7 @@ export function mountGlobeScene(
       new THREE.MeshStandardMaterial({
         color: 0xffffff,
         emissive: 0xff4d8d,
-        emissiveIntensity: 2.2,
+        emissiveIntensity: 2.5,
         metalness: 0.2,
         roughness: 0.3,
       }),
@@ -264,7 +350,7 @@ export function mountGlobeScene(
       new THREE.MeshBasicMaterial({
         color: 0xffb8e0,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.55,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       }),
@@ -288,23 +374,50 @@ export function mountGlobeScene(
     }
   }
 
-  const hemi = new THREE.HemisphereLight(0x7cf5ff, 0x18081a, 0.55);
+  // ── Lighting ───────────────────────────────────────────────────────────────
+  // Ambient fill so the dark side is never pitch black
+  scene.add(new THREE.AmbientLight(0x0d2040, 1.2));
+
+  // Hemisphere: warm sky / cool ground
+  const hemi = new THREE.HemisphereLight(0x8cf0ff, 0x1a0830, 0.9);
   scene.add(hemi);
-  const key = new THREE.DirectionalLight(0xe8f4ff, 0.45);
-  key.position.set(3, 2, 4);
+
+  // Key light (sun-like, slightly off-axis)
+  const key = new THREE.DirectionalLight(0xd8f0ff, 1.4);
+  key.position.set(3.5, 2, 4);
   scene.add(key);
-  const rim = new THREE.PointLight(0xff4d8d, 0.35, 8);
+
+  // Warm fill from the opposite side
+  const fill = new THREE.DirectionalLight(0xffd0a0, 0.3);
+  fill.position.set(-3, -1, -2);
+  scene.add(fill);
+
+  // Pink rim for the route-glow vibe
+  const rim = new THREE.PointLight(0xff4d8d, 0.5, 10);
   rim.position.set(-2.5, -1, 2);
   scene.add(rim);
 
   setLineResolutions();
 
+  // ── Animation ─────────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
   let raf = 0;
   function animate() {
     raf = requestAnimationFrame(animate);
     const dt = clock.getDelta();
-    globeGroup.rotation.y += dt * 0.12;
+    const t = clock.elapsedTime;
+
+    globeGroup.rotation.y += dt * 0.09;
+
+    // Pulse the Galway marker halo
+    if (markerRoot.children.length > 0) {
+      const halo = markerRoot.children[0];
+      if (halo) {
+        const pulse = 1.8 + Math.sin(t * 2.4) * 0.5;
+        halo.scale.setScalar(pulse);
+      }
+    }
+
     renderer.render(scene, camera);
   }
   animate();
