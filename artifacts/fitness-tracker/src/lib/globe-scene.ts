@@ -124,7 +124,7 @@ export function mountGlobeScene(
     0.08,
     40,
   );
-  camera.position.set(0, 0.35, 2.85);
+  camera.position.set(0, 0.35, 3.4);
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
