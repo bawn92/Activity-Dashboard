@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Activity as ActivityIcon } from "lucide-react";
+import { Activity as ActivityIcon, Globe2 } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +19,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/table" className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors" data-testid="link-nav-table">
                 Table
+              </Link>
+              <Link
+                href="/globe"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
+                data-testid="link-nav-globe"
+              >
+                <Globe2 className="w-3.5 h-3.5 opacity-80" aria-hidden />
+                Globe
               </Link>
             </nav>
           </div>
