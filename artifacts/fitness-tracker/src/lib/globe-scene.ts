@@ -301,24 +301,48 @@ export function mountGlobeScene(
   }
 
   // ── Draw per-sport coloured segments ───────────────────────────────────────
-  let cursor = 0; // index into fullRingPts
+  // Strategy: one BOLD solid line per sport (no glow wash that blends colours)
+  // plus small coloured spheres at each transition so boundaries are obvious.
+  let cursor = 0;
 
   for (const act of data.activities) {
     const actFrac = data.goalDistanceMeters > 0
       ? act.distanceMeters / data.goalDistanceMeters
       : 0;
-    const endIdx = Math.min(totalPts - 1, Math.round((cursor / totalPts + actFrac) * totalPts));
+    const endIdx = Math.min(
+      totalPts - 1,
+      Math.round((cursor / totalPts + actFrac) * totalPts),
+    );
     const segPts = fullRingPts.slice(cursor, endIdx + 1);
     const col = sportColor(act.sport);
 
     if (segPts.length >= 2) {
-      // Glow pass
-      const glow = makeThickLine(segPts, col, 14, 0.22);
-      if (glow) routesRoot.add(glow);
-      // Solid pass
-      const solid = makeThickLine(segPts, col, 4, 1.0, false);
+      // Bold solid line — no additive blending so colours stay pure
+      const solid = makeThickLine(segPts, col, 6, 1.0, false);
       if (solid) routesRoot.add(solid);
+      // Thin soft glow — narrow enough not to contaminate adjacent segments
+      const glow = makeThickLine(segPts, col, 3, 0.35);
+      if (glow) routesRoot.add(glow);
     }
+
+    // Transition dot at the START of each new segment (skip the very first)
+    if (cursor > 0) {
+      const junctionPt = fullRingPts[cursor]!.clone();
+      const junctionOut = junctionPt.clone().normalize().multiplyScalar(0.012);
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.014, 12, 12),
+        new THREE.MeshStandardMaterial({
+          color: col,
+          emissive: col,
+          emissiveIntensity: 1.5,
+          metalness: 0.1,
+          roughness: 0.3,
+        }),
+      );
+      dot.position.copy(junctionPt).add(junctionOut);
+      routesRoot.add(dot);
+    }
+
     cursor = endIdx;
   }
 
