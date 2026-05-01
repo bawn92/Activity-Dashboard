@@ -1,10 +1,19 @@
 import { Router, type IRouter } from "express";
-import { globeSampleData } from "../lib/globeSampleData";
+import { db, activitiesTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { buildJourneyResponse } from "../lib/globeSampleData";
 
 const router: IRouter = Router();
 
-router.get("/globe/data", (_req, res) => {
-  res.json(globeSampleData);
+router.get("/globe/data", async (_req, res) => {
+  const [row] = await db
+    .select({
+      total: sql<number>`COALESCE(SUM(${activitiesTable.distanceMeters}), 0)`,
+    })
+    .from(activitiesTable);
+
+  const total = Number(row?.total ?? 0);
+  res.json(buildJourneyResponse(total));
 });
 
 export default router;

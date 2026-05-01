@@ -36,10 +36,25 @@ export default function GlobePage() {
         <h1 className="max-w-[min(90vw,28rem)] text-balance font-medium text-2xl tracking-tight text-foreground sm:text-3xl">
           Around the World <span className="text-primary">·</span> From Galway
         </h1>
-        <p className="label-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          Run · Cycle · Swim
-        </p>
+        {data ? (
+          <p className="label-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="text-primary">{(data.totalDistanceMeters / 1000).toFixed(1)} km</span>
+            {" "}travelled · {(Math.max(data.goalDistanceMeters - data.totalDistanceMeters, 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })} km to go
+            {" · "}
+            <span>{((data.totalDistanceMeters / data.goalDistanceMeters) * 100).toFixed(2)}%</span>
+          </p>
+        ) : (
+          <p className="label-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            Run · Cycle · Swim
+          </p>
+        )}
       </header>
+
+      <div className="pointer-events-none absolute bottom-4 right-4 z-10 sm:bottom-6 sm:right-6">
+        <p className="label-mono rounded-md bg-background/40 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground backdrop-blur-sm">
+          Drag to rotate · Scroll to zoom
+        </p>
+      </div>
 
       {isPending ? (
         <div

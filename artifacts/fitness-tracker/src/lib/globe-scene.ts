@@ -2,17 +2,21 @@ import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import * as topojson from "topojson-client";
+import worldTopo from "world-atlas/countries-110m.json";
+import type { Topology, GeometryCollection } from "topojson-specification";
+import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GlobeDataResponse } from "@workspace/api-client-react";
 
-const COLORS = {
-  run: 0xff4d8d,
-  cycle: 0x39ffb4,
-  swim: 0x4da6ff,
-} as const;
+const COLOR_PROGRESS = 0xff4d8d;
+const COLOR_GOAL = 0x4488cc;
+const COLOR_GALWAY = 0xff4d8d;
 
 const GLOBE_RADIUS = 1;
-const ROUTE_RADIUS = GLOBE_RADIUS + 0.028;
-const MARKER_RADIUS = GLOBE_RADIUS + 0.055;
+const ROUTE_RADIUS = GLOBE_RADIUS + 0.01;
+const COUNTRIES_RADIUS = GLOBE_RADIUS + 0.006;
+const MARKER_RADIUS = GLOBE_RADIUS + 0.005;
 const DEG2RAD = Math.PI / 180;
 
 function latLonToUnit(lat: number, lon: number) {
@@ -28,48 +32,43 @@ function latLonToVector3(lat: number, lon: number, radius: number) {
   return latLonToUnit(lat, lon).multiplyScalar(radius);
 }
 
-function slerpVec(a: THREE.Vector3, b: THREE.Vector3, t: number) {
-  const ax = a.x, ay = a.y, az = a.z;
-  const bx = b.x, by = b.y, bz = b.z;
-  let dot = ax * bx + ay * by + az * bz;
-  dot = Math.min(1, Math.max(-1, dot));
-  const omega = Math.acos(dot);
-  if (omega < 1e-5) {
-    return new THREE.Vector3(
-      ax + (bx - ax) * t,
-      ay + (by - ay) * t,
-      az + (bz - az) * t,
-    ).normalize();
-  }
-  const s0 = Math.sin((1 - t) * omega) / Math.sin(omega);
-  const s1 = Math.sin(t * omega) / Math.sin(omega);
-  return new THREE.Vector3(
-    ax * s0 + bx * s1,
-    ay * s0 + by * s1,
-    az * s0 + bz * s1,
-  ).normalize();
-}
-
-function buildRoutePositions(
+/** Densely sample a [lon, lat] polyline onto a sphere, unwrapping date-line jumps. */
+function samplePathToSphere(
   path: [number, number][],
   radius: number,
-  segmentsPerLeg = 48,
-) {
-  const pts: THREE.Vector3[] = [];
-  if (path.length < 2) return pts;
-  for (let i = 0; i < path.length - 1; i++) {
-    const [lon0, lat0] = path[i]!;
-    const [lon1, lat1] = path[i + 1]!;
-    const v0 = latLonToUnit(lat0, lon0);
-    const v1 = latLonToUnit(lat1, lon1);
-    const startJ = i === 0 ? 0 : 1;
-    for (let j = startJ; j <= segmentsPerLeg; j++) {
-      const t = j / segmentsPerLeg;
-      const dir = slerpVec(v0, v1, t);
-      pts.push(dir.multiplyScalar(radius));
+  stepDeg = 1,
+): THREE.Vector3[] {
+  const out: THREE.Vector3[] = [];
+  if (path.length === 0) return out;
+
+  let prevLon = path[0]![0];
+  let unwrappedPrev = prevLon;
+  out.push(latLonToVector3(path[0]![1], unwrappedPrev, radius));
+
+  for (let i = 1; i < path.length; i++) {
+    const [rawLon, lat] = path[i]!;
+    let lon = rawLon;
+    // Unwrap so we always step east (or whatever direction the source intended)
+    while (lon - prevLon > 180) lon -= 360;
+    while (lon - prevLon < -180) lon += 360;
+    const startUnwrapped = unwrappedPrev;
+    const endUnwrapped = unwrappedPrev + (lon - prevLon);
+
+    const steps = Math.max(
+      1,
+      Math.ceil(Math.abs(endUnwrapped - startUnwrapped) / stepDeg),
+    );
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      const sLon = startUnwrapped + (endUnwrapped - startUnwrapped) * t;
+      const prevLat = path[i - 1]![1];
+      const sLat = prevLat + (lat - prevLat) * t;
+      out.push(latLonToVector3(sLat, sLon, radius));
     }
+    prevLon = lon;
+    unwrappedPrev = endUnwrapped;
   }
-  return pts;
+  return out;
 }
 
 function positionsToFlatArray(vectors: THREE.Vector3[]) {
@@ -81,14 +80,6 @@ function positionsToFlatArray(vectors: THREE.Vector3[]) {
     a[o++] = v.z;
   }
   return a;
-}
-
-function sportColor(sport: string) {
-  const k = sport.toLowerCase();
-  if (k === "run" || k === "running") return COLORS.run;
-  if (k === "cycle" || k === "cycling" || k === "bike") return COLORS.cycle;
-  if (k === "swim" || k === "swimming") return COLORS.swim;
-  return COLORS.run;
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -106,15 +97,13 @@ function disposeObject(root: THREE.Object3D) {
 function addStarField(scene: THREE.Scene) {
   const count = 2200;
   const pos = new Float32Array(count * 3);
-  const sizes = new Float32Array(count);
   for (let i = 0; i < count; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
     const r = 30 + Math.random() * 20;
-    pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
     pos[i * 3 + 2] = r * Math.cos(phi);
-    sizes[i] = Math.random();
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -128,46 +117,7 @@ function addStarField(scene: THREE.Scene) {
   scene.add(new THREE.Points(geo, mat));
 }
 
-function addGlobeGrid(group: THREE.Group) {
-  const r = GLOBE_RADIUS + 0.004;
-
-  const gridMat = new THREE.LineBasicMaterial({
-    color: 0x1e4a6a,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-  });
-  const equatorMat = new THREE.LineBasicMaterial({
-    color: 0x2a6090,
-    transparent: true,
-    opacity: 0.75,
-    depthWrite: false,
-  });
-
-  const LATS = [-60, -30, 0, 30, 60];
-  const LONS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
-
-  for (const lat of LATS) {
-    const pts: THREE.Vector3[] = [];
-    for (let lon = 0; lon <= 360; lon += 2) {
-      pts.push(latLonToVector3(lat, lon, r));
-    }
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    group.add(new THREE.LineLoop(geo, lat === 0 ? equatorMat : gridMat));
-  }
-
-  for (const lon of LONS) {
-    const pts: THREE.Vector3[] = [];
-    for (let lat = -90; lat <= 90; lat += 2) {
-      pts.push(latLonToVector3(lat, lon, r));
-    }
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    group.add(new THREE.Line(geo, gridMat));
-  }
-}
-
 function addAtmosphere(group: THREE.Group) {
-  // Outer glow (backside rendering = visible from outside)
   const outerMat = new THREE.MeshBasicMaterial({
     color: 0x2255aa,
     transparent: true,
@@ -176,12 +126,12 @@ function addAtmosphere(group: THREE.Group) {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  group.add(new THREE.Mesh(
-    new THREE.SphereGeometry(GLOBE_RADIUS * 1.18, 32, 32),
-    outerMat,
-  ));
-
-  // Thinner, brighter inner haze
+  group.add(
+    new THREE.Mesh(
+      new THREE.SphereGeometry(GLOBE_RADIUS * 1.18, 32, 32),
+      outerMat,
+    ),
+  );
   const innerMat = new THREE.MeshBasicMaterial({
     color: 0x4488cc,
     transparent: true,
@@ -190,10 +140,52 @@ function addAtmosphere(group: THREE.Group) {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  group.add(new THREE.Mesh(
-    new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 32, 32),
-    innerMat,
-  ));
+  group.add(
+    new THREE.Mesh(
+      new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 32, 32),
+      innerMat,
+    ),
+  );
+}
+
+/** Renders Natural Earth country outlines onto the globe surface. */
+function addCountryOutlines(group: THREE.Group) {
+  const topo = worldTopo as unknown as Topology<{
+    countries: GeometryCollection;
+  }>;
+  const fc = topojson.feature(topo, topo.objects.countries) as
+    | FeatureCollection<Geometry>
+    | Feature<Geometry>;
+  const features: Feature<Geometry>[] =
+    fc.type === "FeatureCollection" ? fc.features : [fc];
+
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x4d7da8,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+  });
+
+  function addRing(ring: number[][]) {
+    const lonLat = ring.map(
+      ([lon, lat]) => [lon, lat] as [number, number],
+    );
+    const pts = samplePathToSphere(lonLat, COUNTRIES_RADIUS, 2);
+    if (pts.length < 2) return;
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    group.add(new THREE.Line(geo, mat));
+  }
+
+  for (const feature of features) {
+    const geom = feature.geometry;
+    if (geom.type === "Polygon") {
+      for (const ring of geom.coordinates) addRing(ring);
+    } else if (geom.type === "MultiPolygon") {
+      for (const poly of geom.coordinates) {
+        for (const ring of poly) addRing(ring);
+      }
+    }
+  }
 }
 
 /**
@@ -214,11 +206,23 @@ export function mountGlobeScene(
   );
   camera.position.set(0, 0.35, 3.4);
 
-  const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: false,
-    powerPreference: "high-performance",
-  });
+  let renderer: THREE.WebGLRenderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: "high-performance",
+    });
+  } catch {
+    // No WebGL available — show a friendly placeholder and bail.
+    const fallback = document.createElement("div");
+    fallback.className = "absolute inset-0 flex items-center justify-center text-center text-sm text-muted-foreground p-6";
+    fallback.textContent = "Your browser couldn't start WebGL, so the globe can't be rendered here.";
+    container.appendChild(fallback);
+    return () => {
+      if (fallback.parentElement === container) container.removeChild(fallback);
+    };
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -226,43 +230,44 @@ export function mountGlobeScene(
   renderer.toneMappingExposure = 1.2;
   container.appendChild(renderer.domElement);
 
+  // ── Mouse / touch controls ─────────────────────────────────────────────────
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.rotateSpeed = 0.55;
+  controls.zoomSpeed = 0.7;
+  controls.minDistance = 1.6;
+  controls.maxDistance = 8;
+  controls.enablePan = false;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.4;
+  // Stop auto-rotation as soon as the user drags. Keep it off.
+  controls.addEventListener("start", () => {
+    controls.autoRotate = false;
+  });
+
   addStarField(scene);
 
   const globeGroup = new THREE.Group();
   scene.add(globeGroup);
 
   // ── Globe surface ──────────────────────────────────────────────────────────
-  const icosphere = new THREE.IcosahedronGeometry(GLOBE_RADIUS, 5);
+  const sphere = new THREE.SphereGeometry(GLOBE_RADIUS, 96, 64);
   const faceMat = new THREE.MeshStandardMaterial({
     color: 0x0d2240,
-    metalness: 0.35,
-    roughness: 0.65,
+    metalness: 0.3,
+    roughness: 0.7,
     emissive: 0x0a1e3a,
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 0.5,
   });
-  globeGroup.add(new THREE.Mesh(icosphere, faceMat));
+  globeGroup.add(new THREE.Mesh(sphere, faceMat));
 
-  // Subtle faceted overlay for the low-poly look
-  const lowPolyGeo = new THREE.IcosahedronGeometry(GLOBE_RADIUS * 1.0005, 3);
-  const edgeMat = new THREE.MeshBasicMaterial({
-    color: 0x1a4060,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.18,
-    depthWrite: false,
-  });
-  globeGroup.add(new THREE.Mesh(lowPolyGeo, edgeMat));
-
-  // ── Grid, atmosphere ───────────────────────────────────────────────────────
-  addGlobeGrid(globeGroup);
+  addCountryOutlines(globeGroup);
   addAtmosphere(globeGroup);
 
-  // ── Routes ────────────────────────────────────────────────────────────────
+  // ── Routes (journey + goal ring) ──────────────────────────────────────────
   const routesRoot = new THREE.Group();
   globeGroup.add(routesRoot);
-
-  const markerRoot = new THREE.Group();
-  globeGroup.add(markerRoot);
 
   const lineMaterials: LineMaterial[] = [];
 
@@ -272,11 +277,12 @@ export function mountGlobeScene(
     for (const m of lineMaterials) m.resolution.set(w, h);
   }
 
-  function makeThickRouteLine(
+  function makeThickLine(
     positions: THREE.Vector3[],
     colorHex: number,
     lineWidthPx: number,
     opacity: number,
+    additive = true,
   ) {
     const flat = positionsToFlatArray(positions);
     const geom = new LineGeometry();
@@ -290,110 +296,132 @@ export function mountGlobeScene(
       depthTest: true,
     });
     mat.worldUnits = false;
+    if (additive) mat.blending = THREE.AdditiveBlending;
     const line = new Line2(geom, mat);
     line.frustumCulled = false;
     line.computeLineDistances();
-    return { line, mat };
+    lineMaterials.push(mat);
+    return line;
   }
 
-  function addNeonRoute(path: [number, number][], sport: string) {
-    const color = sportColor(sport);
-    const positions = buildRoutePositions(path, ROUTE_RADIUS, 56);
-    if (positions.length < 2) return;
+  // Goal ring: the full eastward circle at start latitude (faded)
+  const goalRing: [number, number][] = [];
+  for (let i = 0; i <= 360; i += 1) {
+    goalRing.push([data.start.lon + i, data.start.lat]);
+  }
+  const goalPts = samplePathToSphere(goalRing, ROUTE_RADIUS - 0.002, 1);
+  routesRoot.add(makeThickLine(goalPts, COLOR_GOAL, 1.5, 0.35));
 
-    const glow = makeThickRouteLine(positions, color, 12, 0.25);
-    glow.mat.blending = THREE.AdditiveBlending;
-    lineMaterials.push(glow.mat);
-
-    const core = makeThickRouteLine(positions, color, 3.5, 0.95);
-    core.mat.blending = THREE.AdditiveBlending;
-    lineMaterials.push(core.mat);
-
-    routesRoot.add(glow.line);
-    routesRoot.add(core.line);
+  // Progress line: your real cumulative distance
+  if (data.journey.length >= 2) {
+    const progressPts = samplePathToSphere(data.journey, ROUTE_RADIUS, 0.5);
+    routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 14, 0.28));
+    routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 4, 1.0));
   }
 
-  function setGalwayMarker(lat: number, lon: number) {
-    disposeObject(markerRoot);
-    markerRoot.clear();
-    const p = latLonToVector3(lat, lon, MARKER_RADIUS);
+  // ── Galway beacon ─────────────────────────────────────────────────────────
+  const beaconRoot = new THREE.Group();
+  globeGroup.add(beaconRoot);
 
-    const halo = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.045, 0),
-      new THREE.MeshBasicMaterial({
-        color: 0xff9ec8,
-        transparent: true,
-        opacity: 0.25,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
-    halo.position.copy(p);
-    halo.scale.setScalar(2.2);
-    markerRoot.add(halo);
+  function setStartBeacon(lat: number, lon: number) {
+    disposeObject(beaconRoot);
+    beaconRoot.clear();
 
-    const core = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.022, 0),
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0xff4d8d,
-        emissiveIntensity: 2.5,
-        metalness: 0.2,
-        roughness: 0.3,
-      }),
-    );
-    core.position.copy(p);
-    markerRoot.add(core);
+    const surface = latLonToVector3(lat, lon, MARKER_RADIUS);
+    const up = surface.clone().normalize();
+    const beamHeight = 0.42;
+    const tip = surface.clone().add(up.clone().multiplyScalar(beamHeight));
 
+    // Vertical beacon beam (cylinder)
+    const beamGeo = new THREE.CylinderGeometry(0.005, 0.005, beamHeight, 12, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: COLOR_GALWAY,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+    beam.position.copy(surface).add(up.clone().multiplyScalar(beamHeight / 2));
+    beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+    beaconRoot.add(beam);
+
+    // Wide soft glow along the beam
+    const beamGlowGeo = new THREE.CylinderGeometry(0.022, 0.005, beamHeight, 12, 1, true);
+    const beamGlowMat = new THREE.MeshBasicMaterial({
+      color: COLOR_GALWAY,
+      transparent: true,
+      opacity: 0.18,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const beamGlow = new THREE.Mesh(beamGlowGeo, beamGlowMat);
+    beamGlow.position.copy(beam.position);
+    beamGlow.quaternion.copy(beam.quaternion);
+    beaconRoot.add(beamGlow);
+
+    // Glowing sphere at the tip
+    const tipMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: COLOR_GALWAY,
+      emissiveIntensity: 3.0,
+      metalness: 0.2,
+      roughness: 0.3,
+    });
+    const tipMesh = new THREE.Mesh(new THREE.SphereGeometry(0.025, 16, 16), tipMat);
+    tipMesh.position.copy(tip);
+    beaconRoot.add(tipMesh);
+
+    // Surface ring on the ground at Galway, oriented to the surface normal
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.038, 0.004, 8, 32),
+      new THREE.RingGeometry(0.045, 0.058, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0xffb8e0,
+        transparent: true,
+        opacity: 0.65,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    ring.position.copy(surface);
+    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
+    beaconRoot.add(ring);
+
+    // Pulsing halo ring (animated in tick)
+    const pulseRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.06, 0.072, 48),
       new THREE.MeshBasicMaterial({
         color: 0xffb8e0,
         transparent: true,
         opacity: 0.55,
-        depthWrite: false,
+        side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
+        depthWrite: false,
       }),
     );
-    ring.position.copy(p);
-    ring.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      p.clone().normalize(),
-    );
-    markerRoot.add(ring);
+    pulseRing.position.copy(surface);
+    pulseRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
+    pulseRing.userData.isPulse = true;
+    beaconRoot.add(pulseRing);
   }
 
-  const start = data.start;
-  if (Number.isFinite(start.lat) && Number.isFinite(start.lon)) {
-    setGalwayMarker(start.lat, start.lon);
-  }
-
-  for (const act of data.activities) {
-    if (act.path && act.path.length >= 2) {
-      addNeonRoute(act.path as [number, number][], act.sport);
-    }
+  if (Number.isFinite(data.start.lat) && Number.isFinite(data.start.lon)) {
+    setStartBeacon(data.start.lat, data.start.lon);
   }
 
   // ── Lighting ───────────────────────────────────────────────────────────────
-  // Ambient fill so the dark side is never pitch black
   scene.add(new THREE.AmbientLight(0x0d2040, 1.2));
-
-  // Hemisphere: warm sky / cool ground
   const hemi = new THREE.HemisphereLight(0x8cf0ff, 0x1a0830, 0.9);
   scene.add(hemi);
-
-  // Key light (sun-like, slightly off-axis)
   const key = new THREE.DirectionalLight(0xd8f0ff, 1.4);
   key.position.set(3.5, 2, 4);
   scene.add(key);
-
-  // Warm fill from the opposite side
   const fill = new THREE.DirectionalLight(0xffd0a0, 0.3);
   fill.position.set(-3, -1, -2);
   scene.add(fill);
-
-  // Pink rim for the route-glow vibe
-  const rim = new THREE.PointLight(0xff4d8d, 0.5, 10);
+  const rim = new THREE.PointLight(COLOR_GALWAY, 0.5, 10);
   rim.position.set(-2.5, -1, 2);
   scene.add(rim);
 
@@ -404,19 +432,21 @@ export function mountGlobeScene(
   let raf = 0;
   function animate() {
     raf = requestAnimationFrame(animate);
-    const dt = clock.getDelta();
-    const t = clock.elapsedTime;
+    const t = clock.getElapsedTime();
 
-    globeGroup.rotation.y += dt * 0.09;
+    controls.update();
 
-    // Pulse the Galway marker halo
-    if (markerRoot.children.length > 0) {
-      const halo = markerRoot.children[0];
-      if (halo) {
-        const pulse = 1.8 + Math.sin(t * 2.4) * 0.5;
-        halo.scale.setScalar(pulse);
+    // Pulse the ground halo ring around Galway
+    beaconRoot.traverse((o) => {
+      if (o.userData.isPulse) {
+        const phase = (t * 0.8) % 1;
+        const scale = 1 + phase * 1.4;
+        o.scale.setScalar(scale);
+        const opacity = 0.55 * (1 - phase);
+        const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        if (m) m.opacity = opacity;
       }
-    }
+    });
 
     renderer.render(scene, camera);
   }
@@ -435,6 +465,7 @@ export function mountGlobeScene(
   return () => {
     cancelAnimationFrame(raf);
     window.removeEventListener("resize", onResize);
+    controls.dispose();
     disposeObject(globeGroup);
     scene.clear();
     renderer.dispose();

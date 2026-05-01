@@ -20,6 +20,7 @@ A private fitness activity web app where users upload Garmin .fit files to track
 
 1. **Upload page** (`/`) — drag-and-drop .fit file upload, overall stats summary, activity list
 2. **Activity detail** (`/activities/:id`) — summary metrics, Leaflet GPS route map, Recharts time-series charts (heart rate, altitude, cadence, speed)
+3. **Globe page** (`/globe`) — Three.js 3D globe with country outlines (TopoJSON via `world-atlas`), OrbitControls (drag/scroll), and a "fake journey from Galway around the world": the bright pink line is a path extending east at Galway's latitude whose real-world length equals the user's total logged activity distance; a faded ring shows the full circumnavigation goal at that latitude. Backend `GET /api/globe/data` sums `activities.distance_meters` and returns `{ start, totalDistanceMeters, goalDistanceMeters, journey: [[lon, lat], ...] }`.
 
 ## Tech Stack
 

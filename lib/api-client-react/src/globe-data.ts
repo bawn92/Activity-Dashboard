@@ -11,15 +11,19 @@ import type { ErrorType } from "./custom-fetch";
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
-/** `GET /api/globe/data` — start location + activity paths `[[lon, lat], ...]`. */
-export type GlobeActivity = {
-  sport: "run" | "cycle" | "swim" | string;
-  path: [number, number][];
-};
-
+/**
+ * `GET /api/globe/data` — "around the world from Galway" journey.
+ *
+ * `journey` is a path of `[lon, lat]` points starting at `start`, going
+ * eastward at the start latitude. Its real-world length equals
+ * `totalDistanceMeters`. `goalDistanceMeters` is the full circumnavigation
+ * distance at that latitude (back to `start`).
+ */
 export type GlobeDataResponse = {
   start: { name: string; lat: number; lon: number };
-  activities: GlobeActivity[];
+  totalDistanceMeters: number;
+  goalDistanceMeters: number;
+  journey: [number, number][];
 };
 
 export const getGlobeDataUrl = () => {
