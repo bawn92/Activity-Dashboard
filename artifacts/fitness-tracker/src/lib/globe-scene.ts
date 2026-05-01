@@ -254,16 +254,38 @@ export function mountGlobeScene(
   const routesRoot = new THREE.Group();
   globeGroup.add(routesRoot);
 
-  // ── Build equatorial ring from Galway's longitude going east ───────────────
-  // 720 segments = 0.5° resolution, clean smooth circle
-  const RING_SEGS = 720;
-  const startLon = data.start.lon; // -9.06
+  // ── Build a great-circle ring starting at Galway going due east ───────────
+  // Any great circle has circumference = Earth's full equatorial circumference,
+  // so goalDistanceMeters is unchanged. The path physically passes through
+  // Galway (first and last point) and arcs through India, the Pacific, North
+  // America, and back — the classic "around the world" track.
+  //
+  // Math: Q(θ) = cos(θ)·P + sin(θ)·E  where
+  //   P = Galway unit position in THREE coords
+  //   E = unit east tangent at Galway in THREE coords
+  //   θ ∈ [0, 2π]
+  const φ = data.start.lat * DEG2RAD;
+  const λ = data.start.lon * DEG2RAD;
+  // Galway position (THREE: x=cos(lat)cos(lon), y=sin(lat), z=-cos(lat)sin(lon))
+  const Px = Math.cos(φ) * Math.cos(λ);
+  const Py = Math.sin(φ);
+  const Pz = -Math.cos(φ) * Math.sin(λ);
+  // East tangent (derivative of position w.r.t. lon, normalised to unit length)
+  const Ex = -Math.sin(λ);
+  const Ey = 0;
+  const Ez = -Math.cos(λ);
 
-  const fullRing: [number, number][] = [];
+  const RING_SEGS = 720;
+  const fullRingPts: THREE.Vector3[] = [];
   for (let i = 0; i <= RING_SEGS; i++) {
-    fullRing.push([startLon + (i / RING_SEGS) * 360, 0]);
+    const θ = (i / RING_SEGS) * Math.PI * 2;
+    const c = Math.cos(θ), s = Math.sin(θ);
+    fullRingPts.push(new THREE.Vector3(
+      (c * Px + s * Ex) * ROUTE_RADIUS,
+      (c * Py + s * Ey) * ROUTE_RADIUS,
+      (c * Pz + s * Ez) * ROUTE_RADIUS,
+    ));
   }
-  const fullRingPts = samplePathToSphere(fullRing, ROUTE_RADIUS, 0.5);
   const totalPts = fullRingPts.length;
 
   // ── Draw "remaining" faded ring first (background) ─────────────────────────
