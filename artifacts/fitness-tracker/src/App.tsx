@@ -8,6 +8,7 @@ import ActivitiesListPage from "@/pages/activities-list";
 import ActivitiesTablePage from "@/pages/activities-table";
 import ActivityDetail from "@/pages/activity";
 import { ActivitySharePage } from "@/pages/activity-share";
+import GlobePage from "@/pages/globe";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/activities" component={ActivitiesListPage} />
       <Route path="/activities/:id/share" component={ActivitySharePage} />
       <Route path="/activities/:id" component={ActivityDetail} />
+      <Route path="/globe" component={GlobePage} />
       <Route component={NotFound} />
     </Switch>
   );
