@@ -30,7 +30,9 @@ const BATCH_SIZE = 10;
 /**
  * Persist a single .fit file end-to-end: dedupe by SHA-256 of decompressed
  * bytes, parse, store the .fit blob in object storage, and insert the
- * activity + data points. Used by both the single and batch upload routes.
+ * activity + data points. Currently used only by the batch upload route;
+ * the single-upload route still uses its pre-existing inline implementation
+ * to preserve its richer 200-with-existing-activity response shape.
  */
 async function persistFitFile(fitBuffer: Buffer): Promise<
   | { status: "duplicate"; activityId: number }

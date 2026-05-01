@@ -26,6 +26,7 @@ import type {
   RenderJob,
   StorageUploadPresignedUrl,
   StorageUploadRequestBody,
+  UploadActivityBatchBody,
   UploadActivityBatchResponse,
 } from "./api.schemas";
 
@@ -285,11 +286,18 @@ export const getUploadActivityBatchUrl = () => {
 };
 
 export const uploadActivityBatch = async (
+  uploadActivityBatchBody: UploadActivityBatchBody,
   options?: RequestInit,
 ): Promise<UploadActivityBatchResponse> => {
+  const formData = new FormData();
+  uploadActivityBatchBody.files.forEach((value) =>
+    formData.append(`files`, value),
+  );
+
   return customFetch<UploadActivityBatchResponse>(getUploadActivityBatchUrl(), {
     ...options,
     method: "POST",
+    body: formData,
   });
 };
 
@@ -300,14 +308,14 @@ export const getUploadActivityBatchMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof uploadActivityBatch>>,
     TError,
-    void,
+    { data: BodyType<UploadActivityBatchBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof uploadActivityBatch>>,
   TError,
-  void,
+  { data: BodyType<UploadActivityBatchBody> },
   TContext
 > => {
   const mutationKey = ["uploadActivityBatch"];
@@ -321,9 +329,11 @@ export const getUploadActivityBatchMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof uploadActivityBatch>>,
-    void
-  > = () => {
-    return uploadActivityBatch(requestOptions);
+    { data: BodyType<UploadActivityBatchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadActivityBatch(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -332,7 +342,7 @@ export const getUploadActivityBatchMutationOptions = <
 export type UploadActivityBatchMutationResult = NonNullable<
   Awaited<ReturnType<typeof uploadActivityBatch>>
 >;
-
+export type UploadActivityBatchMutationBody = BodyType<UploadActivityBatchBody>;
 export type UploadActivityBatchMutationError = ErrorType<ErrorResponse>;
 
 /**
@@ -345,14 +355,14 @@ export const useUploadActivityBatch = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof uploadActivityBatch>>,
     TError,
-    void,
+    { data: BodyType<UploadActivityBatchBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof uploadActivityBatch>>,
   TError,
-  void,
+  { data: BodyType<UploadActivityBatchBody> },
   TContext
 > => {
   return useMutation(getUploadActivityBatchMutationOptions(options));

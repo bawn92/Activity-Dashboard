@@ -52,6 +52,16 @@ decompressed bytes, and returns per-file results plus aggregate counts.
 
  * @summary Upload a batch of .fit or .fit.gz files
  */
+export const uploadActivityBatchBodyFilesMax = 10;
+
+export const UploadActivityBatchBody = zod.object({
+  files: zod
+    .array(zod.instanceof(File))
+    .min(1)
+    .max(uploadActivityBatchBodyFilesMax)
+    .describe("Up to 10 .fit or .fit.gz files"),
+});
+
 export const UploadActivityBatchResponse = zod.object({
   success: zod.number(),
   duplicate: zod.number(),

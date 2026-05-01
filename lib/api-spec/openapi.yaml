@@ -83,6 +83,22 @@ paths:
         request under the field name 'files'. The server processes them
         sequentially, decompresses gzip as needed, dedupes by SHA-256 of the
         decompressed bytes, and returns per-file results plus aggregate counts.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  description: Up to 10 .fit or .fit.gz files
+                  minItems: 1
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
       responses:
         "200":
           description: Per-file results plus aggregate counts

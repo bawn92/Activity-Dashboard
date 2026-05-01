@@ -266,3 +266,12 @@ export interface StorageUploadPresignedUrl {
   uploadURL: string;
   objectPath: string;
 }
+
+export type UploadActivityBatchBody = {
+  /**
+   * Up to 10 .fit or .fit.gz files
+   * @minItems 1
+   * @maxItems 10
+   */
+  files: Blob[];
+};
