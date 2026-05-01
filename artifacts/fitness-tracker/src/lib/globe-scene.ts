@@ -9,30 +9,45 @@ import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { GlobeDataResponse } from "@workspace/api-client-react";
 
-const COLOR_PROGRESS = 0xff4d8d;
-const COLOR_GOAL = 0x4488cc;
-const COLOR_GALWAY = 0xff4d8d;
+// ── Sport colours ──────────────────────────────────────────────────────────────
+const SPORT_COLORS: Record<string, number> = {
+  running: 0xff4d6a,
+  run: 0xff4d6a,
+  cycling: 0x40dfaa,
+  cycle: 0x40dfaa,
+  biking: 0x40dfaa,
+  bike: 0x40dfaa,
+  swimming: 0x4db8ff,
+  swim: 0x4db8ff,
+  open_water_swimming: 0x4db8ff,
+  default: 0xffd060,
+};
 
+function sportColor(sport: string): number {
+  const key = sport.toLowerCase().replace(/[-\s]/g, "_");
+  for (const [k, v] of Object.entries(SPORT_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  return SPORT_COLORS.default!;
+}
+
+// ── Globe geometry constants ───────────────────────────────────────────────────
 const GLOBE_RADIUS = 1;
-const ROUTE_RADIUS = GLOBE_RADIUS + 0.01;
+const ROUTE_RADIUS = GLOBE_RADIUS + 0.012;
 const COUNTRIES_RADIUS = GLOBE_RADIUS + 0.006;
-const MARKER_RADIUS = GLOBE_RADIUS + 0.005;
 const DEG2RAD = Math.PI / 180;
 
-function latLonToUnit(lat: number, lon: number) {
+function latLonToVector3(lat: number, lon: number, radius: number) {
   const φ = lat * DEG2RAD;
   const θ = lon * DEG2RAD;
-  const x = Math.cos(φ) * Math.cos(θ);
-  const y = Math.sin(φ);
-  const z = -Math.cos(φ) * Math.sin(θ);
-  return new THREE.Vector3(x, y, z);
+  return new THREE.Vector3(
+    radius * Math.cos(φ) * Math.cos(θ),
+    radius * Math.sin(φ),
+    -radius * Math.cos(φ) * Math.sin(θ),
+  );
 }
 
-function latLonToVector3(lat: number, lon: number, radius: number) {
-  return latLonToUnit(lat, lon).multiplyScalar(radius);
-}
-
-/** Densely sample a [lon, lat] polyline onto a sphere, unwrapping date-line jumps. */
+/** Sample a [lon, lat] polyline onto the sphere, unwrapping date-line jumps. */
 function samplePathToSphere(
   path: [number, number][],
   radius: number,
@@ -48,149 +63,100 @@ function samplePathToSphere(
   for (let i = 1; i < path.length; i++) {
     const [rawLon, lat] = path[i]!;
     let lon = rawLon;
-    // Unwrap so we always step east (or whatever direction the source intended)
     while (lon - prevLon > 180) lon -= 360;
     while (lon - prevLon < -180) lon += 360;
-    const startUnwrapped = unwrappedPrev;
-    const endUnwrapped = unwrappedPrev + (lon - prevLon);
-
-    const steps = Math.max(
-      1,
-      Math.ceil(Math.abs(endUnwrapped - startUnwrapped) / stepDeg),
-    );
+    const startU = unwrappedPrev;
+    const endU = unwrappedPrev + (lon - prevLon);
+    const steps = Math.max(1, Math.ceil(Math.abs(endU - startU) / stepDeg));
     for (let s = 1; s <= steps; s++) {
       const t = s / steps;
-      const sLon = startUnwrapped + (endUnwrapped - startUnwrapped) * t;
+      const sLon = startU + (endU - startU) * t;
       const prevLat = path[i - 1]![1];
       const sLat = prevLat + (lat - prevLat) * t;
       out.push(latLonToVector3(sLat, sLon, radius));
     }
     prevLon = lon;
-    unwrappedPrev = endUnwrapped;
+    unwrappedPrev = endU;
   }
   return out;
 }
 
-function positionsToFlatArray(vectors: THREE.Vector3[]) {
+function positionsToFlat(vectors: THREE.Vector3[]) {
   const a = new Float32Array(vectors.length * 3);
   let o = 0;
-  for (const v of vectors) {
-    a[o++] = v.x;
-    a[o++] = v.y;
-    a[o++] = v.z;
-  }
+  for (const v of vectors) { a[o++] = v.x; a[o++] = v.y; a[o++] = v.z; }
   return a;
 }
 
 function disposeObject(root: THREE.Object3D) {
   root.traverse((o) => {
-    const meshLike = o as THREE.Mesh;
-    if (meshLike.geometry) meshLike.geometry.dispose();
-    const m = meshLike.material;
-    if (m) {
-      if (Array.isArray(m)) m.forEach((x) => x.dispose());
-      else m.dispose();
-    }
+    const m = o as THREE.Mesh;
+    if (m.geometry) m.geometry.dispose();
+    const mat = m.material;
+    if (mat) (Array.isArray(mat) ? mat : [mat]).forEach((x) => x.dispose());
   });
 }
+
+// ── Scene helpers ──────────────────────────────────────────────────────────────
 
 function addStarField(scene: THREE.Scene) {
   const count = 2200;
   const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
+    const θ = Math.random() * Math.PI * 2;
+    const φ = Math.acos(2 * Math.random() - 1);
     const r = 30 + Math.random() * 20;
-    pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    pos[i * 3 + 2] = r * Math.cos(phi);
+    pos[i * 3] = r * Math.sin(φ) * Math.cos(θ);
+    pos[i * 3 + 1] = r * Math.sin(φ) * Math.sin(θ);
+    pos[i * 3 + 2] = r * Math.cos(φ);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  const mat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.055,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.85,
-  });
-  scene.add(new THREE.Points(geo, mat));
+  scene.add(new THREE.Points(geo, new THREE.PointsMaterial({
+    color: 0xffffff, size: 0.055, sizeAttenuation: true, transparent: true, opacity: 0.85,
+  })));
 }
 
 function addAtmosphere(group: THREE.Group) {
-  const outerMat = new THREE.MeshBasicMaterial({
-    color: 0x2255aa,
-    transparent: true,
-    opacity: 0.18,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  group.add(
-    new THREE.Mesh(
-      new THREE.SphereGeometry(GLOBE_RADIUS * 1.18, 32, 32),
-      outerMat,
-    ),
-  );
-  const innerMat = new THREE.MeshBasicMaterial({
-    color: 0x4488cc,
-    transparent: true,
-    opacity: 0.10,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  group.add(
-    new THREE.Mesh(
-      new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 32, 32),
-      innerMat,
-    ),
-  );
+  group.add(new THREE.Mesh(
+    new THREE.SphereGeometry(GLOBE_RADIUS * 1.18, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0x2255aa, transparent: true, opacity: 0.18, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+  ));
+  group.add(new THREE.Mesh(
+    new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0x4488cc, transparent: true, opacity: 0.10, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+  ));
 }
 
-/** Renders Natural Earth country outlines onto the globe surface. */
 function addCountryOutlines(group: THREE.Group) {
-  const topo = worldTopo as unknown as Topology<{
-    countries: GeometryCollection;
-  }>;
+  const topo = worldTopo as unknown as Topology<{ countries: GeometryCollection }>;
   const fc = topojson.feature(topo, topo.objects.countries) as
-    | FeatureCollection<Geometry>
-    | Feature<Geometry>;
+    | FeatureCollection<Geometry> | Feature<Geometry>;
   const features: Feature<Geometry>[] =
     fc.type === "FeatureCollection" ? fc.features : [fc];
 
   const mat = new THREE.LineBasicMaterial({
-    color: 0x4d7da8,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
+    color: 0x4d7da8, transparent: true, opacity: 0.55, depthWrite: false,
   });
 
   function addRing(ring: number[][]) {
-    const lonLat = ring.map(
-      ([lon, lat]) => [lon, lat] as [number, number],
-    );
-    const pts = samplePathToSphere(lonLat, COUNTRIES_RADIUS, 2);
+    const pts = samplePathToSphere(ring as [number, number][], COUNTRIES_RADIUS, 2);
     if (pts.length < 2) return;
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    group.add(new THREE.Line(geo, mat));
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
   }
 
   for (const feature of features) {
     const geom = feature.geometry;
     if (geom.type === "Polygon") {
-      for (const ring of geom.coordinates) addRing(ring);
+      geom.coordinates.forEach(addRing);
     } else if (geom.type === "MultiPolygon") {
-      for (const poly of geom.coordinates) {
-        for (const ring of poly) addRing(ring);
-      }
+      geom.coordinates.forEach((poly) => poly.forEach(addRing));
     }
   }
 }
 
-/**
- * Mounts the Three.js globe into `container`. Returns dispose.
- */
+// ── Main export ────────────────────────────────────────────────────────────────
+
 export function mountGlobeScene(
   container: HTMLElement,
   data: GlobeDataResponse,
@@ -201,28 +167,21 @@ export function mountGlobeScene(
   const camera = new THREE.PerspectiveCamera(
     42,
     container.clientWidth / Math.max(container.clientHeight, 1),
-    0.08,
-    100,
+    0.08, 100,
   );
-  camera.position.set(0, 0.35, 3.4);
+  camera.position.set(0, 0.2, 3.4);
 
   let renderer: THREE.WebGLRenderer;
   try {
-    renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: false,
-      powerPreference: "high-performance",
-    });
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
   } catch {
-    // No WebGL available — show a friendly placeholder and bail.
-    const fallback = document.createElement("div");
-    fallback.className = "absolute inset-0 flex items-center justify-center text-center text-sm text-muted-foreground p-6";
-    fallback.textContent = "Your browser couldn't start WebGL, so the globe can't be rendered here.";
-    container.appendChild(fallback);
-    return () => {
-      if (fallback.parentElement === container) container.removeChild(fallback);
-    };
+    const msg = document.createElement("div");
+    msg.className = "absolute inset-0 flex items-center justify-center text-sm text-muted-foreground p-6 text-center";
+    msg.textContent = "WebGL is not available in this environment.";
+    container.appendChild(msg);
+    return () => { if (msg.parentElement === container) container.removeChild(msg); };
   }
+
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -230,7 +189,7 @@ export function mountGlobeScene(
   renderer.toneMappingExposure = 1.2;
   container.appendChild(renderer.domElement);
 
-  // ── Mouse / touch controls ─────────────────────────────────────────────────
+  // OrbitControls — drag to rotate, scroll to zoom, stop auto-rotate on interaction
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
@@ -241,59 +200,47 @@ export function mountGlobeScene(
   controls.enablePan = false;
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.4;
-  // Stop auto-rotation as soon as the user drags. Keep it off.
-  controls.addEventListener("start", () => {
-    controls.autoRotate = false;
-  });
+  controls.addEventListener("start", () => { controls.autoRotate = false; });
 
   addStarField(scene);
 
   const globeGroup = new THREE.Group();
   scene.add(globeGroup);
 
-  // ── Globe surface ──────────────────────────────────────────────────────────
-  const sphere = new THREE.SphereGeometry(GLOBE_RADIUS, 96, 64);
-  const faceMat = new THREE.MeshStandardMaterial({
-    color: 0x0d2240,
-    metalness: 0.3,
-    roughness: 0.7,
-    emissive: 0x0a1e3a,
-    emissiveIntensity: 0.5,
-  });
-  globeGroup.add(new THREE.Mesh(sphere, faceMat));
+  // Globe surface
+  globeGroup.add(new THREE.Mesh(
+    new THREE.SphereGeometry(GLOBE_RADIUS, 96, 64),
+    new THREE.MeshStandardMaterial({
+      color: 0x0d2240, metalness: 0.3, roughness: 0.7,
+      emissive: 0x0a1e3a, emissiveIntensity: 0.5,
+    }),
+  ));
 
   addCountryOutlines(globeGroup);
   addAtmosphere(globeGroup);
 
-  // ── Routes (journey + goal ring) ──────────────────────────────────────────
-  const routesRoot = new THREE.Group();
-  globeGroup.add(routesRoot);
-
+  // ── Line rendering helpers ─────────────────────────────────────────────────
   const lineMaterials: LineMaterial[] = [];
 
   function setLineResolutions() {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    for (const m of lineMaterials) m.resolution.set(w, h);
+    const w = container.clientWidth, h = container.clientHeight;
+    lineMaterials.forEach((m) => m.resolution.set(w, h));
   }
 
   function makeThickLine(
-    positions: THREE.Vector3[],
+    pts: THREE.Vector3[],
     colorHex: number,
-    lineWidthPx: number,
+    widthPx: number,
     opacity: number,
     additive = true,
   ) {
-    const flat = positionsToFlatArray(positions);
+    if (pts.length < 2) return null;
     const geom = new LineGeometry();
-    geom.setPositions(flat);
+    geom.setPositions(positionsToFlat(pts));
     const mat = new LineMaterial({
-      color: colorHex,
-      linewidth: lineWidthPx,
-      transparent: true,
-      opacity,
-      depthWrite: false,
-      depthTest: true,
+      color: colorHex, linewidth: widthPx,
+      transparent: true, opacity,
+      depthWrite: false, depthTest: true,
     });
     mat.worldUnits = false;
     if (additive) mat.blending = THREE.AdditiveBlending;
@@ -304,203 +251,157 @@ export function mountGlobeScene(
     return line;
   }
 
-  // Build a full latitude ring around the world from Galway (back to Galway).
-  // Then split it into two segments: the portion equal to the user's real
-  // travelled distance is rendered as the bright "progress" line, and the
-  // remainder is rendered as the faded "to-go" line.
-  const ringSegments = 720; // 0.5° resolution
+  const routesRoot = new THREE.Group();
+  globeGroup.add(routesRoot);
+
+  // ── Build equatorial ring from Galway's longitude going east ───────────────
+  // 720 segments = 0.5° resolution, clean smooth circle
+  const RING_SEGS = 720;
+  const startLon = data.start.lon; // -9.06
+
   const fullRing: [number, number][] = [];
-  for (let i = 0; i <= ringSegments; i += 1) {
-    fullRing.push([data.start.lon + (i / ringSegments) * 360, data.start.lat]);
+  for (let i = 0; i <= RING_SEGS; i++) {
+    fullRing.push([startLon + (i / RING_SEGS) * 360, 0]);
   }
   const fullRingPts = samplePathToSphere(fullRing, ROUTE_RADIUS, 0.5);
+  const totalPts = fullRingPts.length;
 
-  const fraction = Math.min(
-    1,
-    Math.max(
-      0,
-      data.goalDistanceMeters > 0
-        ? data.totalDistanceMeters / data.goalDistanceMeters
-        : 0,
-    ),
-  );
-  const splitIdx = Math.max(
-    1,
-    Math.min(fullRingPts.length - 1, Math.round(fullRingPts.length * fraction)),
-  );
-
-  const progressPts = fullRingPts.slice(0, splitIdx + 1);
+  // ── Draw "remaining" faded ring first (background) ─────────────────────────
+  const fraction = data.goalDistanceMeters > 0
+    ? Math.min(1, Math.max(0, data.totalDistanceMeters / data.goalDistanceMeters))
+    : 0;
+  const splitIdx = Math.min(totalPts - 1, Math.max(1, Math.round(totalPts * fraction)));
   const remainingPts = fullRingPts.slice(splitIdx);
 
-  // Faded "remaining" segment: shows the rest of the world to circumnavigate
   if (remainingPts.length >= 2) {
-    routesRoot.add(makeThickLine(remainingPts, COLOR_GOAL, 2, 0.45));
+    const l = makeThickLine(remainingPts, 0x2a4a70, 2, 0.55, false);
+    if (l) routesRoot.add(l);
   }
 
-  // Bright "progress" segment: equal in length to your real total distance
-  if (progressPts.length >= 2) {
-    routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 14, 0.28));
-    routesRoot.add(makeThickLine(progressPts, COLOR_PROGRESS, 5, 1.0));
+  // ── Draw per-sport coloured segments ───────────────────────────────────────
+  let cursor = 0; // index into fullRingPts
+
+  for (const act of data.activities) {
+    const actFrac = data.goalDistanceMeters > 0
+      ? act.distanceMeters / data.goalDistanceMeters
+      : 0;
+    const endIdx = Math.min(totalPts - 1, Math.round((cursor / totalPts + actFrac) * totalPts));
+    const segPts = fullRingPts.slice(cursor, endIdx + 1);
+    const col = sportColor(act.sport);
+
+    if (segPts.length >= 2) {
+      // Glow pass
+      const glow = makeThickLine(segPts, col, 14, 0.22);
+      if (glow) routesRoot.add(glow);
+      // Solid pass
+      const solid = makeThickLine(segPts, col, 4, 1.0, false);
+      if (solid) routesRoot.add(solid);
+    }
+    cursor = endIdx;
   }
 
-  // "You are here" head marker at the leading edge of the progress segment
-  if (fraction > 0 && progressPts.length > 0) {
-    const head = progressPts[progressPts.length - 1]!.clone();
-    const headDir = head.clone().normalize();
-    const headMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.018, 16, 16),
+  // ── "You are here" dot at leading edge of progress ────────────────────────
+  if (splitIdx > 0 && splitIdx < totalPts) {
+    const headPt = fullRingPts[splitIdx]!.clone();
+    const outward = headPt.clone().normalize().multiplyScalar(0.018);
+
+    const dotMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.022, 16, 16),
       new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        emissive: COLOR_PROGRESS,
-        emissiveIntensity: 2.5,
-        metalness: 0.2,
-        roughness: 0.4,
+        emissive: 0xffffff,
+        emissiveIntensity: 2.0,
+        metalness: 0.1, roughness: 0.3,
       }),
     );
-    headMesh.position.copy(head).add(headDir.clone().multiplyScalar(0.012));
-    routesRoot.add(headMesh);
+    dotMesh.position.copy(headPt).add(outward);
+    routesRoot.add(dotMesh);
 
-    // Soft halo behind it
-    const headHalo = new THREE.Mesh(
-      new THREE.SphereGeometry(0.045, 16, 16),
+    const halo = new THREE.Mesh(
+      new THREE.SphereGeometry(0.055, 16, 16),
       new THREE.MeshBasicMaterial({
-        color: COLOR_PROGRESS,
-        transparent: true,
-        opacity: 0.18,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
+        color: 0xffffff,
+        transparent: true, opacity: 0.15,
+        blending: THREE.AdditiveBlending, depthWrite: false,
       }),
     );
-    headHalo.position.copy(headMesh.position);
-    routesRoot.add(headHalo);
+    halo.position.copy(dotMesh.position);
+    halo.userData.isHalo = true;
+    routesRoot.add(halo);
   }
 
-  // ── Galway beacon ─────────────────────────────────────────────────────────
-  const beaconRoot = new THREE.Group();
-  globeGroup.add(beaconRoot);
+  // ── Small Galway start ring (no beam) ──────────────────────────────────────
+  const galwayPos = latLonToVector3(data.start.lat, data.start.lon, GLOBE_RADIUS + 0.005);
+  const galwayUp = galwayPos.clone().normalize();
 
-  function setStartBeacon(lat: number, lon: number) {
-    disposeObject(beaconRoot);
-    beaconRoot.clear();
+  const startDot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.014, 16, 16),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff, emissive: 0xff4d6a, emissiveIntensity: 2.5,
+      metalness: 0.1, roughness: 0.3,
+    }),
+  );
+  startDot.position.copy(galwayPos).add(galwayUp.clone().multiplyScalar(0.01));
+  globeGroup.add(startDot);
 
-    const surface = latLonToVector3(lat, lon, MARKER_RADIUS);
-    const up = surface.clone().normalize();
-    const beamHeight = 0.42;
-    const tip = surface.clone().add(up.clone().multiplyScalar(beamHeight));
+  const startRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.032, 0.042, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0xff4d6a, transparent: true, opacity: 0.75,
+      side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
+    }),
+  );
+  startRing.position.copy(galwayPos);
+  startRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), galwayUp);
+  globeGroup.add(startRing);
 
-    // Vertical beacon beam (cylinder)
-    const beamGeo = new THREE.CylinderGeometry(0.005, 0.005, beamHeight, 12, 1, true);
-    const beamMat = new THREE.MeshBasicMaterial({
-      color: COLOR_GALWAY,
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.position.copy(surface).add(up.clone().multiplyScalar(beamHeight / 2));
-    beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
-    beaconRoot.add(beam);
-
-    // Wide soft glow along the beam
-    const beamGlowGeo = new THREE.CylinderGeometry(0.022, 0.005, beamHeight, 12, 1, true);
-    const beamGlowMat = new THREE.MeshBasicMaterial({
-      color: COLOR_GALWAY,
-      transparent: true,
-      opacity: 0.18,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const beamGlow = new THREE.Mesh(beamGlowGeo, beamGlowMat);
-    beamGlow.position.copy(beam.position);
-    beamGlow.quaternion.copy(beam.quaternion);
-    beaconRoot.add(beamGlow);
-
-    // Glowing sphere at the tip
-    const tipMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: COLOR_GALWAY,
-      emissiveIntensity: 3.0,
-      metalness: 0.2,
-      roughness: 0.3,
-    });
-    const tipMesh = new THREE.Mesh(new THREE.SphereGeometry(0.025, 16, 16), tipMat);
-    tipMesh.position.copy(tip);
-    beaconRoot.add(tipMesh);
-
-    // Surface ring on the ground at Galway, oriented to the surface normal
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.045, 0.058, 48),
-      new THREE.MeshBasicMaterial({
-        color: 0xffb8e0,
-        transparent: true,
-        opacity: 0.65,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    ring.position.copy(surface);
-    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
-    beaconRoot.add(ring);
-
-    // Pulsing halo ring (animated in tick)
-    const pulseRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.06, 0.072, 48),
-      new THREE.MeshBasicMaterial({
-        color: 0xffb8e0,
-        transparent: true,
-        opacity: 0.55,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    pulseRing.position.copy(surface);
-    pulseRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
-    pulseRing.userData.isPulse = true;
-    beaconRoot.add(pulseRing);
-  }
-
-  if (Number.isFinite(data.start.lat) && Number.isFinite(data.start.lon)) {
-    setStartBeacon(data.start.lat, data.start.lon);
-  }
+  // Pulsing outer ring
+  const pulseRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.048, 0.056, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0xff4d6a, transparent: true, opacity: 0.5,
+      side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
+    }),
+  );
+  pulseRing.position.copy(galwayPos);
+  pulseRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), galwayUp);
+  pulseRing.userData.isPulse = true;
+  globeGroup.add(pulseRing);
 
   // ── Lighting ───────────────────────────────────────────────────────────────
   scene.add(new THREE.AmbientLight(0x0d2040, 1.2));
-  const hemi = new THREE.HemisphereLight(0x8cf0ff, 0x1a0830, 0.9);
-  scene.add(hemi);
+  scene.add(new THREE.HemisphereLight(0x8cf0ff, 0x1a0830, 0.9));
   const key = new THREE.DirectionalLight(0xd8f0ff, 1.4);
   key.position.set(3.5, 2, 4);
   scene.add(key);
   const fill = new THREE.DirectionalLight(0xffd0a0, 0.3);
   fill.position.set(-3, -1, -2);
   scene.add(fill);
-  const rim = new THREE.PointLight(COLOR_GALWAY, 0.5, 10);
-  rim.position.set(-2.5, -1, 2);
-  scene.add(rim);
 
   setLineResolutions();
 
-  // ── Animation ─────────────────────────────────────────────────────────────
+  // ── Animation loop ─────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
   let raf = 0;
+
   function animate() {
     raf = requestAnimationFrame(animate);
     const t = clock.getElapsedTime();
-
     controls.update();
 
-    // Pulse the ground halo ring around Galway
-    beaconRoot.traverse((o) => {
+    // Pulse the Galway ring
+    globeGroup.traverse((o) => {
       if (o.userData.isPulse) {
         const phase = (t * 0.8) % 1;
-        const scale = 1 + phase * 1.4;
-        o.scale.setScalar(scale);
-        const opacity = 0.55 * (1 - phase);
-        const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial;
-        if (m) m.opacity = opacity;
+        o.scale.setScalar(1 + phase * 1.5);
+        ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity =
+          0.5 * (1 - phase);
+      }
+      // Gentle throb on the "you are here" halo
+      if (o.userData.isHalo) {
+        const phase = (Math.sin(t * 2) * 0.5 + 0.5);
+        ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity =
+          0.1 + phase * 0.1;
       }
     });
 
@@ -509,8 +410,7 @@ export function mountGlobeScene(
   animate();
 
   const onResize = () => {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
+    const w = container.clientWidth, h = container.clientHeight;
     camera.aspect = w / Math.max(h, 1);
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);

@@ -14,16 +14,20 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 /**
  * `GET /api/globe/data` — "around the world from Galway" journey.
  *
- * `journey` is a path of `[lon, lat]` points starting at `start`, going
- * eastward at the start latitude. Its real-world length equals
- * `totalDistanceMeters`. `goalDistanceMeters` is the full circumnavigation
- * distance at that latitude (back to `start`).
+ * The journey goes east along the equator starting at Galway's longitude.
+ * `activities` are in chronological order so the frontend can colour each
+ * segment by sport. `goalDistanceMeters` is the full equatorial circumference.
  */
+export type GlobeActivitySegment = {
+  sport: string;
+  distanceMeters: number;
+};
+
 export type GlobeDataResponse = {
   start: { name: string; lat: number; lon: number };
   totalDistanceMeters: number;
   goalDistanceMeters: number;
-  journey: [number, number][];
+  activities: GlobeActivitySegment[];
 };
 
 export const getGlobeDataUrl = () => {

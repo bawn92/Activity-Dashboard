@@ -6,6 +6,34 @@ import { Loader2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const SPORT_COLORS: Record<string, string> = {
+  run: "#ff4d6a",
+  running: "#ff4d6a",
+  cycle: "#40dfaa",
+  cycling: "#40dfaa",
+  bike: "#40dfaa",
+  biking: "#40dfaa",
+  swim: "#4db8ff",
+  swimming: "#4db8ff",
+  open_water_swimming: "#4db8ff",
+};
+
+function sportDisplayName(sport: string) {
+  const key = sport.toLowerCase().replace(/[-\s]/g, "_");
+  if (key.includes("run")) return "Run";
+  if (key.includes("cycl") || key.includes("bike") || key.includes("bik")) return "Cycle";
+  if (key.includes("swim")) return "Swim";
+  return sport.charAt(0).toUpperCase() + sport.slice(1);
+}
+
+function sportColor(sport: string) {
+  const key = sport.toLowerCase().replace(/[-\s]/g, "_");
+  for (const [k, v] of Object.entries(SPORT_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  return "#ffd060";
+}
+
 export default function GlobePage() {
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const { data, isPending, isError, error } = useGlobeData();
@@ -15,6 +43,20 @@ export default function GlobePage() {
     if (!el || !data) return;
     return mountGlobeScene(el, data);
   }, [data]);
+
+  // Deduplicated sport list in activity order
+  const sportLegend: { name: string; color: string; km: number }[] = [];
+  if (data) {
+    for (const act of data.activities) {
+      const key = sportDisplayName(act.sport);
+      const existing = sportLegend.find((s) => s.name === key);
+      if (existing) {
+        existing.km += act.distanceMeters / 1000;
+      } else {
+        sportLegend.push({ name: key, color: sportColor(act.sport), km: act.distanceMeters / 1000 });
+      }
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-[#050508] text-foreground">
@@ -32,17 +74,31 @@ export default function GlobePage() {
         </Link>
       </div>
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-1 px-6 pb-8 pt-16 sm:px-8 sm:pt-20">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-1.5 px-6 pb-8 pt-16 sm:px-8 sm:pt-20">
         <h1 className="max-w-[min(90vw,28rem)] text-balance font-medium text-2xl tracking-tight text-foreground sm:text-3xl">
           Around the World <span className="text-primary">·</span> From Galway
         </h1>
         {data ? (
-          <p className="label-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            <span className="text-primary">{(data.totalDistanceMeters / 1000).toFixed(1)} km</span>
-            {" "}travelled · {(Math.max(data.goalDistanceMeters - data.totalDistanceMeters, 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })} km to go
-            {" · "}
-            <span>{((data.totalDistanceMeters / data.goalDistanceMeters) * 100).toFixed(2)}%</span>
-          </p>
+          <>
+            <p className="label-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="text-primary">{(data.totalDistanceMeters / 1000).toFixed(1)} km</span>
+              {" "}travelled · {(Math.max(data.goalDistanceMeters - data.totalDistanceMeters, 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })} km to go
+              {" · "}{((data.totalDistanceMeters / data.goalDistanceMeters) * 100).toFixed(3)}%
+            </p>
+            {sportLegend.length > 0 && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
+                {sportLegend.map((s) => (
+                  <span key={s.name} className="label-mono flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    <span
+                      className="inline-block h-2 w-4 rounded-full"
+                      style={{ backgroundColor: s.color }}
+                    />
+                    {s.name} · {s.km.toFixed(1)} km
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <p className="label-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             Run · Cycle · Swim
@@ -63,7 +119,7 @@ export default function GlobePage() {
           aria-live="polite"
         >
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading routes…</p>
+          <p className="text-sm text-muted-foreground">Loading globe…</p>
         </div>
       ) : null}
 
