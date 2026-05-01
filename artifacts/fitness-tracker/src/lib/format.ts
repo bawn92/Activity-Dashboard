@@ -25,6 +25,13 @@ export function formatPace(paceSecPerKm?: number | null): string {
   return `${m}:${s.toString().padStart(2, '0')} /km`;
 }
 
+/** Average speed in km/h from meters per second. */
+export function formatAvgSpeedKmh(mps?: number | null): string {
+  if (mps == null) return "—";
+  const kmh = mps * 3.6;
+  return `${kmh.toFixed(1)} km/h`;
+}
+
 export function formatDate(isoString: string): string {
   const date = new Date(isoString);
   return date.toLocaleDateString(undefined, { 
