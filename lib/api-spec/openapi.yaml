@@ -73,6 +73,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /activities/upload-batch:
+    post:
+      operationId: uploadActivityBatch
+      tags: [activities]
+      summary: Upload a batch of .fit or .fit.gz files
+      description: |
+        Upload up to 10 Garmin .fit or .fit.gz files in one multipart/form-data
+        request under the field name 'files'. The server processes them
+        sequentially, decompresses gzip as needed, dedupes by SHA-256 of the
+        decompressed bytes, and returns per-file results plus aggregate counts.
+      responses:
+        "200":
+          description: Per-file results plus aggregate counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadActivityBatchResponse"
+        "400":
+          description: No files provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /activities/stats:
     get:
       operationId: getActivityStats
@@ -473,6 +497,41 @@ components:
       required:
         - sport
         - count
+
+    UploadActivityBatchItem:
+      type: object
+      properties:
+        filename:
+          type: string
+        status:
+          type: string
+          enum: [created, duplicate, failed]
+        activityId:
+          type: ["integer", "null"]
+        error:
+          type: ["string", "null"]
+      required:
+        - filename
+        - status
+
+    UploadActivityBatchResponse:
+      type: object
+      properties:
+        success:
+          type: integer
+        duplicate:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadActivityBatchItem"
+      required:
+        - success
+        - duplicate
+        - failed
+        - results
 
     StorageUploadRequestBody:
       type: object

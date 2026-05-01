@@ -26,6 +26,7 @@ import type {
   RenderJob,
   StorageUploadPresignedUrl,
   StorageUploadRequestBody,
+  UploadActivityBatchResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -269,6 +270,92 @@ export const useUploadActivity = <
   TContext
 > => {
   return useMutation(getUploadActivityMutationOptions(options));
+};
+
+/**
+ * Upload up to 10 Garmin .fit or .fit.gz files in one multipart/form-data
+request under the field name 'files'. The server processes them
+sequentially, decompresses gzip as needed, dedupes by SHA-256 of the
+decompressed bytes, and returns per-file results plus aggregate counts.
+
+ * @summary Upload a batch of .fit or .fit.gz files
+ */
+export const getUploadActivityBatchUrl = () => {
+  return `/api/activities/upload-batch`;
+};
+
+export const uploadActivityBatch = async (
+  options?: RequestInit,
+): Promise<UploadActivityBatchResponse> => {
+  return customFetch<UploadActivityBatchResponse>(getUploadActivityBatchUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUploadActivityBatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadActivityBatch>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadActivityBatch>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["uploadActivityBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadActivityBatch>>,
+    void
+  > = () => {
+    return uploadActivityBatch(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadActivityBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadActivityBatch>>
+>;
+
+export type UploadActivityBatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upload a batch of .fit or .fit.gz files
+ */
+export const useUploadActivityBatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadActivityBatch>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadActivityBatch>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getUploadActivityBatchMutationOptions(options));
 };
 
 /**

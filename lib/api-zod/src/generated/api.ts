@@ -45,6 +45,28 @@ export const ListActivitiesResponseItem = zod.object({
 export const ListActivitiesResponse = zod.array(ListActivitiesResponseItem);
 
 /**
+ * Upload up to 10 Garmin .fit or .fit.gz files in one multipart/form-data
+request under the field name 'files'. The server processes them
+sequentially, decompresses gzip as needed, dedupes by SHA-256 of the
+decompressed bytes, and returns per-file results plus aggregate counts.
+
+ * @summary Upload a batch of .fit or .fit.gz files
+ */
+export const UploadActivityBatchResponse = zod.object({
+  success: zod.number(),
+  duplicate: zod.number(),
+  failed: zod.number(),
+  results: zod.array(
+    zod.object({
+      filename: zod.string(),
+      status: zod.enum(["created", "duplicate", "failed"]),
+      activityId: zod.number().nullish(),
+      error: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
  * Returns totals and averages across all activities for a dashboard overview
  * @summary Aggregate stats across all activities
  */

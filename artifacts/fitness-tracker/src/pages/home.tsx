@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout";
 import { UploadZone } from "@/components/upload-zone";
+import { BatchUploadZone } from "@/components/batch-upload-zone";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 
@@ -20,6 +21,14 @@ export default function Home() {
         </div>
 
         <UploadZone />
+
+        <div className="flex items-center gap-4 my-8">
+          <div className="flex-1 h-px bg-border" />
+          <span className="label-mono text-muted-foreground text-[11px]">or</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        <BatchUploadZone />
 
         <div className="mt-8 text-center">
           <Link href="/activities">

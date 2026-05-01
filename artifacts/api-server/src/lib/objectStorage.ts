@@ -169,6 +169,21 @@ export class ObjectStorageService {
     return `/objects/${objectKey}`;
   }
 
+  /**
+   * Best-effort delete of a private object by its canonical /objects/<key>
+   * path. Swallows ObjectNotFoundError so callers can use this as cleanup
+   * after a failed downstream operation without worrying about double-delete.
+   */
+  async deleteObjectEntity(objectPath: string): Promise<void> {
+    try {
+      const file = await this.getObjectEntityFile(objectPath);
+      await file.delete({ ignoreNotFound: true });
+    } catch (err) {
+      if (err instanceof ObjectNotFoundError) return;
+      throw err;
+    }
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();

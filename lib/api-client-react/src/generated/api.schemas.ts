@@ -132,6 +132,31 @@ export interface ActivityStats {
   sportBreakdown: SportCount[];
 }
 
+export type UploadActivityBatchItemStatus =
+  (typeof UploadActivityBatchItemStatus)[keyof typeof UploadActivityBatchItemStatus];
+
+export const UploadActivityBatchItemStatus = {
+  created: "created",
+  duplicate: "duplicate",
+  failed: "failed",
+} as const;
+
+export interface UploadActivityBatchItem {
+  filename: string;
+  status: UploadActivityBatchItemStatus;
+  /** @nullable */
+  activityId?: number | null;
+  /** @nullable */
+  error?: string | null;
+}
+
+export interface UploadActivityBatchResponse {
+  success: number;
+  duplicate: number;
+  failed: number;
+  results: UploadActivityBatchItem[];
+}
+
 export interface StorageUploadRequestBody {
   name: string;
   size: number;

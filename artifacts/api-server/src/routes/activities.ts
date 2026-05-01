@@ -1,6 +1,13 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import { createHash } from "node:crypto";
+import { gunzip } from "node:zlib";
+import { promisify } from "node:util";
+
+const gunzipAsync = promisify(gunzip);
+// Cap on decompressed .fit size: a Garmin .fit usually < 5MB, so 50MB is
+// more than safe and prevents an accidental gzip bomb from blowing memory.
+const MAX_DECOMPRESSED_SIZE = 50 * 1024 * 1024;
 import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
 import {
   GetActivityParams,
@@ -8,6 +15,7 @@ import {
   GetActivityResponse,
   GetActivityStatsResponse,
   ListActivitiesResponse,
+  UploadActivityBatchResponse,
 } from "@workspace/api-zod";
 import { parseFitBuffer } from "../lib/fitParser";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -16,6 +24,84 @@ import { eq, desc } from "drizzle-orm";
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const objectStorageService = new ObjectStorageService();
+
+const BATCH_SIZE = 10;
+
+/**
+ * Persist a single .fit file end-to-end: dedupe by SHA-256 of decompressed
+ * bytes, parse, store the .fit blob in object storage, and insert the
+ * activity + data points. Used by both the single and batch upload routes.
+ */
+async function persistFitFile(fitBuffer: Buffer): Promise<
+  | { status: "duplicate"; activityId: number }
+  | { status: "created"; activityId: number }
+> {
+  const fileHash = createHash("sha256").update(fitBuffer).digest("hex");
+
+  const [existing] = await db
+    .select({ id: activitiesTable.id })
+    .from(activitiesTable)
+    .where(eq(activitiesTable.fileHash, fileHash))
+    .limit(1);
+
+  if (existing) {
+    return { status: "duplicate", activityId: existing.id };
+  }
+
+  const parsed = await parseFitBuffer(fitBuffer);
+
+  const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+  const fileObjectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+  const putResponse = await fetch(uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: fitBuffer,
+  });
+  if (!putResponse.ok) {
+    throw new Error(`Storage upload failed: ${putResponse.status}`);
+  }
+
+  let newActivity: { id: number } | undefined;
+  try {
+    [newActivity] = await db
+      .insert(activitiesTable)
+      .values({ ...parsed.activity, fileObjectPath, fileHash })
+      .returning({ id: activitiesTable.id });
+  } catch (err) {
+    // Race-safe dedup: another concurrent upload won the unique-index race.
+    // Postgres reports unique-violation as SQLSTATE 23505. Re-fetch the
+    // winner row and report this upload as a duplicate. Best-effort delete
+    // the orphan blob we just uploaded.
+    const code = (err as { code?: string } | null)?.code;
+    if (code === "23505") {
+      await objectStorageService.deleteObjectEntity(fileObjectPath).catch(() => {});
+      const [winner] = await db
+        .select({ id: activitiesTable.id })
+        .from(activitiesTable)
+        .where(eq(activitiesTable.fileHash, fileHash))
+        .limit(1);
+      if (winner) {
+        return { status: "duplicate", activityId: winner.id };
+      }
+    }
+    throw err;
+  }
+
+  if (parsed.dataPoints.length > 0) {
+    const points = parsed.dataPoints.map((p) => ({
+      ...p,
+      activityId: newActivity.id,
+    }));
+    const BATCH = 500;
+    for (let i = 0; i < points.length; i += BATCH) {
+      await db
+        .insert(activityDataPointsTable)
+        .values(points.slice(i, i + BATCH));
+    }
+  }
+
+  return { status: "created", activityId: newActivity.id };
+}
 
 router.get("/activities", async (req: Request, res: Response) => {
   const activities = await db
@@ -222,6 +308,105 @@ router.post(
     });
 
     res.status(201).json(result);
+  },
+);
+
+/**
+ * Batch upload endpoint. Accepts up to BATCH_SIZE multipart files at once,
+ * processes them sequentially (no concurrency), and returns per-file results
+ * plus aggregate counts. Errors per file are caught so one bad file never
+ * aborts the whole batch.
+ */
+router.post(
+  "/activities/upload-batch",
+  upload.array("files", BATCH_SIZE),
+  async (req: Request, res: Response) => {
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+    if (files.length === 0) {
+      res.status(400).json({ error: "No files provided" });
+      return;
+    }
+
+    const results: Array<{
+      filename: string;
+      status: "created" | "duplicate" | "failed";
+      activityId?: number;
+      error?: string;
+    }> = [];
+    let success = 0;
+    let duplicate = 0;
+    let failed = 0;
+
+    for (const file of files) {
+      const name = file.originalname;
+      const lower = name.toLowerCase();
+      const isGz = lower.endsWith(".fit.gz");
+      const isFit = lower.endsWith(".fit");
+
+      if (!isGz && !isFit) {
+        failed++;
+        results.push({
+          filename: name,
+          status: "failed",
+          error: "Only .fit and .fit.gz files are accepted",
+        });
+        continue;
+      }
+
+      try {
+        if (file.size === 0 || file.buffer.length === 0) {
+          throw new Error("File is empty");
+        }
+
+        // Decompress .gz to raw .fit bytes. Hash & store the decompressed
+        // bytes so a .fit and its .fit.gz dedupe to the same key. Cap the
+        // decompressed size to prevent an accidental gzip bomb from blowing
+        // out memory.
+        let fitBuffer: Buffer;
+        if (isGz) {
+          try {
+            fitBuffer = await gunzipAsync(file.buffer, {
+              maxOutputLength: MAX_DECOMPRESSED_SIZE,
+            });
+          } catch (gzErr) {
+            const msg = gzErr instanceof Error ? gzErr.message : "gunzip failed";
+            throw new Error(`Failed to decompress: ${msg}`);
+          }
+        } else {
+          fitBuffer = file.buffer;
+        }
+
+        const result = await persistFitFile(fitBuffer);
+        if (result.status === "created") {
+          success++;
+          results.push({
+            filename: name,
+            status: "created",
+            activityId: result.activityId,
+          });
+        } else {
+          duplicate++;
+          results.push({
+            filename: name,
+            status: "duplicate",
+            activityId: result.activityId,
+          });
+        }
+      } catch (err) {
+        failed++;
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        req.log.error({ err, filename: name }, "Batch upload: file failed");
+        results.push({ filename: name, status: "failed", error: msg });
+      }
+    }
+
+    const body = UploadActivityBatchResponse.parse({
+      success,
+      duplicate,
+      failed,
+      results,
+    });
+    res.status(200).json(body);
   },
 );
 
