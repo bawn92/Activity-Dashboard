@@ -45,8 +45,9 @@ export function UploadZone() {
   };
 
   const handleFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".fit")) {
-      setUploadError("Only .fit files are accepted");
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".fit") && !lower.endsWith(".tcx")) {
+      setUploadError("Only .fit and .tcx files are accepted");
       return;
     }
 
@@ -118,7 +119,7 @@ export function UploadZone() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".fit"
+        accept=".fit,.tcx"
         className="hidden"
         data-testid="input-file"
       />
@@ -140,7 +141,7 @@ export function UploadZone() {
             ? "Uploaded!"
             : uploadError
               ? "Upload failed"
-              : "Upload .fit file"}
+              : "Upload .fit or .tcx file"}
       </div>
       {uploadError ? (
         <div

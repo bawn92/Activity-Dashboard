@@ -32,7 +32,11 @@ const emptySummary: BatchSummary = {
 
 function isAcceptedFile(name: string): boolean {
   const lower = name.toLowerCase();
-  return lower.endsWith(".fit") || lower.endsWith(".fit.gz");
+  return (
+    lower.endsWith(".fit") ||
+    lower.endsWith(".fit.gz") ||
+    lower.endsWith(".tcx")
+  );
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -187,8 +191,9 @@ export function BatchUploadZone() {
         <div>
           <div className="label-mono text-foreground">Batch upload</div>
           <p className="text-sm text-muted-foreground mt-1">
-            Pick many <code className="text-xs">.fit</code> or{" "}
-            <code className="text-xs">.fit.gz</code> files at once. Processed in batches of {BATCH_SIZE}.
+            Pick many <code className="text-xs">.fit</code>,{" "}
+            <code className="text-xs">.fit.gz</code>, or{" "}
+            <code className="text-xs">.tcx</code> files at once. Processed in batches of {BATCH_SIZE}.
           </p>
         </div>
       </div>
@@ -197,7 +202,7 @@ export function BatchUploadZone() {
         type="file"
         ref={fileInputRef}
         onChange={onFileChange}
-        accept=".fit,.gz,.fit.gz,application/gzip,application/octet-stream"
+        accept=".fit,.gz,.fit.gz,.tcx,application/gzip,application/octet-stream"
         multiple
         className="hidden"
         disabled={isUploading}

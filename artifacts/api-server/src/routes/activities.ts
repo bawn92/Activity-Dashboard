@@ -17,7 +17,8 @@ import {
   ListActivitiesResponse,
   UploadActivityBatchResponse,
 } from "@workspace/api-zod";
-import { parseFitBuffer } from "../lib/fitParser";
+import { parseFitBuffer, type ParsedFitData } from "../lib/fitParser";
+import { parseTcxBuffer } from "../lib/tcxParser";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { eq, desc } from "drizzle-orm";
 
@@ -28,17 +29,19 @@ const objectStorageService = new ObjectStorageService();
 const BATCH_SIZE = 10;
 
 /**
- * Persist a single .fit file end-to-end: dedupe by SHA-256 of decompressed
- * bytes, parse, store the .fit blob in object storage, and insert the
- * activity + data points. Currently used only by the batch upload route;
- * the single-upload route still uses its pre-existing inline implementation
- * to preserve its richer 200-with-existing-activity response shape.
+ * Persist a single activity file end-to-end: dedupe by SHA-256 of raw bytes,
+ * parse via the supplied parser, store the blob in object storage, and insert
+ * the activity + data points. Accepts any parser that returns ParsedFitData,
+ * so it works for both .fit and .tcx uploads.
  */
-async function persistFitFile(fitBuffer: Buffer): Promise<
+async function persistActivity(
+  rawBuffer: Buffer,
+  parseBuffer: (buf: Buffer) => Promise<ParsedFitData>,
+): Promise<
   | { status: "duplicate"; activityId: number }
   | { status: "created"; activityId: number }
 > {
-  const fileHash = createHash("sha256").update(fitBuffer).digest("hex");
+  const fileHash = createHash("sha256").update(rawBuffer).digest("hex");
 
   const [existing] = await db
     .select({ id: activitiesTable.id })
@@ -50,14 +53,14 @@ async function persistFitFile(fitBuffer: Buffer): Promise<
     return { status: "duplicate", activityId: existing.id };
   }
 
-  const parsed = await parseFitBuffer(fitBuffer);
+  const parsed = await parseBuffer(rawBuffer);
 
   const uploadURL = await objectStorageService.getObjectEntityUploadURL();
   const fileObjectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
   const putResponse = await fetch(uploadURL, {
     method: "PUT",
     headers: { "Content-Type": "application/octet-stream" },
-    body: fitBuffer,
+    body: rawBuffer,
   });
   if (!putResponse.ok) {
     throw new Error(`Storage upload failed: ${putResponse.status}`);
@@ -155,10 +158,14 @@ router.post(
       return;
     }
 
-    if (!req.file.originalname.toLowerCase().endsWith(".fit")) {
-      res.status(400).json({ error: "Only .fit files are accepted" });
+    const lowerName = req.file.originalname.toLowerCase();
+    const isFit = lowerName.endsWith(".fit");
+    const isTcx = lowerName.endsWith(".tcx");
+    if (!isFit && !isTcx) {
+      res.status(400).json({ error: "Only .fit and .tcx files are accepted" });
       return;
     }
+    const parseBuffer = isTcx ? parseTcxBuffer : parseFitBuffer;
 
     // Compute SHA-256 of the raw bytes before doing any expensive work.
     // If this exact file was already uploaded we short-circuit and return the
@@ -172,7 +179,7 @@ router.post(
       .limit(1);
 
     if (existing) {
-      req.log.info({ activityId: existing.id }, "Duplicate .fit upload detected, returning existing activity");
+      req.log.info({ activityId: existing.id }, "Duplicate upload detected, returning existing activity");
       const dataPoints = await db
         .select()
         .from(activityDataPointsTable)
@@ -221,10 +228,10 @@ router.post(
 
     let parsed;
     try {
-      parsed = await parseFitBuffer(req.file.buffer);
+      parsed = await parseBuffer(req.file.buffer);
     } catch (parseErr) {
-      req.log.error({ err: parseErr }, "Failed to parse FIT file");
-      const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse .fit file";
+      req.log.error({ err: parseErr }, "Failed to parse activity file");
+      const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse file";
       res.status(422).json({ error: msg });
       return;
     }
@@ -245,7 +252,7 @@ router.post(
       }
     } catch (storageErr) {
       req.log.error({ err: storageErr }, "Object storage upload failed");
-      res.status(500).json({ error: "Failed to store the .fit file. Please try again." });
+      res.status(500).json({ error: "Failed to store the file. Please try again." });
       return;
     }
 
@@ -344,13 +351,14 @@ router.post(
       const lower = name.toLowerCase();
       const isGz = lower.endsWith(".fit.gz");
       const isFit = lower.endsWith(".fit");
+      const isTcx = lower.endsWith(".tcx");
 
-      if (!isGz && !isFit) {
+      if (!isGz && !isFit && !isTcx) {
         failed++;
         results.push({
           filename: name,
           status: "failed",
-          error: "Only .fit and .fit.gz files are accepted",
+          error: "Only .fit, .fit.gz, and .tcx files are accepted",
         });
         continue;
       }
@@ -360,14 +368,13 @@ router.post(
           throw new Error("File is empty");
         }
 
-        // Decompress .gz to raw .fit bytes. Hash & store the decompressed
-        // bytes so a .fit and its .fit.gz dedupe to the same key. Cap the
-        // decompressed size to prevent an accidental gzip bomb from blowing
-        // out memory.
-        let fitBuffer: Buffer;
+        // For .fit.gz: decompress first. Hash & store decompressed bytes so
+        // a .fit and its .fit.gz dedupe to the same key. Cap decompressed size
+        // to prevent a gzip bomb from blowing out memory.
+        let rawBuffer: Buffer;
         if (isGz) {
           try {
-            fitBuffer = await gunzipAsync(file.buffer, {
+            rawBuffer = await gunzipAsync(file.buffer, {
               maxOutputLength: MAX_DECOMPRESSED_SIZE,
             });
           } catch (gzErr) {
@@ -375,10 +382,11 @@ router.post(
             throw new Error(`Failed to decompress: ${msg}`);
           }
         } else {
-          fitBuffer = file.buffer;
+          rawBuffer = file.buffer;
         }
 
-        const result = await persistFitFile(fitBuffer);
+        const parser = isTcx ? parseTcxBuffer : parseFitBuffer;
+        const result = await persistActivity(rawBuffer, parser);
         if (result.status === "created") {
           success++;
           results.push({
