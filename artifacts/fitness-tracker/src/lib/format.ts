@@ -72,6 +72,62 @@ export function formatSpeedForSport(
   return { formatted: `${kmh.toFixed(1)} km/h`, label: "Speed" };
 }
 
+export type SpeedCategory = "swim" | "pace" | "speed";
+
+/**
+ * Returns sport-aware display metadata for charting pace/speed:
+ * - category: which kind of value to compute
+ * - label: chart title ("Pace" or "Speed")
+ * - unit: human-readable unit suffix (e.g. "min/km", "sec/100m", "km/h")
+ * - reversed: true when lower-is-better (pace), false for speed
+ */
+export function getSpeedChartInfo(sport: string | null | undefined): {
+  category: SpeedCategory;
+  label: string;
+  unit: string;
+  reversed: boolean;
+} {
+  const category = classifySport(sport);
+  if (category === "swim") return { category, label: "Pace", unit: "/100m", reversed: true };
+  if (category === "pace") return { category, label: "Pace", unit: "/km", reversed: true };
+  return { category, label: "Speed", unit: "km/h", reversed: false };
+}
+
+/**
+ * Convert meters/second into the numeric value to plot on the chart for a sport.
+ * - swim: seconds per 100m
+ * - pace: minutes per km (decimal)
+ * - speed: km/h
+ */
+export function speedMpsToChartValue(
+  mps: number | null | undefined,
+  category: SpeedCategory,
+): number | null {
+  if (mps == null || mps <= 0) return null;
+  if (category === "swim") return 100 / mps;
+  if (category === "pace") return 1000 / mps / 60;
+  return mps * 3.6;
+}
+
+/**
+ * Format a numeric chart value for display (Y-axis ticks, tooltips).
+ * Pace categories get m:ss formatting, speed gets a single decimal.
+ */
+export function formatSpeedChartValue(value: number, category: SpeedCategory): string {
+  if (category === "swim") {
+    const m = Math.floor(value / 60);
+    const s = Math.floor(value % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+  if (category === "pace") {
+    const totalSec = value * 60;
+    const m = Math.floor(totalSec / 60);
+    const s = Math.floor(totalSec % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+  return value.toFixed(1);
+}
+
 export function formatDate(isoString: string): string {
   const date = new Date(isoString);
   return date.toLocaleDateString(undefined, { 

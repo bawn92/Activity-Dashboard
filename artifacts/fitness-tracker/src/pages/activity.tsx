@@ -307,7 +307,7 @@ export default function ActivityDetail() {
               Metrics
             </p>
             <div className="bg-card border border-border rounded-xl shadow-card p-6">
-              <ActivityCharts dataPoints={activity.dataPoints} />
+              <ActivityCharts dataPoints={activity.dataPoints} sport={activity.sport} />
             </div>
           </div>
         )}
