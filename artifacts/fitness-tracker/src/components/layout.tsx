@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Activity as ActivityIcon, Globe2 } from "lucide-react";
+import { Activity as ActivityIcon, Globe2, MessageSquareText } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -27,6 +27,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 <Globe2 className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Globe
+              </Link>
+              <Link
+                href="/agent"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
+                data-testid="link-nav-agent"
+              >
+                <MessageSquareText className="w-3.5 h-3.5 opacity-80" aria-hidden />
+                Coach
               </Link>
             </nav>
           </div>
