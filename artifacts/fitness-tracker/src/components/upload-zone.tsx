@@ -62,6 +62,7 @@ export function UploadZone() {
       const resp = await fetch(getUploadActivityUrl(), {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       if (!resp.ok) {

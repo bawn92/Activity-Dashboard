@@ -125,6 +125,7 @@ export function BatchUploadZone() {
         const resp = await fetch(getUploadActivityBatchUrl(), {
           method: "POST",
           body: formData,
+          credentials: "include",
         });
 
         if (!resp.ok) {

@@ -823,6 +823,7 @@ export default function AgentPage() {
         method: "POST",
         headers,
         body: JSON.stringify({ prompt: text }),
+        credentials: "include",
         signal: controller.signal,
       });
 

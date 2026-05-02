@@ -360,7 +360,12 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Default to sending credentials so browser auth cookies (e.g. Clerk
+  // session) are forwarded to the API. Callers can override by passing
+  // an explicit `credentials` value in `options`.
+  const credentials: RequestCredentials = init.credentials ?? "include";
+
+  const response = await fetch(input, { ...init, method, headers, credentials });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
