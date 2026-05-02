@@ -202,6 +202,16 @@ export function mountGlobeScene(
   controls.autoRotateSpeed = 0.4;
   controls.addEventListener("start", () => { controls.autoRotate = false; });
 
+  // On mobile the header overlay covers the top portion of the screen,
+  // so shift the orbit target down slightly to visually center the globe
+  // in the space below the header.
+  function applyMobileOffset() {
+    const isMobile = window.innerWidth < 640;
+    controls.target.set(0, isMobile ? 0.25 : 0, 0);
+    controls.update();
+  }
+  applyMobileOffset();
+
   addStarField(scene);
 
   const globeGroup = new THREE.Group();
@@ -479,6 +489,7 @@ export function mountGlobeScene(
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
     setLineResolutions();
+    applyMobileOffset();
   };
   window.addEventListener("resize", onResize);
 
