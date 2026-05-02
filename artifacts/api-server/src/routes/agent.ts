@@ -136,7 +136,15 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
             piece += block.text;
           }
         }
-        if (piece.length > accumulated.length) {
+        // Cloud streams may send cumulative text, pure deltas, or occasional
+        // resets. Only slice when `piece` clearly extends the previous snapshot.
+        if (piece.length === 0) {
+          continue;
+        }
+        if (!piece.startsWith(accumulated)) {
+          writeSse(res, "replace", { text: piece });
+          accumulated = piece;
+        } else if (piece.length > accumulated.length) {
           writeSse(res, "delta", {
             text: piece.slice(accumulated.length),
           });

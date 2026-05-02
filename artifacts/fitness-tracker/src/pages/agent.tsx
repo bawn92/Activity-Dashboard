@@ -121,6 +121,16 @@ export default function AgentPage() {
             const payload = JSON.parse(parsed.data) as Record<string, unknown>;
             if (parsed.event === "delta" && typeof payload.text === "string") {
               appendAssistant(payload.text);
+            } else if (
+              parsed.event === "replace" &&
+              typeof payload.text === "string"
+            ) {
+              const replacement = payload.text;
+              setMessages((m) =>
+                m.map((row) =>
+                  row.id === assistantId ? { ...row, content: replacement } : row,
+                ),
+              );
             } else if (parsed.event === "error") {
               const msg =
                 typeof payload.message === "string"
