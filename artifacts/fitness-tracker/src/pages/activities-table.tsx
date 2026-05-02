@@ -44,7 +44,7 @@ import { ActivitySquare, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Trash2, X
 
 const ALL_SPORTS = "__all__";
 
-type SortKey = "date" | "distance" | "avgHeartRate" | "avgSpeed";
+type SortKey = "date" | "distance" | "avgHeartRate" | "avgSpeed" | "duration" | "paceSpeed";
 
 function startOfLocalDayMs(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -90,6 +90,22 @@ function compareNullableNumber(
 
 function activityMs(a: ActivitySummary): number {
   return new Date(a.startTime).getTime();
+}
+
+/**
+ * Returns a sort value for the Pace / Speed column that matches the displayed
+ * numeric value so ascending sort means "smallest displayed number first":
+ *   - pace sports (run/hike/walk): sec/km  (lower = faster pace)
+ *   - swim:                        sec/100m (lower = faster pace)
+ *   - speed sports (cycling, etc): km/h    (lower = slower speed)
+ * Returns null when no speed is available.
+ */
+function paceSpeedSortValue(sport: string | null | undefined, mps: number | null | undefined): number | null {
+  if (mps == null || mps <= 0) return null;
+  const s = (sport ?? "").toLowerCase().replace(/[_\s-]/g, "");
+  if (s.includes("swim")) return 100 / mps;
+  if (s.includes("run") || s.includes("hik") || s.includes("walk")) return 1000 / mps;
+  return mps * 3.6;
 }
 
 function SortHeader({
@@ -229,6 +245,12 @@ export default function ActivitiesTablePage() {
       }
       if (sortKey === "avgHeartRate") {
         return compareNullableNumber(a.avgHeartRate, b.avgHeartRate, sortDir);
+      }
+      if (sortKey === "duration") {
+        return compareNullableNumber(a.durationSeconds, b.durationSeconds, sortDir);
+      }
+      if (sortKey === "paceSpeed") {
+        return compareNullableNumber(paceSpeedSortValue(a.sport, a.avgSpeedMps), paceSpeedSortValue(b.sport, b.avgSpeedMps), sortDir);
       }
       return compareNullableNumber(a.avgSpeedMps, b.avgSpeedMps, sortDir);
     });
@@ -603,8 +625,18 @@ export default function ActivitiesTablePage() {
                       dir={sortDir}
                       onClick={() => handleSort("distance")}
                     />
-                    <TableHead>Duration</TableHead>
-                    <TableHead className="whitespace-nowrap">Pace / Speed</TableHead>
+                    <SortHeader
+                      label="Duration"
+                      active={sortKey === "duration"}
+                      dir={sortDir}
+                      onClick={() => handleSort("duration")}
+                    />
+                    <SortHeader
+                      label="Pace / Speed"
+                      active={sortKey === "paceSpeed"}
+                      dir={sortDir}
+                      onClick={() => handleSort("paceSpeed")}
+                    />
                     <SortHeader
                       label="Avg HR"
                       active={sortKey === "avgHeartRate"}
