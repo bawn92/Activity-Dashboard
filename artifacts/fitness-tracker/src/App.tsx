@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useUser } from "@clerk/react";
@@ -91,18 +91,59 @@ const clerkAppearance = {
   },
 };
 
+/**
+ * Read the `redirect` (or `next`) query param once on mount and return a safe,
+ * same-origin path. We only allow paths that start with a single `/` (and not
+ * `//`) to avoid open redirect vulnerabilities. The value is captured in
+ * state so it remains stable even if Clerk navigates within the sign-in
+ * flow and drops the query string.
+ */
+function useSafeRedirectParam(): string | undefined {
+  const [redirect] = useState<string | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("redirect") ?? params.get("next");
+    if (!raw) return undefined;
+    if (!raw.startsWith("/") || raw.startsWith("//")) return undefined;
+    return raw;
+  });
+  return redirect;
+}
+
+function buildAuthUrl(path: string, redirect: string | undefined): string {
+  const base = `${basePath}${path}`;
+  if (!redirect) return base;
+  return `${base}?redirect=${encodeURIComponent(redirect)}`;
+}
+
 function SignInPage() {
+  const redirect = useSafeRedirectParam();
+  const fallbackRedirectUrl = redirect ? `${basePath}${redirect}` : undefined;
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={buildAuthUrl("/sign-up", redirect)}
+        fallbackRedirectUrl={fallbackRedirectUrl}
+        signUpFallbackRedirectUrl={fallbackRedirectUrl}
+      />
     </div>
   );
 }
 
 function SignUpPage() {
+  const redirect = useSafeRedirectParam();
+  const fallbackRedirectUrl = redirect ? `${basePath}${redirect}` : undefined;
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+      <SignUp
+        routing="path"
+        path={`${basePath}/sign-up`}
+        signInUrl={buildAuthUrl("/sign-in", redirect)}
+        fallbackRedirectUrl={fallbackRedirectUrl}
+        signInFallbackRedirectUrl={fallbackRedirectUrl}
+      />
     </div>
   );
 }

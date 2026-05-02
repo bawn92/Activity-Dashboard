@@ -6,7 +6,8 @@ import { ArrowRight } from "lucide-react";
 
 function UploadSection() {
   const [, setLocation] = useLocation();
-  const goToSignIn = () => setLocation("/sign-in");
+  const goToSignIn = () =>
+    setLocation(`/sign-in?redirect=${encodeURIComponent("/")}`);
 
   return (
     <>
