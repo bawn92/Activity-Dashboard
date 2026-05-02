@@ -76,15 +76,6 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
     return;
   }
 
-  res.status(200);
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  if (typeof (res as Response & { flushHeaders?: () => void }).flushHeaders === "function") {
-    (res as Response & { flushHeaders: () => void }).flushHeaders();
-  }
-
   const startingRef = process.env.CURSOR_CLOUD_REPO_REF?.trim() || "main";
 
   let agent: Awaited<ReturnType<typeof Agent.create>>;
@@ -117,8 +108,7 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
         : err instanceof Error
           ? err.message
           : String(err);
-    writeSse(res, "error", { message });
-    res.end();
+    res.status(502).json({ error: message });
     return;
   }
 
@@ -127,79 +117,36 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
   try {
     const run = await agent.send(fullPrompt);
 
-    // Track text per assistant-message id. The Cursor SDK can emit multiple
-    // distinct assistant messages within one run (e.g. before/after tool
-    // calls), each with its own id. Within a single message id, content
-    // grows cumulatively, so we send only the newly-appended tail. When the
-    // id changes we start a fresh accumulator and prefix a separator so the
-    // user sees a visible break between the model's pre-tool-call text and
-    // its post-tool-call answer.
-    const accumByMsgId = new Map<string, string>();
-    let lastEmittedMsgId: string | null = null;
+    // Collect all assistant text across message IDs into one final response.
+    const seenMsgIds: string[] = [];
+    const textByMsgId = new Map<string, string>();
 
     for await (const msg of run.stream()) {
-      // Log every event type so the operator can verify in api-server logs
-      // that the agent is actually reaching the MCP server and receiving
-      // tool results. Set AGENT_DEBUG=1 to enable.
       if (process.env.AGENT_DEBUG) {
         try {
           // eslint-disable-next-line no-console
-          console.log(
-            "[agent stream]",
-            msg.type,
-            JSON.stringify(msg).slice(0, 500),
-          );
-        } catch {
-          /* ignore */
-        }
+          console.log("[agent stream]", msg.type, JSON.stringify(msg).slice(0, 500));
+        } catch { /* ignore */ }
       }
-
       if (msg.type !== "assistant") continue;
 
-      const msgId =
-        (msg.message as { id?: string }).id ??
-        `anon-${accumByMsgId.size}`;
+      const msgId = (msg.message as { id?: string }).id ?? `anon-${seenMsgIds.length}`;
+      if (!seenMsgIds.includes(msgId)) seenMsgIds.push(msgId);
 
       let fullText = "";
       for (const block of msg.message.content) {
-        if (block.type === "text") {
-          fullText += block.text;
-        }
+        if (block.type === "text") fullText += block.text;
       }
-      if (!fullText) continue;
-
-      const prev = accumByMsgId.get(msgId) ?? "";
-
-      if (fullText === prev) {
-        continue;
-      }
-
-      let delta: string;
-      if (fullText.startsWith(prev)) {
-        // Normal cumulative growth within the same message
-        delta = fullText.slice(prev.length);
-      } else {
-        // Either a different message id, or content was rewritten.
-        // Emit the whole new piece, with a separator if we previously
-        // emitted text from a different message.
-        delta = fullText;
-      }
-
-      if (lastEmittedMsgId !== null && lastEmittedMsgId !== msgId) {
-        delta = "\n\n" + delta;
-      }
-
-      writeSse(res, "delta", { text: delta });
-      accumByMsgId.set(msgId, fullText);
-      lastEmittedMsgId = msgId;
+      if (fullText) textByMsgId.set(msgId, fullText);
     }
 
+    const text = seenMsgIds
+      .map((id) => textByMsgId.get(id) ?? "")
+      .filter(Boolean)
+      .join("\n\n");
+
     const result = await run.wait();
-    writeSse(res, "done", {
-      status: result.status,
-      result: result.result,
-      runId: run.id,
-    });
+    res.json({ text, status: result.status, runId: run.id });
   } catch (err) {
     const message =
       err instanceof CursorAgentError
@@ -207,10 +154,9 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
         : err instanceof Error
           ? err.message
           : String(err);
-    writeSse(res, "error", { message });
+    res.status(500).json({ error: message });
   } finally {
     await agent[Symbol.asyncDispose]().catch(() => {});
-    res.end();
   }
 });
 

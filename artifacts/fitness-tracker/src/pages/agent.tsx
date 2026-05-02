@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,22 +18,6 @@ type ChatMessage = {
 
 function apiBase(): string {
   return (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
-}
-
-function parseSseFrame(raw: string): { event: string; data: string } | null {
-  let event = "message";
-  const dataLines: string[] = [];
-  for (const line of raw.split("\n")) {
-    if (line.startsWith("event:")) {
-      event = line.slice(6).trim();
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5).trimStart());
-    }
-  }
-  if (dataLines.length === 0) {
-    return null;
-  }
-  return { event, data: dataLines.join("\n") };
 }
 
 export default function AgentPage() {
@@ -79,73 +64,22 @@ export default function AgentPage() {
       const res = await fetch(`${apiBase()}/api/agent`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          prompt: text,
-          messages: [{ role: "user", content: text }],
-        }),
+        body: JSON.stringify({ prompt: text }),
       });
 
-      if (!res.ok || !res.body) {
-        const errText = await res.text().catch(() => res.statusText);
-        throw new Error(errText || `HTTP ${res.status}`);
+      const json = await res.json() as { text?: string; error?: string };
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error ?? `HTTP ${res.status}`);
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      const appendAssistant = (delta: string) => {
-        setMessages((m) =>
-          m.map((row) =>
-            row.id === assistantId
-              ? { ...row, content: row.content + delta }
-              : row,
-          ),
-        );
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        for (;;) {
-          const sep = buffer.indexOf("\n\n");
-          if (sep === -1) break;
-          const frame = buffer.slice(0, sep);
-          buffer = buffer.slice(sep + 2);
-          const parsed = parseSseFrame(frame);
-          if (!parsed) continue;
-
-          try {
-            const payload = JSON.parse(parsed.data) as Record<string, unknown>;
-            if (parsed.event === "delta" && typeof payload.text === "string") {
-              appendAssistant(payload.text);
-            } else if (
-              parsed.event === "replace" &&
-              typeof payload.text === "string"
-            ) {
-              const replacement = payload.text;
-              setMessages((m) =>
-                m.map((row) =>
-                  row.id === assistantId ? { ...row, content: replacement } : row,
-                ),
-              );
-            } else if (parsed.event === "error") {
-              const msg =
-                typeof payload.message === "string"
-                  ? payload.message
-                  : "Agent error";
-              throw new Error(msg);
-            } else if (parsed.event === "done") {
-              // terminal — stream complete
-            }
-          } catch (e) {
-            if (e instanceof SyntaxError) continue;
-            throw e;
-          }
-        }
-      }
+      setMessages((m) =>
+        m.map((row) =>
+          row.id === assistantId
+            ? { ...row, content: json.text ?? "" }
+            : row,
+        ),
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       toast({
@@ -187,13 +121,23 @@ export default function AgentPage() {
                       className={
                         m.role === "user"
                           ? "ml-8 rounded-lg bg-primary/10 px-3 py-2 text-sm"
-                          : "mr-8 rounded-lg bg-background border border-border/70 px-3 py-2 text-sm whitespace-pre-wrap"
+                          : "mr-8 rounded-lg bg-background border border-border/70 px-3 py-2 text-sm"
                       }
                     >
                       <span className="label-mono text-[10px] uppercase text-muted-foreground block mb-1">
                         {m.role === "user" ? "You" : "Coach"}
                       </span>
-                      {m.content || (m.role === "assistant" && busy ? "…" : "")}
+                      {m.role === "assistant" ? (
+                        m.content ? (
+                          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                            <ReactMarkdown>{m.content}</ReactMarkdown>
+                          </div>
+                        ) : busy ? (
+                          <span className="text-muted-foreground italic text-xs">Thinking…</span>
+                        ) : null
+                      ) : (
+                        m.content
+                      )}
                     </div>
                   ))
                 )}
