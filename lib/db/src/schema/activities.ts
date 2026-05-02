@@ -72,3 +72,24 @@ export type InsertActivityDataPoint = z.infer<
   typeof insertActivityDataPointSchema
 >;
 export type ActivityDataPoint = typeof activityDataPointsTable.$inferSelect;
+
+export const bestEffortsTable = pgTable(
+  "best_efforts",
+  {
+    id: serial("id").primaryKey(),
+    sport: text("sport").notNull(),
+    distanceMeters: real("distance_meters").notNull(),
+    label: text("label").notNull(),
+    durationSeconds: real("duration_seconds"),
+    activityId: integer("activity_id").references(() => activitiesTable.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique("best_efforts_sport_distance_unique").on(t.sport, t.distanceMeters)],
+);
+
+export type BestEffort = typeof bestEffortsTable.$inferSelect;
+export type InsertBestEffort = typeof bestEffortsTable.$inferInsert;

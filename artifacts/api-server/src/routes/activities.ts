@@ -22,6 +22,11 @@ import {
 import { parseFitBuffer, type ParsedFitData } from "../lib/fitParser";
 import { parseTcxBuffer } from "../lib/tcxParser";
 import { ObjectStorageService } from "../lib/objectStorage";
+import {
+  getBestEffortsForSport,
+  recomputeBestEffortsForSport,
+  updateBestEffortsForActivity,
+} from "../lib/bestEfforts";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -41,7 +46,7 @@ async function persistActivity(
   parseBuffer: (buf: Buffer) => Promise<ParsedFitData>,
 ): Promise<
   | { status: "duplicate"; activityId: number }
-  | { status: "created"; activityId: number }
+  | { status: "created"; activityId: number; sport: string }
 > {
   const fileHash = createHash("sha256").update(rawBuffer).digest("hex");
 
@@ -107,7 +112,7 @@ async function persistActivity(
     }
   }
 
-  return { status: "created", activityId: newActivity.id };
+  return { status: "created", activityId: newActivity.id, sport: parsed.activity.sport };
 }
 
 router.get("/activities", async (req: Request, res: Response) => {
@@ -279,6 +284,12 @@ router.post(
       }
     }
 
+    try {
+      await updateBestEffortsForActivity(newActivity.id, newActivity.sport);
+    } catch (err) {
+      req.log.error({ err, activityId: newActivity.id }, "Failed to update best efforts cache");
+    }
+
     const insertedDataPoints = parsed.dataPoints.map((p, idx) => ({
       id: idx,
       activityId: newActivity.id,
@@ -395,6 +406,14 @@ router.post(
         const result = await persistActivity(rawBuffer, parser);
         if (result.status === "created") {
           success++;
+          try {
+            await updateBestEffortsForActivity(result.activityId, result.sport);
+          } catch (err) {
+            req.log.error(
+              { err, activityId: result.activityId },
+              "Failed to update best efforts cache",
+            );
+          }
           results.push({
             filename: name,
             status: "created",
@@ -457,97 +476,10 @@ router.get("/activities/stats/sport", async (req: Request, res: Response) => {
   const allTime = aggregatePeriod(activities);
   const last4Weeks = aggregatePeriod(recentActivities);
 
-  // Best efforts — only for running and cycling (not swimming)
-  const BENCHMARK_DISTANCES: Record<string, Array<{ label: string; meters: number }>> = {
-    running: [
-      { label: "400m", meters: 400 },
-      { label: "1K", meters: 1000 },
-      { label: "1 mile", meters: 1609 },
-      { label: "2 mile", meters: 3218 },
-      { label: "5K", meters: 5000 },
-      { label: "10K", meters: 10000 },
-      { label: "15K", meters: 15000 },
-      { label: "10 mile", meters: 16093 },
-      { label: "20K", meters: 20000 },
-      { label: "Half Marathon", meters: 21097 },
-      { label: "30K", meters: 30000 },
-    ],
-    cycling: [
-      { label: "5 mile", meters: 8047 },
-      { label: "10K", meters: 10000 },
-      { label: "10 mile", meters: 16093 },
-      { label: "20K", meters: 20000 },
-      { label: "30K", meters: 30000 },
-      { label: "40K", meters: 40000 },
-      { label: "50K", meters: 50000 },
-      { label: "80K", meters: 80000 },
-      { label: "50 mile", meters: 80467 },
-      { label: "100K", meters: 100000 },
-      { label: "100 mile", meters: 160934 },
-      { label: "180K", meters: 180000 },
-    ],
-  };
-
-  const benchmarks = BENCHMARK_DISTANCES[sport.toLowerCase()] ?? [];
-
-  // For each benchmark, track the best (minimum) time found
-  const bestTimes = new Map<number, number>(
-    benchmarks.map((b) => [b.meters, Infinity]),
-  );
-
-  if (benchmarks.length > 0 && activities.length > 0) {
-    for (const activity of activities) {
-      const points = await db
-        .select({ timestamp: activityDataPointsTable.timestamp, distance: activityDataPointsTable.distance })
-        .from(activityDataPointsTable)
-        .where(eq(activityDataPointsTable.activityId, activity.id))
-        .orderBy(activityDataPointsTable.timestamp);
-
-      if (points.length < 2) continue;
-
-      // Sliding window: for each end pointer j, advance start pointer i so that
-      // distance[j] - distance[i] >= target, then record elapsed time.
-      for (const { meters: targetDist } of benchmarks) {
-        let i = 0;
-        for (let j = 0; j < points.length; j++) {
-          const dj = points[j].distance;
-          if (dj == null) continue;
-          // Advance i as far as possible while still covering target distance
-          while (i < j) {
-            const di = points[i].distance;
-            if (di == null) { i++; continue; }
-            const nextDi = points[i + 1]?.distance;
-            if (nextDi == null) break;
-            if (dj - nextDi >= targetDist) {
-              i++;
-            } else {
-              break;
-            }
-          }
-          const di = points[i].distance;
-          if (di == null) continue;
-          if (dj - di >= targetDist) {
-            const elapsed = (points[j].timestamp.getTime() - points[i].timestamp.getTime()) / 1000;
-            if (elapsed > 0) {
-              const current = bestTimes.get(targetDist) ?? Infinity;
-              if (elapsed < current) {
-                bestTimes.set(targetDist, elapsed);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const bestEfforts = benchmarks.map((b) => {
-    const t = bestTimes.get(b.meters);
-    return {
-      distanceMeters: b.meters,
-      label: b.label,
-      durationSeconds: t != null && isFinite(t) ? t : null,
-    };
-  });
+  // Best efforts come from a pre-computed cache (best_efforts table) so the
+  // page is instant even with hundreds of activities. The cache is refreshed
+  // on activity upload and recomputed on activity deletion.
+  const bestEfforts = await getBestEffortsForSport(sport);
 
   res.json({
     sport,
@@ -686,6 +618,13 @@ router.patch(
       return;
     }
 
+    // Capture the previous sport before updating so that if the sport
+    // changes we can invalidate the cache for both the old and new sport.
+    const [previous] = await db
+      .select({ sport: activitiesTable.sport })
+      .from(activitiesTable)
+      .where(eq(activitiesTable.id, params.data.id));
+
     const [updated] = await db
       .update(activitiesTable)
       .set(updates)
@@ -695,6 +634,21 @@ router.patch(
     if (!updated) {
       res.status(404).json({ error: "Activity not found" });
       return;
+    }
+
+    if (previous && previous.sport !== updated.sport) {
+      // Sport changed: the activity must be removed from the old sport's
+      // best efforts and considered for the new sport's. A full recompute
+      // for both sports is the simplest correct option.
+      try {
+        await recomputeBestEffortsForSport(previous.sport);
+        await recomputeBestEffortsForSport(updated.sport);
+      } catch (err) {
+        req.log.error(
+          { err, oldSport: previous.sport, newSport: updated.sport },
+          "Failed to recompute best efforts after sport change",
+        );
+      }
     }
 
     const dataPoints = await db
@@ -760,6 +714,15 @@ router.delete("/activities/:id", requireAllowedUser, async (req: Request, res: R
   if (!deleted) {
     res.status(404).json({ error: "Activity not found" });
     return;
+  }
+
+  // Deleting an activity may invalidate the cached best efforts for its
+  // sport (the deleted activity may have held one or more bests). A full
+  // recompute is the simplest correct option.
+  try {
+    await recomputeBestEffortsForSport(deleted.sport);
+  } catch (err) {
+    req.log.error({ err, sport: deleted.sport }, "Failed to recompute best efforts after delete");
   }
 
   res.status(204).send();
