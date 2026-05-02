@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ActivitySquare, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ActivitySquare, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, X } from "lucide-react";
 
 const ALL_SPORTS = "__all__";
 
@@ -263,94 +264,292 @@ export default function ActivitiesTablePage() {
           </div>
         ) : (
           <>
-            <div className="mb-6 grid gap-4 rounded-xl border border-border bg-card p-4 shadow-card sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <Label htmlFor="filter-sport">Sport</Label>
-                <Select value={sport} onValueChange={setSport}>
-                  <SelectTrigger id="filter-sport" className="border-border bg-background">
-                    <SelectValue placeholder="Sport" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_SPORTS}>All sports</SelectItem>
-                    {sports.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize">
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Date range</Label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="border-border bg-background"
-                    aria-label="From date"
-                  />
-                  <span className="hidden text-muted-foreground sm:inline">–</span>
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="border-border bg-background"
-                    aria-label="To date"
-                  />
+            {(() => {
+              const sportActive = sport !== ALL_SPORTS;
+              const dateActive = dateFrom.trim() !== "" || dateTo.trim() !== "";
+              const paceActive = paceMinSec.trim() !== "" || paceMaxSec.trim() !== "";
+              const distActive = distMinKm.trim() !== "" || distMaxKm.trim() !== "";
+              const anyActive = sportActive || dateActive || paceActive || distActive;
+
+              function formatShortDate(d: string) {
+                if (!d) return "";
+                const [y, m, day] = d.split("-");
+                if (!y || !m || !day) return d;
+                const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                return `${months[Number(m) - 1]} ${Number(day)}`;
+              }
+
+              const sportLabel = sportActive ? `Sport: ${sport}` : "Sport";
+              const dateLabel = dateActive
+                ? dateFrom && dateTo
+                  ? `Date: ${formatShortDate(dateFrom)} – ${formatShortDate(dateTo)}`
+                  : dateFrom
+                  ? `Date: from ${formatShortDate(dateFrom)}`
+                  : `Date: to ${formatShortDate(dateTo)}`
+                : "Date";
+              const paceLabel = paceActive
+                ? paceMinSec && paceMaxSec
+                  ? `Pace: ${paceMinSec}–${paceMaxSec} s/km`
+                  : paceMinSec
+                  ? `Pace: ≥${paceMinSec} s/km`
+                  : `Pace: ≤${paceMaxSec} s/km`
+                : "Pace";
+              const distLabel = distActive
+                ? distMinKm && distMaxKm
+                  ? `Distance: ${distMinKm}–${distMaxKm} km`
+                  : distMinKm
+                  ? `Distance: ≥${distMinKm} km`
+                  : `Distance: ≤${distMaxKm} km`
+                : "Distance";
+
+              const pillBase = "inline-flex items-center overflow-hidden rounded-full border text-xs font-medium transition-colors";
+              const activePill = "border-primary bg-primary/10 text-primary";
+              const inactivePill = "border-border text-muted-foreground";
+              const triggerBtn = "flex items-center gap-1.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+              const clearBtn = "flex items-center py-1.5 pr-2 pl-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+              return (
+                <div className="mb-6 flex flex-wrap items-center gap-2">
+                  <Popover>
+                    <div data-testid="filter-sport" className={`${pillBase} ${sportActive ? activePill : inactivePill}`}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={`${triggerBtn} pl-3 ${sportActive ? "pr-2 hover:bg-primary/20" : "pr-3 hover:text-foreground"}`}
+                          aria-label={sportActive ? `Sport filter: ${sport}. Click to change` : "Sport filter"}
+                        >
+                          {sportLabel}
+                          {!sportActive && <ChevronDown className="h-3 w-3 opacity-60" />}
+                        </button>
+                      </PopoverTrigger>
+                      {sportActive && (
+                        <>
+                          <div className="w-px self-stretch bg-primary/30" aria-hidden />
+                          <button
+                            type="button"
+                            aria-label="Clear sport filter"
+                            className={`${clearBtn} hover:bg-primary/20`}
+                            onClick={() => setSport(ALL_SPORTS)}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <PopoverContent align="start" className="w-56 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="filter-sport-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sport</Label>
+                        {sportActive && (
+                          <button type="button" onClick={() => setSport(ALL_SPORTS)} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                        )}
+                      </div>
+                      <Select value={sport} onValueChange={setSport}>
+                        <SelectTrigger id="filter-sport-select" className="border-border bg-background">
+                          <SelectValue placeholder="Sport" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ALL_SPORTS}>All sports</SelectItem>
+                          {sports.map((s) => (
+                            <SelectItem key={s} value={s} className="capitalize">
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </PopoverContent>
+                  </Popover>
+
+                  <Popover>
+                    <div data-testid="filter-date" className={`${pillBase} ${dateActive ? activePill : inactivePill}`}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={`${triggerBtn} pl-3 ${dateActive ? "pr-2 hover:bg-primary/20" : "pr-3 hover:text-foreground"}`}
+                          aria-label={dateActive ? `Date filter: ${dateLabel}. Click to change` : "Date range filter"}
+                        >
+                          {dateLabel}
+                          {!dateActive && <ChevronDown className="h-3 w-3 opacity-60" />}
+                        </button>
+                      </PopoverTrigger>
+                      {dateActive && (
+                        <>
+                          <div className="w-px self-stretch bg-primary/30" aria-hidden />
+                          <button
+                            type="button"
+                            aria-label="Clear date filter"
+                            className={`${clearBtn} hover:bg-primary/20`}
+                            onClick={() => { setDateFrom(""); setDateTo(""); }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <PopoverContent align="start" className="w-72 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date range</Label>
+                        {dateActive && (
+                          <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="border-border bg-background"
+                          aria-label="From date"
+                        />
+                        <span className="text-xs text-center text-muted-foreground">–</span>
+                        <Input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="border-border bg-background"
+                          aria-label="To date"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  <Popover>
+                    <div data-testid="filter-pace" className={`${pillBase} ${paceActive ? activePill : inactivePill}`}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={`${triggerBtn} pl-3 ${paceActive ? "pr-2 hover:bg-primary/20" : "pr-3 hover:text-foreground"}`}
+                          aria-label={paceActive ? `Pace filter: ${paceLabel}. Click to change` : "Avg pace filter"}
+                        >
+                          {paceLabel}
+                          {!paceActive && <ChevronDown className="h-3 w-3 opacity-60" />}
+                        </button>
+                      </PopoverTrigger>
+                      {paceActive && (
+                        <>
+                          <div className="w-px self-stretch bg-primary/30" aria-hidden />
+                          <button
+                            type="button"
+                            aria-label="Clear pace filter"
+                            className={`${clearBtn} hover:bg-primary/20`}
+                            onClick={() => { setPaceMinSec(""); setPaceMaxSec(""); }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <PopoverContent align="start" className="w-64 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Avg pace (sec/km)</Label>
+                        {paceActive && (
+                          <button type="button" onClick={() => { setPaceMinSec(""); setPaceMaxSec(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="Min"
+                          value={paceMinSec}
+                          onChange={(e) => setPaceMinSec(e.target.value)}
+                          className="border-border bg-background"
+                          aria-label="Minimum pace seconds per km"
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="Max"
+                          value={paceMaxSec}
+                          onChange={(e) => setPaceMaxSec(e.target.value)}
+                          className="border-border bg-background"
+                          aria-label="Maximum pace seconds per km"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Matches stored pace; rows without pace are hidden when a bound is set.</p>
+                    </PopoverContent>
+                  </Popover>
+
+                  <Popover>
+                    <div data-testid="filter-distance" className={`${pillBase} ${distActive ? activePill : inactivePill}`}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={`${triggerBtn} pl-3 ${distActive ? "pr-2 hover:bg-primary/20" : "pr-3 hover:text-foreground"}`}
+                          aria-label={distActive ? `Distance filter: ${distLabel}. Click to change` : "Distance filter"}
+                        >
+                          {distLabel}
+                          {!distActive && <ChevronDown className="h-3 w-3 opacity-60" />}
+                        </button>
+                      </PopoverTrigger>
+                      {distActive && (
+                        <>
+                          <div className="w-px self-stretch bg-primary/30" aria-hidden />
+                          <button
+                            type="button"
+                            aria-label="Clear distance filter"
+                            className={`${clearBtn} hover:bg-primary/20`}
+                            onClick={() => { setDistMinKm(""); setDistMaxKm(""); }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <PopoverContent align="start" className="w-64 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Distance (km)</Label>
+                        {distActive && (
+                          <button type="button" onClick={() => { setDistMinKm(""); setDistMaxKm(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          placeholder="Min km"
+                          value={distMinKm}
+                          onChange={(e) => setDistMinKm(e.target.value)}
+                          className="border-border bg-background"
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          placeholder="Max km"
+                          value={distMaxKm}
+                          onChange={(e) => setDistMaxKm(e.target.value)}
+                          className="border-border bg-background"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Rows without distance are hidden when a bound is set.</p>
+                    </PopoverContent>
+                  </Popover>
+
+                  {anyActive && (
+                    <button
+                      type="button"
+                      data-testid="filters-clear-all"
+                      onClick={() => {
+                        setSport(ALL_SPORTS);
+                        setDateFrom("");
+                        setDateTo("");
+                        setPaceMinSec("");
+                        setPaceMaxSec("");
+                        setDistMinKm("");
+                        setDistMaxKm("");
+                      }}
+                      className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                      Clear all
+                    </button>
+                  )}
                 </div>
-              </div>
-              <div className="space-y-2 lg:col-span-2">
-                <Label>Avg pace (sec/km)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="Min"
-                    value={paceMinSec}
-                    onChange={(e) => setPaceMinSec(e.target.value)}
-                    className="border-border bg-background"
-                    aria-label="Minimum pace seconds per km"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="Max"
-                    value={paceMaxSec}
-                    onChange={(e) => setPaceMaxSec(e.target.value)}
-                    className="border-border bg-background"
-                    aria-label="Maximum pace seconds per km"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">Matches stored pace; rows without pace are hidden when a bound is set.</p>
-              </div>
-              <div className="space-y-2 lg:col-span-2">
-                <Label>Distance (km)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    placeholder="Min km"
-                    value={distMinKm}
-                    onChange={(e) => setDistMinKm(e.target.value)}
-                    className="border-border bg-background"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    placeholder="Max km"
-                    value={distMaxKm}
-                    onChange={(e) => setDistMaxKm(e.target.value)}
-                    className="border-border bg-background"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">Rows without distance are hidden when a bound is set.</p>
-              </div>
-            </div>
+              );
+            })()}
 
             <p className="label-mono text-muted-foreground mb-3">
               Showing {filteredSorted.length} of {activities.length}
