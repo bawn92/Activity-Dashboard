@@ -127,6 +127,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ActivityStats"
 
+  /activities/stats/sport:
+    get:
+      operationId: getSportStats
+      tags: [activities]
+      summary: All-time and recent stats for a specific sport
+      description: Returns last-4-weeks aggregates, all-time totals, and best efforts for the given sport
+      parameters:
+        - name: sport
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sport statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SportStats"
+        "400":
+          description: Missing or invalid sport parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /activities/{id}:
     get:
       operationId: getActivity
@@ -569,6 +595,56 @@ components:
         - avgDistanceMeters
         - avgDurationSeconds
         - sportBreakdown
+
+    BestEffort:
+      type: object
+      properties:
+        distanceMeters:
+          type: number
+        label:
+          type: string
+        durationSeconds:
+          type: ["number", "null"]
+      required:
+        - distanceMeters
+        - label
+        - durationSeconds
+
+    SportPeriodStats:
+      type: object
+      properties:
+        activityCount:
+          type: integer
+        totalDistanceMeters:
+          type: number
+        totalDurationSeconds:
+          type: number
+        totalElevGainMeters:
+          type: number
+      required:
+        - activityCount
+        - totalDistanceMeters
+        - totalDurationSeconds
+        - totalElevGainMeters
+
+    SportStats:
+      type: object
+      properties:
+        sport:
+          type: string
+        last4Weeks:
+          $ref: "#/components/schemas/SportPeriodStats"
+        allTime:
+          $ref: "#/components/schemas/SportPeriodStats"
+        bestEfforts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BestEffort"
+      required:
+        - sport
+        - last4Weeks
+        - allTime
+        - bestEfforts
 
     SportCount:
       type: object

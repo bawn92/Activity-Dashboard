@@ -15,6 +15,7 @@ import { ActivitySharePage } from "@/pages/activity-share";
 import GlobePage from "@/pages/globe";
 import AgentPage from "@/pages/agent";
 import CalendarPage from "@/pages/calendar";
+import StatsPage from "@/pages/stats";
 import { useAllowedStatus } from "@/hooks/use-allowed-status";
 
 const queryClient = new QueryClient({
@@ -225,6 +226,7 @@ function Router() {
       <Route path="/globe" component={GlobePage} />
       <Route path="/agent" component={AgentPage} />
       <Route path="/calendar" component={CalendarPage} />
+      <Route path="/stats" component={StatsPage} />
       <Route component={NotFound} />
     </Switch>
   );

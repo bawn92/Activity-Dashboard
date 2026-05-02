@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, LogIn, LogOut } from "lucide-react";
+import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, LogIn, LogOut } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -85,6 +85,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 <CalendarDays className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Calendar
+              </Link>
+              <Link
+                href="/stats"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
+                data-testid="link-nav-stats"
+              >
+                <BarChart3 className="w-3.5 h-3.5 opacity-80" aria-hidden />
+                Stats
               </Link>
             </nav>
           </div>

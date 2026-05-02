@@ -151,6 +151,27 @@ export interface ActivityStats {
   sportBreakdown: SportCount[];
 }
 
+export interface BestEffort {
+  distanceMeters: number;
+  label: string;
+  /** @nullable */
+  durationSeconds: number | null;
+}
+
+export interface SportPeriodStats {
+  activityCount: number;
+  totalDistanceMeters: number;
+  totalDurationSeconds: number;
+  totalElevGainMeters: number;
+}
+
+export interface SportStats {
+  sport: string;
+  last4Weeks: SportPeriodStats;
+  allTime: SportPeriodStats;
+  bestEfforts: BestEffort[];
+}
+
 export type UploadActivityBatchItemStatus =
   (typeof UploadActivityBatchItemStatus)[keyof typeof UploadActivityBatchItemStatus];
 
@@ -293,4 +314,8 @@ export type UploadActivityBatchBody = {
    * @maxItems 10
    */
   files: Blob[];
+};
+
+export type GetSportStatsParams = {
+  sport: string;
 };

@@ -426,6 +426,137 @@ router.post(
   },
 );
 
+router.get("/activities/stats/sport", async (req: Request, res: Response) => {
+  const sport = req.query.sport;
+  if (!sport || typeof sport !== "string") {
+    res.status(400).json({ error: "Missing or invalid 'sport' query parameter" });
+    return;
+  }
+
+  const now = new Date();
+  const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+
+  const activities = await db
+    .select()
+    .from(activitiesTable)
+    .where(eq(activitiesTable.sport, sport));
+
+  const recentActivities = activities.filter(
+    (a) => a.startTime >= fourWeeksAgo,
+  );
+
+  function aggregatePeriod(acts: typeof activities) {
+    return {
+      activityCount: acts.length,
+      totalDistanceMeters: acts.reduce((s, a) => s + (a.distanceMeters ?? 0), 0),
+      totalDurationSeconds: acts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0),
+      totalElevGainMeters: acts.reduce((s, a) => s + (a.totalElevGainMeters ?? 0), 0),
+    };
+  }
+
+  const allTime = aggregatePeriod(activities);
+  const last4Weeks = aggregatePeriod(recentActivities);
+
+  // Best efforts — only for running and cycling (not swimming)
+  const BENCHMARK_DISTANCES: Record<string, Array<{ label: string; meters: number }>> = {
+    running: [
+      { label: "400m", meters: 400 },
+      { label: "1K", meters: 1000 },
+      { label: "1 mile", meters: 1609 },
+      { label: "2 mile", meters: 3218 },
+      { label: "5K", meters: 5000 },
+      { label: "10K", meters: 10000 },
+      { label: "15K", meters: 15000 },
+      { label: "10 mile", meters: 16093 },
+      { label: "20K", meters: 20000 },
+      { label: "Half Marathon", meters: 21097 },
+      { label: "30K", meters: 30000 },
+    ],
+    cycling: [
+      { label: "5 mile", meters: 8047 },
+      { label: "10K", meters: 10000 },
+      { label: "10 mile", meters: 16093 },
+      { label: "20K", meters: 20000 },
+      { label: "30K", meters: 30000 },
+      { label: "40K", meters: 40000 },
+      { label: "50K", meters: 50000 },
+      { label: "80K", meters: 80000 },
+      { label: "50 mile", meters: 80467 },
+      { label: "100K", meters: 100000 },
+      { label: "100 mile", meters: 160934 },
+      { label: "180K", meters: 180000 },
+    ],
+  };
+
+  const benchmarks = BENCHMARK_DISTANCES[sport.toLowerCase()] ?? [];
+
+  // For each benchmark, track the best (minimum) time found
+  const bestTimes = new Map<number, number>(
+    benchmarks.map((b) => [b.meters, Infinity]),
+  );
+
+  if (benchmarks.length > 0 && activities.length > 0) {
+    for (const activity of activities) {
+      const points = await db
+        .select({ timestamp: activityDataPointsTable.timestamp, distance: activityDataPointsTable.distance })
+        .from(activityDataPointsTable)
+        .where(eq(activityDataPointsTable.activityId, activity.id))
+        .orderBy(activityDataPointsTable.timestamp);
+
+      if (points.length < 2) continue;
+
+      // Sliding window: for each end pointer j, advance start pointer i so that
+      // distance[j] - distance[i] >= target, then record elapsed time.
+      for (const { meters: targetDist } of benchmarks) {
+        let i = 0;
+        for (let j = 0; j < points.length; j++) {
+          const dj = points[j].distance;
+          if (dj == null) continue;
+          // Advance i as far as possible while still covering target distance
+          while (i < j) {
+            const di = points[i].distance;
+            if (di == null) { i++; continue; }
+            const nextDi = points[i + 1]?.distance;
+            if (nextDi == null) break;
+            if (dj - nextDi >= targetDist) {
+              i++;
+            } else {
+              break;
+            }
+          }
+          const di = points[i].distance;
+          if (di == null) continue;
+          if (dj - di >= targetDist) {
+            const elapsed = (points[j].timestamp.getTime() - points[i].timestamp.getTime()) / 1000;
+            if (elapsed > 0) {
+              const current = bestTimes.get(targetDist) ?? Infinity;
+              if (elapsed < current) {
+                bestTimes.set(targetDist, elapsed);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const bestEfforts = benchmarks.map((b) => {
+    const t = bestTimes.get(b.meters);
+    return {
+      distanceMeters: b.meters,
+      label: b.label,
+      durationSeconds: t != null && isFinite(t) ? t : null,
+    };
+  });
+
+  res.json({
+    sport,
+    last4Weeks,
+    allTime,
+    bestEfforts,
+  });
+});
+
 router.get("/activities/stats", async (req: Request, res: Response) => {
   const activities = await db.select().from(activitiesTable);
 

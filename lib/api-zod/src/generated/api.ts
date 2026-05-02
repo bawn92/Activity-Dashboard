@@ -97,6 +97,37 @@ export const GetActivityStatsResponse = zod.object({
 });
 
 /**
+ * Returns last-4-weeks aggregates, all-time totals, and best efforts for the given sport
+ * @summary All-time and recent stats for a specific sport
+ */
+export const GetSportStatsQueryParams = zod.object({
+  sport: zod.coerce.string(),
+});
+
+export const GetSportStatsResponse = zod.object({
+  sport: zod.string(),
+  last4Weeks: zod.object({
+    activityCount: zod.number(),
+    totalDistanceMeters: zod.number(),
+    totalDurationSeconds: zod.number(),
+    totalElevGainMeters: zod.number(),
+  }),
+  allTime: zod.object({
+    activityCount: zod.number(),
+    totalDistanceMeters: zod.number(),
+    totalDurationSeconds: zod.number(),
+    totalElevGainMeters: zod.number(),
+  }),
+  bestEfforts: zod.array(
+    zod.object({
+      distanceMeters: zod.number(),
+      label: zod.string(),
+      durationSeconds: zod.number().nullable(),
+    }),
+  ),
+});
+
+/**
  * Returns full activity detail including summary and time-series data points
  * @summary Get activity detail
  */

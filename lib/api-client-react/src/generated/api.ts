@@ -22,8 +22,10 @@ import type {
   ActivitySummary,
   CreateRenderJobBody,
   ErrorResponse,
+  GetSportStatsParams,
   HealthStatus,
   RenderJob,
+  SportStats,
   StorageUploadPresignedUrl,
   StorageUploadRequestBody,
   UpdateActivityBody,
@@ -437,6 +439,101 @@ export function useGetActivityStats<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetActivityStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns last-4-weeks aggregates, all-time totals, and best efforts for the given sport
+ * @summary All-time and recent stats for a specific sport
+ */
+export const getGetSportStatsUrl = (params: GetSportStatsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/activities/stats/sport?${stringifiedParams}`
+    : `/api/activities/stats/sport`;
+};
+
+export const getSportStats = async (
+  params: GetSportStatsParams,
+  options?: RequestInit,
+): Promise<SportStats> => {
+  return customFetch<SportStats>(getGetSportStatsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSportStatsQueryKey = (params?: GetSportStatsParams) => {
+  return [`/api/activities/stats/sport`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSportStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSportStats>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetSportStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSportStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSportStatsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSportStats>>> = ({
+    signal,
+  }) => getSportStats(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSportStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSportStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSportStats>>
+>;
+export type GetSportStatsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary All-time and recent stats for a specific sport
+ */
+
+export function useGetSportStats<
+  TData = Awaited<ReturnType<typeof getSportStats>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetSportStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSportStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSportStatsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
