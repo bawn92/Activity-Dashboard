@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@cursor/sdk": "1.0.12",
     "@modelcontextprotocol/sdk": "1.17.0",
     "@google-cloud/storage": "^7.19.0",
     "@remotion/bundler": "^4.0.451",

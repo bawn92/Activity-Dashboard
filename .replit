@@ -48,3 +48,4 @@ defaultBucketID = "replit-objstore-2b680c43-d7e4-4622-bc7e-494e0f2b957e"
 [userenv]
 
 [userenv.shared]
+CURSOR_CLOUD_REPO_URL = "https://github.com/bawn92/Activity-Dashboard.git"

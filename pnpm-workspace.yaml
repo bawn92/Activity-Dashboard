@@ -34,12 +34,15 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@replit/*'
   - stripe-replit-sync
+  - '@cursor/sdk'
+  - '@cursor/*'
 
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
   - msw
   - unrs-resolver
+  - sqlite3
 
 overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
