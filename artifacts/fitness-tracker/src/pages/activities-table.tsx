@@ -611,7 +611,7 @@ export default function ActivitiesTablePage() {
                       dir={sortDir}
                       onClick={() => handleSort("avgHeartRate")}
                     />
-                    <TableHead className="text-right w-[80px]"> </TableHead>
+                    <TableHead className="text-right w-[40px]"> </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -625,8 +625,10 @@ export default function ActivitiesTablePage() {
                     filteredSorted.map((a) => (
                       <TableRow key={a.id}>
                         <TableCell className="font-medium capitalize">{a.sport || "—"}</TableCell>
-                        <TableCell className="label-mono text-muted-foreground whitespace-nowrap">
-                          {formatDate(a.startTime)}
+                        <TableCell className="label-mono whitespace-nowrap">
+                          <Link href={`/activities/${a.id}`} className="text-primary hover:underline cursor-pointer">
+                            {formatDate(a.startTime)}
+                          </Link>
                         </TableCell>
                         <TableCell className="label-mono">{formatDistance(a.distanceMeters)}</TableCell>
                         <TableCell className="label-mono">{formatDuration(a.durationSeconds)}</TableCell>
@@ -635,19 +637,14 @@ export default function ActivitiesTablePage() {
                           {a.avgHeartRate != null ? `${Math.round(a.avgHeartRate)} bpm` : "—"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="inline-flex items-center gap-3 justify-end">
-                            <Link href={`/activities/${a.id}`}>
-                              <span className="text-sm text-primary hover:underline cursor-pointer">View</span>
-                            </Link>
-                            <button
-                              type="button"
-                              aria-label={`Delete ${a.sport || "activity"} on ${formatDate(a.startTime)}`}
-                              onClick={() => setPendingDeleteId(a.id)}
-                              className="text-muted-foreground/40 hover:text-destructive transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            aria-label={`Delete ${a.sport || "activity"} on ${formatDate(a.startTime)}`}
+                            onClick={() => setPendingDeleteId(a.id)}
+                            className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </TableCell>
                       </TableRow>
                     ))
