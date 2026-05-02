@@ -6,6 +6,7 @@ import {
   type NextFunction,
 } from "express";
 import { Agent, CursorAgentError } from "@cursor/sdk";
+import { logger } from "../lib/logger";
 
 const COACH_SYSTEM = `You are an expert endurance and strength coach helping the user interpret their own Strava-style activity data.
 
@@ -135,19 +136,28 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
 
   const fullPrompt = `${COACH_SYSTEM}\n\n---\n\nUser:\n${userText}`;
 
+  const reqLog = logger.child({ scope: "agent", userTextLen: userText.length });
+  reqLog.info({ promptPreview: userText.slice(0, 200) }, "agent: starting run");
+
   try {
     const run = await agent.send(fullPrompt);
+    reqLog.info({ runId: run.id }, "agent: run started");
     let accumulated = "";
     let thinkingAccum = "";
+    const toolNames: string[] = [];
+    let messageCount = 0;
+    const typeCounts: Record<string, number> = {};
 
     for await (const msg of run.stream()) {
-      if (process.env.AGENT_DEBUG) {
-        try {
-          // eslint-disable-next-line no-console
-          console.log("[agent stream]", msg.type, JSON.stringify(msg).slice(0, 500));
-        } catch {
-          /* ignore */
-        }
+      messageCount += 1;
+      typeCounts[msg.type] = (typeCounts[msg.type] ?? 0) + 1;
+      try {
+        reqLog.debug(
+          { msgType: msg.type, snippet: JSON.stringify(msg).slice(0, 400) },
+          "agent: stream msg",
+        );
+      } catch {
+        /* ignore */
       }
 
       if (msg.type === "thinking") {
@@ -168,6 +178,17 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
       }
 
       if (msg.type === "tool_call") {
+        if (msg.name) toolNames.push(msg.name);
+        reqLog.info(
+          {
+            tool: msg.name,
+            status: msg.status,
+            callId: msg.call_id,
+            argsPreview: jsonSnippet(msg.args, 200),
+            resultPreview: jsonSnippet(msg.result, 200),
+          },
+          "agent: tool_call",
+        );
         writeSse(res, "tool", {
           id: msg.call_id,
           name: msg.name,
@@ -181,6 +202,15 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
       if (msg.type === "assistant") {
         for (const block of msg.message.content) {
           if (block.type === "tool_use") {
+            toolNames.push(block.name);
+            reqLog.info(
+              {
+                tool: block.name,
+                callId: block.id,
+                argsPreview: jsonSnippet(block.input, 200),
+              },
+              "agent: assistant tool_use",
+            );
             writeSse(res, "tool", {
               id: block.id,
               name: block.name,
@@ -212,10 +242,45 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
     }
 
     const result = await run.wait();
+    const resultText =
+      typeof result.result === "string" ? result.result : "";
+    const trimmedAccum = accumulated.trim();
+    const trimmedResult = resultText.trim();
+
+    reqLog.info(
+      {
+        runId: run.id,
+        status: result.status,
+        messageCount,
+        typeCounts,
+        toolCount: toolNames.length,
+        toolNames,
+        accumulatedLen: accumulated.length,
+        accumulatedPreview: accumulated.slice(0, 400),
+        resultLen: resultText.length,
+        resultPreview: resultText.slice(0, 400),
+      },
+      "agent: run finished",
+    );
+
+    if (trimmedAccum.length < 5 && trimmedResult.length > trimmedAccum.length) {
+      reqLog.warn(
+        {
+          accumulatedLen: accumulated.length,
+          resultLen: resultText.length,
+        },
+        "agent: streamed assistant text was empty/trivial, falling back to result.result",
+      );
+      writeSse(res, "replace", { text: resultText });
+    }
+
     writeSse(res, "done", {
       status: result.status,
       result: result.result,
       runId: run.id,
+      toolCount: toolNames.length,
+      toolNames,
+      accumulatedLen: accumulated.length,
     });
   } catch (err) {
     const message =
@@ -224,6 +289,7 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
         : err instanceof Error
           ? err.message
           : String(err);
+    reqLog.error({ err: message }, "agent: run failed");
     writeSse(res, "error", { message });
   } finally {
     await agent[Symbol.asyncDispose]().catch(() => {});

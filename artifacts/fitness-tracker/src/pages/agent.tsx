@@ -557,8 +557,11 @@ export default function AgentPage() {
         try {
           payload = JSON.parse(parsed.data) as Record<string, unknown>;
         } catch {
+          console.warn("[coach sse] unparseable payload", parsed);
           return;
         }
+
+        console.debug("[coach sse]", parsed.event, payload);
 
         switch (parsed.event) {
             case "thinking_replace": {
@@ -636,12 +639,38 @@ export default function AgentPage() {
               throw new Error(message);
             }
             case "done": {
-              updateRound(roundId, (r) => ({
-                ...r,
-                status: "done",
-                endedAt: Date.now(),
-                expanded: false,
-              }));
+              const fallback =
+                typeof payload.result === "string" ? payload.result : "";
+              const toolNames = Array.isArray(payload.toolNames)
+                ? (payload.toolNames as unknown[]).filter(
+                    (n): n is string => typeof n === "string",
+                  )
+                : [];
+              console.info("[coach sse] done summary", {
+                status: payload.status,
+                toolCount: payload.toolCount,
+                toolNames,
+                accumulatedLen: payload.accumulatedLen,
+                resultLen: fallback.length,
+              });
+              updateRound(roundId, (r) => {
+                const trimmed = r.answer.trim();
+                const useFallback =
+                  trimmed.length < 5 && fallback.trim().length > trimmed.length;
+                if (useFallback) {
+                  console.warn(
+                    "[coach sse] streamed answer was empty/trivial, using result fallback",
+                    { trimmed, fallbackLen: fallback.length },
+                  );
+                }
+                return {
+                  ...r,
+                  answer: useFallback ? fallback : r.answer,
+                  status: "done",
+                  endedAt: Date.now(),
+                  expanded: false,
+                };
+              });
               break;
             }
             default:
