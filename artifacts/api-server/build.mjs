@@ -103,6 +103,8 @@ async function buildAll() {
       "@remotion/*",
       "remotion",
       "@workspace/remotion-compositions",
+      "@cursor/sdk",
+      "sqlite3",
     ],
     sourcemap: "linked",
     plugins: [
