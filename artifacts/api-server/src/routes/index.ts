@@ -7,6 +7,7 @@ import globeRouter from "./globe";
 import mcpRouter from "./mcp";
 import agentRouter from "./agent";
 import authRouter from "./auth";
+import coachRouter from "./coach";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(renderJobsRouter);
 router.use(globeRouter);
 router.use("/mcp", mcpRouter);
 router.use(agentRouter);
+router.use(coachRouter);
 
 export default router;

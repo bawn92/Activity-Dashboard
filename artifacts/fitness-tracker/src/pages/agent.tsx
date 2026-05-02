@@ -3,9 +3,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "@/hooks/use-toast";
 import {
   Brain,
@@ -15,13 +16,15 @@ import {
   Database,
   Lock,
   Loader2,
+  Menu,
+  MessageSquarePlus,
   Send,
   Sparkles,
+  Star,
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useClerk } from "@clerk/react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useAllowedStatus } from "@/hooks/use-allowed-status";
 
 function apiBase(): string {
@@ -56,6 +59,23 @@ type ChatRound = {
   startedAt: number;
   endedAt?: number;
   expanded: boolean;
+};
+
+type ThreadSummary = {
+  id: number;
+  title: string;
+  titlePending: boolean;
+  isFavourite: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CoachMessage = {
+  id: number;
+  threadId: number;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
 };
 
 function parseSseFrame(raw: string): { event: string; data: string } | null {
@@ -356,6 +376,23 @@ function phaseFor(round: ChatRound): { label: string; icon: typeof Brain } {
   }
   if (round.thinking) return { label: "Thinking", icon: Brain };
   return { label: "Analyzing your request", icon: Brain };
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  const diffWeek = Math.round(diffDay / 7);
+  if (diffWeek < 5) return `${diffWeek}w ago`;
+  const diffMonth = Math.round(diffDay / 30);
+  return `${diffMonth}mo ago`;
 }
 
 function ThinkingBubble({
@@ -712,51 +749,297 @@ function ThinkingPanel({
           })}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
 
-      {round.bubbles.length > 1 ? (
-        <div className="px-3 pb-2 flex items-center gap-1">
-          {round.bubbles.map((b, i) => {
-            const isLast = i === round.bubbles.length - 1;
-            const active = round.status === "streaming" && isLast;
-            return (
-              <div key={b.id + "-tl"} className="flex items-center gap-1 flex-1">
-                <motion.div
-                  animate={
-                    active ? { scale: [1, 1.4, 1] } : { scale: 1 }
-                  }
-                  transition={
-                    active
-                      ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
-                      : { duration: 0 }
-                  }
+function messagesToRounds(messages: CoachMessage[]): ChatRound[] {
+  const rounds: ChatRound[] = [];
+  let pendingUser: CoachMessage | null = null;
+  for (const m of messages) {
+    if (m.role === "user") {
+      if (pendingUser) {
+        // Orphan user message — push as round without answer
+        rounds.push({
+          id: `m-${pendingUser.id}`,
+          userText: pendingUser.content,
+          thinking: "",
+          tools: {},
+          bubbles: [],
+          answer: "",
+          status: "done",
+          startedAt: new Date(pendingUser.createdAt).getTime(),
+          endedAt: new Date(pendingUser.createdAt).getTime(),
+          expanded: false,
+        });
+      }
+      pendingUser = m;
+    } else if (m.role === "assistant") {
+      const userText = pendingUser?.content ?? "";
+      rounds.push({
+        id: `m-${m.id}`,
+        userText,
+        thinking: "",
+        tools: {},
+        bubbles: [],
+        answer: m.content,
+        status: "done",
+        startedAt: pendingUser
+          ? new Date(pendingUser.createdAt).getTime()
+          : new Date(m.createdAt).getTime(),
+        endedAt: new Date(m.createdAt).getTime(),
+        expanded: false,
+      });
+      pendingUser = null;
+    }
+  }
+  if (pendingUser) {
+    rounds.push({
+      id: `m-${pendingUser.id}`,
+      userText: pendingUser.content,
+      thinking: "",
+      tools: {},
+      bubbles: [],
+      answer: "",
+      status: "done",
+      startedAt: new Date(pendingUser.createdAt).getTime(),
+      endedAt: new Date(pendingUser.createdAt).getTime(),
+      expanded: false,
+    });
+  }
+  return rounds;
+}
+
+function ThreadList({
+  threads,
+  loading,
+  activeThreadId,
+  canFavourite,
+  canCreate,
+  onSelect,
+  onNewChat,
+  onToggleFavourite,
+}: {
+  threads: ThreadSummary[];
+  loading: boolean;
+  activeThreadId: number | null;
+  canFavourite: boolean;
+  canCreate: boolean;
+  onSelect: (id: number) => void;
+  onNewChat: () => void;
+  onToggleFavourite: (id: number) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-3 border-b border-border/60 flex items-center justify-between gap-2">
+        <span className="label-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+          Conversations
+        </span>
+        {canCreate ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onNewChat}
+            className="h-7 gap-1.5 text-xs"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            New
+          </Button>
+        ) : null}
+      </div>
+      <ScrollArea className="flex-1">
+        {loading && threads.length === 0 ? (
+          <div className="p-3 flex flex-col gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : threads.length === 0 ? (
+          <div className="p-4 text-xs text-muted-foreground text-center">
+            No conversations yet
+          </div>
+        ) : (
+          <div className="p-1.5 flex flex-col gap-0.5">
+            {threads.map((t) => {
+              const active = t.id === activeThreadId;
+              return (
+                <div
+                  key={t.id}
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    "group flex items-center gap-1 rounded-md px-2 py-1.5 transition-colors cursor-pointer",
                     active
-                      ? "bg-primary"
-                      : i < round.bubbles.length - 1 || round.status === "done"
-                        ? "bg-emerald-500"
-                        : "bg-muted-foreground/40",
+                      ? "bg-primary/10 border border-primary/30"
+                      : "hover:bg-muted/60 border border-transparent",
                   )}
-                />
-                {i < round.bubbles.length - 1 ? (
-                  <div className="h-px flex-1 bg-border/60" />
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+                  onClick={() => onSelect(t.id)}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (canFavourite) onToggleFavourite(t.id);
+                    }}
+                    disabled={!canFavourite}
+                    aria-label={t.isFavourite ? "Unfavourite" : "Favourite"}
+                    className={cn(
+                      "shrink-0 p-1 rounded transition-colors",
+                      canFavourite ? "hover:bg-muted" : "cursor-default",
+                      t.isFavourite ? "text-amber-500" : "text-muted-foreground/40",
+                    )}
+                  >
+                    <Star
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        t.isFavourite && "fill-current",
+                      )}
+                    />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
+                      {t.titlePending ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                      ) : null}
+                      <span className="truncate">{t.title}</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {relativeTime(t.updatedAt)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ScrollArea>
     </div>
   );
 }
 
 export default function AgentPage() {
+  const status = useAllowedStatus();
+  const canChat = status.state === "allowed";
+
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(true);
+  const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
+  const [historyRounds, setHistoryRounds] = useState<ChatRound[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [rounds, setRounds] = useState<ChatRound[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+
+  const loadThreads = useCallback(async () => {
+    try {
+      const res = await fetch(`${apiBase()}/api/coach/threads`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { threads: ThreadSummary[] };
+      setThreads(data.threads);
+    } catch (e) {
+      console.warn("[coach] failed to load threads", e);
+    } finally {
+      setThreadsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadThreads();
+  }, [loadThreads]);
+
+  const loadThread = useCallback(async (id: number) => {
+    setHistoryLoading(true);
+    setHistoryRounds([]);
+    try {
+      const res = await fetch(`${apiBase()}/api/coach/threads/${id}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        thread: ThreadSummary;
+        messages: CoachMessage[];
+      };
+      setHistoryRounds(messagesToRounds(data.messages));
+    } catch (e) {
+      console.warn("[coach] failed to load thread", e);
+      toast({
+        title: "Couldn't load conversation",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const handleSelectThread = useCallback(
+    (id: number) => {
+      // Cancel any in-flight stream so its updates don't bleed into the
+      // newly-selected thread.
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setActiveThreadId(id);
+      setRounds([]);
+      setHistoryRounds([]);
+      setBusy(false);
+      setDrawerOpen(false);
+      void loadThread(id);
+    },
+    [loadThread],
+  );
+
+  const handleNewChat = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setActiveThreadId(null);
+    setRounds([]);
+    setHistoryRounds([]);
+    setInput("");
+    setBusy(false);
+    setDrawerOpen(false);
+  }, []);
+
+  const handleToggleFavourite = useCallback(
+    async (id: number) => {
+      // Optimistic update
+      setThreads((ts) =>
+        ts.map((t) => (t.id === id ? { ...t, isFavourite: !t.isFavourite } : t)),
+      );
+      try {
+        const res = await fetch(`${apiBase()}/api/coach/threads/${id}/favourite`, {
+          method: "PATCH",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { thread: ThreadSummary };
+        setThreads((ts) => {
+          const next = ts.map((t) => (t.id === id ? data.thread : t));
+          return [...next].sort((a, b) => {
+            if (a.isFavourite !== b.isFavourite) return a.isFavourite ? -1 : 1;
+            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+          });
+        });
+      } catch (e) {
+        // Revert
+        setThreads((ts) =>
+          ts.map((t) =>
+            t.id === id ? { ...t, isFavourite: !t.isFavourite } : t,
+          ),
+        );
+        toast({
+          title: "Couldn't update favourite",
+          description: e instanceof Error ? e.message : String(e),
+          variant: "destructive",
+        });
+      }
+    },
+    [],
+  );
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -764,7 +1047,7 @@ export default function AgentPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [rounds, scrollToBottom]);
+  }, [rounds, historyRounds, scrollToBottom]);
 
   useEffect(() => {
     return () => {
@@ -780,16 +1063,44 @@ export default function AgentPage() {
     [],
   );
 
-  const toggleExpanded = useCallback(
-    (id: string) => {
-      updateRound(id, (r) => ({ ...r, expanded: !r.expanded }));
-    },
-    [updateRound],
-  );
+  const toggleExpanded = useCallback((id: string) => {
+    setRounds((rs) =>
+      rs.map((r) => (r.id === id ? { ...r, expanded: !r.expanded } : r)),
+    );
+    setHistoryRounds((rs) =>
+      rs.map((r) => (r.id === id ? { ...r, expanded: !r.expanded } : r)),
+    );
+  }, []);
 
   const runChat = async () => {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || busy || !canChat) return;
+
+    // Ensure we have a thread
+    let threadId = activeThreadId;
+    if (threadId === null) {
+      try {
+        const res = await fetch(`${apiBase()}/api/coach/threads`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => res.statusText);
+          throw new Error(errText || `HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as { thread: ThreadSummary };
+        threadId = data.thread.id;
+        setActiveThreadId(threadId);
+        setThreads((ts) => [data.thread, ...ts]);
+      } catch (e) {
+        toast({
+          title: "Couldn't start a new conversation",
+          description: e instanceof Error ? e.message : String(e),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const roundId = crypto.randomUUID();
     const startedAt = Date.now();
@@ -823,7 +1134,7 @@ export default function AgentPage() {
       const res = await fetch(`${apiBase()}/api/agent`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, threadId }),
         credentials: "include",
         signal: controller.signal,
       });
@@ -903,120 +1214,128 @@ export default function AgentPage() {
           return;
         }
 
-        console.debug("[coach sse]", parsed.event, payload);
-
         switch (parsed.event) {
-            case "thinking_replace": {
-              const t = typeof payload.text === "string" ? payload.text : "";
-              ensureBubble("thinking");
-              updateRound(roundId, (r) => ({ ...r, thinking: t }));
-              break;
-            }
-            case "thinking_delta": {
-              const t = typeof payload.text === "string" ? payload.text : "";
-              if (!t) break;
-              ensureBubble("thinking");
-              updateRound(roundId, (r) => ({ ...r, thinking: r.thinking + t }));
-              break;
-            }
-            case "tool": {
-              const id = String(payload.id ?? "");
-              const name = String(payload.name ?? "tool");
-              const status = (payload.status === "done" ||
-              payload.status === "error" ||
-              payload.status === "pending"
-                ? payload.status
-                : payload.resultPreview
-                  ? "done"
-                  : "pending") as ToolState["status"];
-              const argsPreview =
-                typeof payload.argsPreview === "string"
-                  ? payload.argsPreview
-                  : undefined;
-              const resultPreview =
-                typeof payload.resultPreview === "string"
-                  ? payload.resultPreview
-                  : undefined;
-              if (!id) break;
-              ensureBubble("tool", id);
-              updateRound(roundId, (r) => {
-                const prev = r.tools[id];
-                const startedAt = prev?.startedAt ?? Date.now();
-                const endedAt =
-                  status !== "pending" ? (prev?.endedAt ?? Date.now()) : prev?.endedAt;
-                return {
-                  ...r,
-                  tools: {
-                    ...r.tools,
-                    [id]: {
-                      id,
-                      name,
-                      status,
-                      argsPreview: argsPreview ?? prev?.argsPreview,
-                      resultPreview: resultPreview ?? prev?.resultPreview,
-                      startedAt,
-                      endedAt,
-                    },
+          case "thinking_replace": {
+            const t = typeof payload.text === "string" ? payload.text : "";
+            ensureBubble("thinking");
+            updateRound(roundId, (r) => ({ ...r, thinking: t }));
+            break;
+          }
+          case "thinking_delta": {
+            const t = typeof payload.text === "string" ? payload.text : "";
+            if (!t) break;
+            ensureBubble("thinking");
+            updateRound(roundId, (r) => ({ ...r, thinking: r.thinking + t }));
+            break;
+          }
+          case "tool": {
+            const id = String(payload.id ?? "");
+            const name = String(payload.name ?? "tool");
+            const status = (payload.status === "done" ||
+            payload.status === "error" ||
+            payload.status === "pending"
+              ? payload.status
+              : payload.resultPreview
+                ? "done"
+                : "pending") as ToolState["status"];
+            const argsPreview =
+              typeof payload.argsPreview === "string"
+                ? payload.argsPreview
+                : undefined;
+            const resultPreview =
+              typeof payload.resultPreview === "string"
+                ? payload.resultPreview
+                : undefined;
+            if (!id) break;
+            ensureBubble("tool", id);
+            updateRound(roundId, (r) => {
+              const prev = r.tools[id];
+              const startedAt = prev?.startedAt ?? Date.now();
+              const endedAt =
+                status !== "pending" ? (prev?.endedAt ?? Date.now()) : prev?.endedAt;
+              return {
+                ...r,
+                tools: {
+                  ...r.tools,
+                  [id]: {
+                    id,
+                    name,
+                    status,
+                    argsPreview: argsPreview ?? prev?.argsPreview,
+                    resultPreview: resultPreview ?? prev?.resultPreview,
+                    startedAt,
+                    endedAt,
                   },
-                };
-              });
-              break;
+                },
+              };
+            });
+            break;
+          }
+          case "delta": {
+            const t = typeof payload.text === "string" ? payload.text : "";
+            if (!t) break;
+            ensureBubble("answer-start");
+            updateRound(roundId, (r) => ({ ...r, answer: r.answer + t }));
+            break;
+          }
+          case "replace": {
+            const t = typeof payload.text === "string" ? payload.text : "";
+            ensureBubble("answer-start");
+            updateRound(roundId, (r) => ({ ...r, answer: t }));
+            break;
+          }
+          case "error": {
+            const message =
+              typeof payload.message === "string" ? payload.message : "Agent error";
+            throw new Error(message);
+          }
+          case "persist_error": {
+            const message =
+              typeof payload.message === "string"
+                ? payload.message
+                : "Unknown error";
+            toast({
+              title: "Couldn't save the conversation",
+              description: message,
+              variant: "destructive",
+            });
+            break;
+          }
+          case "title": {
+            const tid =
+              typeof payload.threadId === "number" ? payload.threadId : null;
+            const newTitle =
+              typeof payload.title === "string" ? payload.title : "";
+            if (tid !== null && newTitle) {
+              setThreads((ts) =>
+                ts.map((t) =>
+                  t.id === tid
+                    ? { ...t, title: newTitle, titlePending: false }
+                    : t,
+                ),
+              );
             }
-            case "delta": {
-              const t = typeof payload.text === "string" ? payload.text : "";
-              if (!t) break;
-              ensureBubble("answer-start");
-              updateRound(roundId, (r) => ({ ...r, answer: r.answer + t }));
-              break;
-            }
-            case "replace": {
-              const t = typeof payload.text === "string" ? payload.text : "";
-              ensureBubble("answer-start");
-              updateRound(roundId, (r) => ({ ...r, answer: t }));
-              break;
-            }
-            case "error": {
-              const message =
-                typeof payload.message === "string" ? payload.message : "Agent error";
-              throw new Error(message);
-            }
-            case "done": {
-              const fallback =
-                typeof payload.result === "string" ? payload.result : "";
-              const toolNames = Array.isArray(payload.toolNames)
-                ? (payload.toolNames as unknown[]).filter(
-                    (n): n is string => typeof n === "string",
-                  )
-                : [];
-              console.info("[coach sse] done summary", {
-                status: payload.status,
-                toolCount: payload.toolCount,
-                toolNames,
-                accumulatedLen: payload.accumulatedLen,
-                resultLen: fallback.length,
-              });
-              updateRound(roundId, (r) => {
-                const trimmed = r.answer.trim();
-                const useFallback =
-                  trimmed.length < 5 && fallback.trim().length > trimmed.length;
-                if (useFallback) {
-                  console.warn(
-                    "[coach sse] streamed answer was empty/trivial, using result fallback",
-                    { trimmed, fallbackLen: fallback.length },
-                  );
-                }
-                return {
-                  ...r,
-                  answer: useFallback ? fallback : r.answer,
-                  status: "done",
-                  endedAt: Date.now(),
-                  expanded: false,
-                };
-              });
-              break;
-            }
-            default:
-              break;
+            break;
+          }
+          case "done": {
+            const fallback =
+              typeof payload.result === "string" ? payload.result : "";
+            updateRound(roundId, (r) => {
+              const trimmed = r.answer.trim();
+              const useFallback =
+                trimmed.length < 5 && fallback.trim().length > trimmed.length;
+              return {
+                ...r,
+                answer: useFallback ? fallback : r.answer,
+                status: "done",
+                endedAt: Date.now(),
+                expanded: false,
+              };
+            });
+            break;
+          }
+          default:
+            break;
         }
       };
 
@@ -1043,6 +1362,9 @@ export default function AgentPage() {
         handleFrame(buffer);
         buffer = "";
       }
+
+      // Refresh thread list to pick up updated title and timestamp
+      void loadThreads();
     } catch (e) {
       if (controller.signal.aborted) {
         return;
@@ -1078,178 +1400,234 @@ export default function AgentPage() {
     }
   };
 
-  const empty = useMemo(() => rounds.length === 0, [rounds]);
-
-  const { signOut } = useClerk();
-  const [, setLocation] = useLocation();
-  const status = useAllowedStatus();
+  const allRounds = useMemo(() => [...historyRounds, ...rounds], [historyRounds, rounds]);
+  const empty = allRounds.length === 0;
+  const activeThread = useMemo(
+    () => threads.find((t) => t.id === activeThreadId) ?? null,
+    [threads, activeThreadId],
+  );
 
   if (status.state === "loading") {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-3xl" />
+        <div className="container mx-auto px-4 py-8 max-w-6xl" />
       </Layout>
     );
   }
 
-  if (status.state === "not_signed_in") {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-16 max-w-2xl flex flex-col items-center text-center gap-6">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <Lock className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-medium tracking-tight text-foreground mb-2">
-              This is a private app
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Sign in with the owner account to chat with your training coach.
-            </p>
-          </div>
-          <Link href="/sign-in">
-            <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm label-mono hover:bg-primary/90 transition-colors cursor-pointer">
-              Sign in to continue
-            </span>
-          </Link>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (status.state === "wrong_email") {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-16 max-w-2xl flex flex-col items-center text-center gap-6">
-          <div className="w-14 h-14 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
-            <Lock className="w-6 h-6 text-destructive" />
-          </div>
-          <div>
-            <h2 className="text-xl font-medium tracking-tight text-foreground mb-2">
-              This app is private
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              This account does not have access. Signing you out…
-            </p>
-          </div>
-          <button
-            onClick={() => signOut().then(() => setLocation("/"))}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-destructive text-destructive-foreground text-sm label-mono hover:bg-destructive/90 transition-colors"
-          >
-            Sign out now
-          </button>
-        </div>
-      </Layout>
-    );
-  }
+  const sidebar = (
+    <ThreadList
+      threads={threads}
+      loading={threadsLoading}
+      activeThreadId={activeThreadId}
+      canFavourite={canChat}
+      canCreate={canChat}
+      onSelect={handleSelectThread}
+      onNewChat={handleNewChat}
+      onToggleFavourite={handleToggleFavourite}
+    />
+  );
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-3xl flex flex-col gap-4 min-h-[calc(100dvh-4rem)]">
-        <Card className="border-border/80 shadow-sm flex-1 flex flex-col min-h-0">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl font-medium tracking-tight">
-              Training coach
-            </CardTitle>
-            <CardDescription>
-              Ask about volume, trends, or specific activities. Answers use your
-              stored workouts (UTC) via the cloud agent and MCP tools.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col flex-1 gap-3 min-h-0 pt-0">
-            <ScrollArea className="flex-1 min-h-[280px] rounded-md border border-border/60 bg-muted/20 p-3">
-              <div className="flex flex-col gap-4 pr-2">
-                {empty ? (
-                  <p className="text-sm text-muted-foreground">
-                    Try: &ldquo;What was my total running distance last month?&rdquo; or
-                    &ldquo;Summarize my last 7 days by sport.&rdquo;
-                  </p>
-                ) : (
-                  rounds.map((round) => (
-                    <div key={round.id} className="flex flex-col gap-2">
-                      <div className="ml-8 self-end rounded-lg bg-primary/10 px-3 py-2 text-sm">
-                        <span className="label-mono text-[10px] uppercase text-muted-foreground block mb-1">
-                          You
-                        </span>
-                        {round.userText}
-                      </div>
+      <div className="container mx-auto px-4 py-4 sm:py-6 max-w-6xl">
+        <div className="flex gap-4 min-h-[calc(100dvh-6rem)]">
+          {/* Desktop sidebar */}
+          <aside className="hidden md:flex w-64 shrink-0 flex-col rounded-lg border border-border/70 bg-background overflow-hidden">
+            {sidebar}
+          </aside>
 
-                      {(round.bubbles.length > 0 ||
-                        round.status === "streaming") && (
-                        <ThinkingPanel
-                          round={round}
-                          onToggle={() => toggleExpanded(round.id)}
-                        />
-                      )}
+          <main className="flex-1 flex flex-col min-w-0 rounded-lg border border-border/70 bg-background overflow-hidden">
+            <header className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
+              {/* Mobile drawer trigger */}
+              <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden h-8 w-8"
+                    aria-label="Open conversations"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-72 flex flex-col">
+                  <SheetHeader className="p-3 border-b border-border/60">
+                    <SheetTitle className="text-sm">Conversations</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex-1 min-h-0">{sidebar}</div>
+                </SheetContent>
+              </Sheet>
 
-                      {round.answer ? (
-                        <div className="mr-8 rounded-lg bg-background border border-border/70 px-3 py-2 text-sm">
-                          <span className="label-mono text-[10px] uppercase text-muted-foreground block mb-1">
-                            Coach
-                          </span>
-                          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                            <ReactMarkdown>{round.answer}</ReactMarkdown>
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {round.status === "error" && round.needsSignIn ? (
-                        <div className="mr-8 rounded-lg bg-muted/40 border border-border/70 px-3 py-2 text-sm flex items-center gap-2 flex-wrap">
-                          <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-                          <span className="text-foreground/80">
-                            Please sign in to chat with your coach.
-                          </span>
-                          <Link href="/sign-in">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
-                              Sign in
-                            </span>
-                          </Link>
-                        </div>
-                      ) : round.status === "error" && round.errorMessage ? (
-                        <div className="mr-8 rounded-lg bg-destructive/5 border border-destructive/30 px-3 py-2 text-sm text-destructive">
-                          {round.errorMessage}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))
-                )}
-                <div ref={bottomRef} />
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-medium tracking-tight truncate flex items-center gap-1.5">
+                  {activeThread?.titlePending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
+                  ) : null}
+                  <span className="truncate">
+                    {activeThread?.title ?? "Training coach"}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {activeThread
+                    ? `Last updated ${relativeTime(activeThread.updatedAt)}`
+                    : "Ask about volume, trends, or specific activities."}
+                </div>
               </div>
-            </ScrollArea>
 
-            <div className="flex flex-col gap-2">
-              <Textarea
-                placeholder="Ask your coach…"
-                value={input}
-                disabled={busy}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void runChat();
-                  }
-                }}
-                rows={3}
-                className="resize-none"
-              />
-              <div className="flex justify-end">
+              {activeThread && canChat ? (
                 <Button
                   type="button"
-                  onClick={() => void runChat()}
-                  disabled={busy || !input.trim()}
-                  className="gap-2"
-                >
-                  {busy ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Send className="h-4 w-4" aria-hidden />
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleToggleFavourite(activeThread.id)}
+                  className={cn(
+                    "h-8 w-8",
+                    activeThread.isFavourite && "text-amber-500",
                   )}
-                  Send
+                  aria-label={activeThread.isFavourite ? "Unfavourite" : "Favourite"}
+                >
+                  <Star
+                    className={cn(
+                      "h-4 w-4",
+                      activeThread.isFavourite && "fill-current",
+                    )}
+                  />
                 </Button>
+              ) : null}
+            </header>
+
+            <div className="flex-1 min-h-0 flex flex-col">
+              <ScrollArea className="flex-1 min-h-[280px] bg-muted/20">
+                <div className="p-4 flex flex-col gap-4">
+                  {historyLoading ? (
+                    <div className="flex flex-col gap-3">
+                      <Skeleton className="h-12 w-2/3 self-end" />
+                      <Skeleton className="h-24 w-3/4" />
+                      <Skeleton className="h-12 w-1/2 self-end" />
+                      <Skeleton className="h-24 w-3/4" />
+                    </div>
+                  ) : empty ? (
+                    <div className="text-sm text-muted-foreground py-8 text-center">
+                      {canChat ? (
+                        <>
+                          Try: &ldquo;What was my total running distance last
+                          month?&rdquo; or &ldquo;Summarize my last 7 days by
+                          sport.&rdquo;
+                        </>
+                      ) : threads.length === 0 ? (
+                        "No conversations have been started yet."
+                      ) : (
+                        "Pick a conversation from the sidebar to read it."
+                      )}
+                    </div>
+                  ) : (
+                    allRounds.map((round) => (
+                      <div key={round.id} className="flex flex-col gap-2">
+                        {round.userText ? (
+                          <div className="ml-8 self-end rounded-lg bg-primary/10 px-3 py-2 text-sm">
+                            <span className="label-mono text-[10px] uppercase text-muted-foreground block mb-1">
+                              You
+                            </span>
+                            {round.userText}
+                          </div>
+                        ) : null}
+
+                        {(round.bubbles.length > 0 ||
+                          round.status === "streaming") && (
+                          <ThinkingPanel
+                            round={round}
+                            onToggle={() => toggleExpanded(round.id)}
+                          />
+                        )}
+
+                        {round.answer ? (
+                          <div className="mr-8 rounded-lg bg-background border border-border/70 px-3 py-2 text-sm">
+                            <span className="label-mono text-[10px] uppercase text-muted-foreground block mb-1">
+                              Coach
+                            </span>
+                            <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                              <ReactMarkdown>{round.answer}</ReactMarkdown>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {round.status === "error" && round.needsSignIn ? (
+                          <div className="mr-8 rounded-lg bg-muted/40 border border-border/70 px-3 py-2 text-sm flex items-center gap-2 flex-wrap">
+                            <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span className="text-foreground/80">
+                              Please sign in to chat with your coach.
+                            </span>
+                            <Link href="/sign-in">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
+                                Sign in
+                              </span>
+                            </Link>
+                          </div>
+                        ) : round.status === "error" && round.errorMessage ? (
+                          <div className="mr-8 rounded-lg bg-destructive/5 border border-destructive/30 px-3 py-2 text-sm text-destructive">
+                            {round.errorMessage}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                  <div ref={bottomRef} />
+                </div>
+              </ScrollArea>
+
+              <div className="border-t border-border/60 p-3 bg-background">
+                {canChat ? (
+                  <div className="flex flex-col gap-2">
+                    <Textarea
+                      placeholder="Ask your coach…"
+                      value={input}
+                      disabled={busy}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void runChat();
+                        }
+                      }}
+                      rows={3}
+                      className="resize-none"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={() => void runChat()}
+                        disabled={busy || !input.trim()}
+                        className="gap-2"
+                      >
+                        {busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        ) : (
+                          <Send className="h-4 w-4" aria-hidden />
+                        )}
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-3 flex items-center gap-3 flex-wrap">
+                    <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground/80 flex-1 min-w-[180px]">
+                      Sign in to chat with your coach. You can still browse and
+                      read all past conversations.
+                    </span>
+                    <Link href="/sign-in">
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
+                        Sign in
+                      </span>
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </main>
+        </div>
       </div>
     </Layout>
   );

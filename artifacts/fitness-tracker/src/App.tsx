@@ -172,15 +172,27 @@ function ClerkQueryClientCacheInvalidator() {
  * ALLOWED_USER_EMAIL — determined by calling GET /api/auth/allowed.
  * This fires as soon as Clerk and the API both confirm the user is wrong.
  */
+// Routes where signed-in non-owners are allowed to remain (read-only views).
+// They are still blocked from privileged actions server-side via
+// `requireAllowedUser`, but the UI does not forcibly sign them out.
+const PUBLIC_READ_ROUTES = ["/agent"];
+
 function WrongEmailAutoSignOut() {
   const { signOut } = useClerk();
   const { user } = useUser();
   const status = useAllowedStatus();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const didSignOutRef = useRef(false);
 
   useEffect(() => {
-    if (status.state === "wrong_email" && !didSignOutRef.current) {
+    const onPublicReadRoute = PUBLIC_READ_ROUTES.some(
+      (p) => location === p || location.startsWith(`${p}/`),
+    );
+    if (
+      status.state === "wrong_email" &&
+      !didSignOutRef.current &&
+      !onPublicReadRoute
+    ) {
       didSignOutRef.current = true;
       void signOut().then(() => {
         setLocation("/");
@@ -195,7 +207,7 @@ function WrongEmailAutoSignOut() {
     if (!user) {
       didSignOutRef.current = false;
     }
-  }, [status.state, signOut, setLocation, user]);
+  }, [status.state, signOut, setLocation, user, location]);
 
   return null;
 }

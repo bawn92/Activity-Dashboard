@@ -7,6 +7,27 @@ import {
 import { Agent, CursorAgentError } from "@cursor/sdk";
 import { logger } from "../lib/logger";
 import { requireAllowedUser } from "../middlewares/requireAllowedUser";
+import { db } from "@workspace/db";
+import { coachThreadsTable, coachMessagesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import OpenAI from "openai";
+
+let openaiClient: OpenAI | null = null;
+function getOpenAI(): OpenAI | null {
+  if (
+    !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
+    !process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  ) {
+    return null;
+  }
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return openaiClient;
+}
 
 const COACH_SYSTEM = `You are an expert endurance and strength coach helping the user interpret their own Strava-style activity data.
 
@@ -33,6 +54,42 @@ function jsonSnippet(value: unknown, maxChars: number): string | undefined {
   }
 }
 
+function fallbackTitle(userText: string): string {
+  const words = userText.trim().split(/\s+/).slice(0, 6).join(" ");
+  return words.slice(0, 80) || "Training question";
+}
+
+async function generateThreadTitle(
+  userText: string,
+  assistantReply: string,
+): Promise<string> {
+  const client = getOpenAI();
+  if (!client) {
+    return fallbackTitle(userText);
+  }
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-5-mini",
+      max_completion_tokens: 20,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Generate a short 4-6 word title summarising this coaching conversation. Reply with only the title, no punctuation, no quotes.",
+        },
+        {
+          role: "user",
+          content: `User: ${userText.slice(0, 300)}\nCoach: ${assistantReply.slice(0, 300)}`,
+        },
+      ],
+    });
+    const title = response.choices[0]?.message?.content?.trim() ?? "";
+    return title.slice(0, 80) || fallbackTitle(userText);
+  } catch {
+    return fallbackTitle(userText);
+  }
+}
+
 const router: IRouter = Router();
 
 router.post("/agent", requireAllowedUser, async (req, res) => {
@@ -52,6 +109,7 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
   const body = req.body as {
     prompt?: string;
     messages?: Array<{ role?: string; content?: string }>;
+    threadId?: number;
   };
 
   let userText = "";
@@ -67,6 +125,45 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
   if (!userText) {
     res.status(400).json({ error: "Provide prompt (string) or messages array" });
     return;
+  }
+
+  const threadId = typeof body.threadId === "number" ? body.threadId : null;
+
+  // Persist user message to thread (if threadId provided). Persistence is
+  // the core point of this feature, so we surface failures as 500s instead
+  // of silently degrading to a non-persistent run.
+  let activeThreadId: number | null = threadId;
+  let isFirstMessage = false;
+  if (activeThreadId !== null) {
+    try {
+      const [existingThread] = await db
+        .select()
+        .from(coachThreadsTable)
+        .where(eq(coachThreadsTable.id, activeThreadId));
+      if (!existingThread) {
+        res.status(404).json({ error: `Thread ${activeThreadId} not found` });
+        return;
+      }
+      const existingMessages = await db
+        .select()
+        .from(coachMessagesTable)
+        .where(eq(coachMessagesTable.threadId, activeThreadId));
+      isFirstMessage = existingMessages.length === 0;
+      await db.insert(coachMessagesTable).values({
+        threadId: activeThreadId,
+        role: "user",
+        content: userText,
+      });
+      await db
+        .update(coachThreadsTable)
+        .set({ updatedAt: new Date() })
+        .where(eq(coachThreadsTable.id, activeThreadId));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ err: message, threadId: activeThreadId }, "agent: failed to persist user message");
+      res.status(500).json({ error: `Failed to persist message: ${message}` });
+      return;
+    }
   }
 
   const startingRef = process.env.CURSOR_CLOUD_REPO_REF?.trim() || "main";
@@ -243,6 +340,11 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
       "agent: run finished",
     );
 
+    const finalAnswer =
+      trimmedAccum.length < 5 && trimmedResult.length > trimmedAccum.length
+        ? resultText
+        : accumulated;
+
     if (trimmedAccum.length < 5 && trimmedResult.length > trimmedAccum.length) {
       reqLog.warn(
         {
@@ -254,6 +356,41 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
       writeSse(res, "replace", { text: resultText });
     }
 
+    // Persist assistant reply and (if first exchange) generate title before
+    // closing the stream, so the client can update the sidebar deterministically.
+    // The HTTP response has already started streaming SSE here, so we cannot
+    // change the status code — but we surface persistence errors as an SSE
+    // `persist_error` event and log them so failures are detectable.
+    if (activeThreadId !== null && finalAnswer.trim().length > 0) {
+      try {
+        await db.insert(coachMessagesTable).values({
+          threadId: activeThreadId,
+          role: "assistant",
+          content: finalAnswer.trim(),
+        });
+        await db
+          .update(coachThreadsTable)
+          .set({ updatedAt: new Date() })
+          .where(eq(coachThreadsTable.id, activeThreadId));
+
+        if (isFirstMessage) {
+          const title = await generateThreadTitle(userText, finalAnswer.trim());
+          await db
+            .update(coachThreadsTable)
+            .set({ title, titlePending: false, updatedAt: new Date() })
+            .where(eq(coachThreadsTable.id, activeThreadId));
+          writeSse(res, "title", { threadId: activeThreadId, title });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        reqLog.error(
+          { err: message, threadId: activeThreadId },
+          "agent: failed to persist assistant reply or title",
+        );
+        writeSse(res, "persist_error", { message });
+      }
+    }
+
     writeSse(res, "done", {
       status: result.status,
       result: result.result,
@@ -261,6 +398,7 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
       toolCount: toolNames.length,
       toolNames,
       accumulatedLen: accumulated.length,
+      threadId: activeThreadId,
     });
   } catch (err) {
     const message =
