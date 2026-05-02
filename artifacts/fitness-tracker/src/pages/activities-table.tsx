@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useListActivities, type ActivitySummary } from "@workspace/api-client-react";
+import { useListActivities, useDeleteActivity, getListActivitiesQueryKey, type ActivitySummary } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/layout";
 import {
   formatDate,
@@ -28,7 +30,17 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ActivitySquare, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ActivitySquare, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Trash2, X } from "lucide-react";
 
 const ALL_SPORTS = "__all__";
 
@@ -115,6 +127,26 @@ function SortHeader({
 
 export default function ActivitiesTablePage() {
   const { data: activities, isLoading } = useListActivities();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const deleteMutation = useDeleteActivity();
+
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
+  const handleDeleteConfirm = () => {
+    if (pendingDeleteId == null) return;
+    deleteMutation.mutate({ id: pendingDeleteId }, {
+      onSuccess: () => {
+        toast({ title: "Activity deleted", description: "The activity has been removed." });
+        queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey() });
+        setPendingDeleteId(null);
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to delete activity.", variant: "destructive" });
+        setPendingDeleteId(null);
+      },
+    });
+  };
 
   const [sport, setSport] = useState<string>(ALL_SPORTS);
   const [dateFrom, setDateFrom] = useState("");
@@ -603,9 +635,19 @@ export default function ActivitiesTablePage() {
                           {a.avgHeartRate != null ? `${Math.round(a.avgHeartRate)} bpm` : "—"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Link href={`/activities/${a.id}`}>
-                            <span className="text-sm text-primary hover:underline cursor-pointer">View</span>
-                          </Link>
+                          <div className="inline-flex items-center gap-3 justify-end">
+                            <Link href={`/activities/${a.id}`}>
+                              <span className="text-sm text-primary hover:underline cursor-pointer">View</span>
+                            </Link>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${a.sport || "activity"} on ${formatDate(a.startTime)}`}
+                              onClick={() => setPendingDeleteId(a.id)}
+                              className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -613,6 +655,30 @@ export default function ActivitiesTablePage() {
                 </TableBody>
               </Table>
             </div>
+
+            <AlertDialog
+              open={pendingDeleteId != null}
+              onOpenChange={(open) => { if (!open && !deleteMutation.isPending) setPendingDeleteId(null); }}
+            >
+              <AlertDialogContent className="bg-popover border-border">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete this activity and all associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleteMutation.isPending} className="border-border hover:bg-card">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteConfirm}
+                    disabled={deleteMutation.isPending}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
+                  >
+                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </div>
