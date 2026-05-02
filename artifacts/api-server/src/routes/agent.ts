@@ -40,6 +40,18 @@ function writeSse(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+function jsonSnippet(value: unknown, maxChars: number): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  try {
+    const s = JSON.stringify(value);
+    return s.length > maxChars ? `${s.slice(0, maxChars)}…` : s;
+  } catch {
+    return String(value).slice(0, maxChars);
+  }
+}
+
 const router: IRouter = Router();
 
 router.post("/agent", requireAgentAuth, async (req, res) => {
@@ -127,9 +139,49 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
   try {
     const run = await agent.send(fullPrompt);
     let accumulated = "";
+    let thinkingAccum = "";
 
     for await (const msg of run.stream()) {
+      if (msg.type === "thinking") {
+        const t = typeof msg.text === "string" ? msg.text : "";
+        if (!t) {
+          continue;
+        }
+        if (!t.startsWith(thinkingAccum)) {
+          writeSse(res, "thinking_replace", { text: t });
+          thinkingAccum = t;
+        } else if (t.length > thinkingAccum.length) {
+          writeSse(res, "thinking_delta", {
+            text: t.slice(thinkingAccum.length),
+          });
+          thinkingAccum = t;
+        }
+        continue;
+      }
+
+      if (msg.type === "tool_call") {
+        writeSse(res, "tool", {
+          id: msg.call_id,
+          name: msg.name,
+          status: msg.status,
+          argsPreview: jsonSnippet(msg.args, 4000),
+          resultPreview: jsonSnippet(msg.result, 8000),
+        });
+        continue;
+      }
+
       if (msg.type === "assistant") {
+        for (const block of msg.message.content) {
+          if (block.type === "tool_use") {
+            writeSse(res, "tool", {
+              id: block.id,
+              name: block.name,
+              status: "pending",
+              argsPreview: jsonSnippet(block.input, 4000),
+            });
+          }
+        }
+
         let piece = "";
         for (const block of msg.message.content) {
           if (block.type === "text") {
