@@ -24,9 +24,9 @@ A private fitness activity web app where users upload Garmin .fit files to track
 
 ## Tech Stack
 
-- **Backend**: Express 5, Drizzle ORM, PostgreSQL, `fit-file-parser`, multer, Replit Object Storage, Remotion 4 (in-process MP4 rendering with bundled Chrome Headless Shell + ffmpeg)
-- **Frontend**: React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui, Leaflet + react-leaflet, Recharts, framer-motion
-- **Design**: Linear-inspired dark design system (near-black #08090a, indigo-violet accent #5e6ad2/#7170ff, Inter Variable font)
+- **Backend**: Express 5, Drizzle ORM, PostgreSQL, `fit-file-parser`, multer, Replit Object Storage, Remotion 4 (in-process MP4 rendering with bundled Chrome Headless Shell + ffmpeg), `@clerk/express` for server-side auth
+- **Frontend**: React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui, Leaflet + react-leaflet, Recharts, framer-motion, `@clerk/react` + `@clerk/themes` for auth UI
+- **Design**: Lumina warm-light design system (white/warm backgrounds, orange #EA580C primary, Inter + JetBrains Mono fonts)
 
 ## Database
 
@@ -85,6 +85,17 @@ The "Shareable video" panel on the activity detail page generates a 12s
 three render endpoints. It is intentionally outside the pnpm workspace
 (top-level dir, not under `artifacts/` or `lib/`), so `pnpm install` at
 the repo root does not pull its deps. See `cloudflare-worker/README.md`.
+
+## Authentication (Clerk)
+
+Single-user lockdown via Replit-managed Clerk:
+- **`ALLOWED_USER_EMAIL`** (env var + secret): the only email that may use write features
+- **`VITE_ALLOWED_EMAIL`** (env var): forwarded to the frontend for UI gating
+- **`CLERK_SECRET_KEY`**, **`CLERK_PUBLISHABLE_KEY`**, **`VITE_CLERK_PUBLISHABLE_KEY`**: auto-provisioned by Clerk setup
+- Clerk proxy middleware mounted at `/api/__clerk` (before body parsers)
+- `requireAllowedUser` middleware (`artifacts/api-server/src/middlewares/requireAllowedUser.ts`) guards `POST /api/agent`, `POST /api/activities/upload`, `POST /api/activities/upload-batch`, `POST /api/storage/uploads/request-url`
+- All read endpoints remain public (no auth required)
+- Sign-in page at `/sign-in` and sign-up page at `/sign-up` use Clerk's hosted UI, branded to match the app (logo, orange primary, Inter font)
 
 ## Development
 

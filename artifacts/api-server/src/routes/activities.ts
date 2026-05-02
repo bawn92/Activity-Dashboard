@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { requireAllowedUser } from "../middlewares/requireAllowedUser";
 import multer from "multer";
 import { createHash } from "node:crypto";
 import { gunzip } from "node:zlib";
@@ -151,6 +152,7 @@ router.get("/activities", async (req: Request, res: Response) => {
 
 router.post(
   "/activities/upload",
+  requireAllowedUser,
   upload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
@@ -328,6 +330,7 @@ router.post(
  */
 router.post(
   "/activities/upload-batch",
+  requireAllowedUser,
   upload.array("files", BATCH_SIZE),
   async (req: Request, res: Response) => {
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];

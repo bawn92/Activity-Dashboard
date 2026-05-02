@@ -1,5 +1,47 @@
-import { Link } from "wouter";
-import { Activity as ActivityIcon, Globe2, MessageSquareText } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Activity as ActivityIcon, Globe2, MessageSquareText, LogIn, LogOut } from "lucide-react";
+import { useUser, useClerk, Show } from "@clerk/react";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function AuthControl() {
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
+
+  if (!isLoaded) return null;
+
+  return (
+    <>
+      <Show when="signed-out">
+        <Link
+          href="/sign-in"
+          className="inline-flex items-center gap-1.5 label-mono text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
+          data-testid="sign-in-link"
+        >
+          <LogIn className="w-3.5 h-3.5 opacity-80" aria-hidden />
+          Sign in
+        </Link>
+      </Show>
+
+      <Show when="signed-in">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[160px]" data-testid="user-email">
+            {user?.primaryEmailAddress?.emailAddress ?? ""}
+          </span>
+          <button
+            onClick={() => signOut().then(() => setLocation("/"))}
+            className="inline-flex items-center gap-1.5 label-mono text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
+            data-testid="sign-out-button"
+          >
+            <LogOut className="w-3.5 h-3.5 opacity-80" aria-hidden />
+            Sign out
+          </button>
+        </div>
+      </Show>
+    </>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,6 +80,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             </nav>
           </div>
+          <AuthControl />
         </div>
       </header>
       <main className="flex-1">

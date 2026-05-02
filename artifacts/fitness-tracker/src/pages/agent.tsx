@@ -13,12 +13,16 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
+  Lock,
   Loader2,
   Send,
   Sparkles,
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useClerk } from "@clerk/react";
+import { Link, useLocation } from "wouter";
+import { useAllowedStatus } from "@/hooks/use-allowed-status";
 
 function apiBase(): string {
   return (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
@@ -1062,6 +1066,69 @@ export default function AgentPage() {
   };
 
   const empty = useMemo(() => rounds.length === 0, [rounds]);
+
+  const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
+  const status = useAllowedStatus();
+
+  if (status.state === "loading") {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-8 max-w-3xl" />
+      </Layout>
+    );
+  }
+
+  if (status.state === "not_signed_in") {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-16 max-w-2xl flex flex-col items-center text-center gap-6">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Lock className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-medium tracking-tight text-foreground mb-2">
+              This is a private app
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Sign in with the owner account to chat with your training coach.
+            </p>
+          </div>
+          <Link href="/sign-in">
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm label-mono hover:bg-primary/90 transition-colors cursor-pointer">
+              Sign in to continue
+            </span>
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (status.state === "wrong_email") {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-16 max-w-2xl flex flex-col items-center text-center gap-6">
+          <div className="w-14 h-14 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+            <Lock className="w-6 h-6 text-destructive" />
+          </div>
+          <div>
+            <h2 className="text-xl font-medium tracking-tight text-foreground mb-2">
+              This app is private
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              This account does not have access. Signing you out…
+            </p>
+          </div>
+          <button
+            onClick={() => signOut().then(() => setLocation("/"))}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-destructive text-destructive-foreground text-sm label-mono hover:bg-destructive/90 transition-colors"
+          >
+            Sign out now
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

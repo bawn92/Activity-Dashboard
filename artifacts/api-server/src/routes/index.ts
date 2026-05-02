@@ -6,10 +6,12 @@ import renderJobsRouter from "./renderJobs";
 import globeRouter from "./globe";
 import mcpRouter from "./mcp";
 import agentRouter from "./agent";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
 router.use(activitiesRouter);
 router.use(storageRouter);
 router.use(renderJobsRouter);

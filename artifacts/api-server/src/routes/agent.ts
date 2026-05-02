@@ -3,10 +3,10 @@ import {
   type IRouter,
   type Request,
   type Response,
-  type NextFunction,
 } from "express";
 import { Agent, CursorAgentError } from "@cursor/sdk";
 import { logger } from "../lib/logger";
+import { requireAllowedUser } from "../middlewares/requireAllowedUser";
 
 const COACH_SYSTEM = `You are an expert endurance and strength coach helping the user interpret their own Strava-style activity data.
 
@@ -16,26 +16,6 @@ Rules:
 - The backing schema uses PostgreSQL snake_case column names in tool JSON (e.g. start_time, distance_meters, duration_seconds, normalized_power). Activity streams live in activity_data_points when requested.
 - Training Stress Score (TSS) is not persisted. If the user asks for TSS, explain that and offer proxies (e.g. weekly volume, duration × intensity from power/HR when present) with clear caveats.
 - Be concise, actionable, and encouraging.`;
-
-function requireAgentAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  const expected = process.env.AGENT_API_SECRET;
-  if (!expected) {
-    next();
-    return;
-  }
-  const header = req.headers.authorization ?? "";
-  const prefix = "Bearer ";
-  const token = header.startsWith(prefix) ? header.slice(prefix.length) : "";
-  if (token !== expected) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
 
 function writeSse(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -55,7 +35,7 @@ function jsonSnippet(value: unknown, maxChars: number): string | undefined {
 
 const router: IRouter = Router();
 
-router.post("/agent", requireAgentAuth, async (req, res) => {
+router.post("/agent", requireAllowedUser, async (req, res) => {
   const required = [
     "CURSOR_API_KEY",
     "CURSOR_CLOUD_REPO_URL",
