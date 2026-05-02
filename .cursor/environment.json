@@ -1,0 +1,5 @@
+{
+  "name": "Activity-Dashboard",
+  "install": "corepack enable pnpm && pnpm install --frozen-lockfile",
+  "start": "pnpm run typecheck"
+}
