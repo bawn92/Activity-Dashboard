@@ -191,13 +191,13 @@ function ClerkProviderWithRoutes() {
         signIn: {
           start: {
             title: "Welcome back",
-            subtitle: "Sign in to access your Fitness Logbook",
+            subtitle: "Sign in to access your Gearoid Fitness Diary",
           },
         },
         signUp: {
           start: {
             title: "Create your account",
-            subtitle: "Get started with Fitness Logbook",
+            subtitle: "Get started with Gearoid Fitness Diary",
           },
         },
       }}
