@@ -74,7 +74,7 @@ export default function GlobePage() {
         </Link>
       </div>
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-1.5 px-6 pb-8 pt-16 sm:px-8 sm:pt-20">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-1.5 bg-black px-6 pb-8 pt-16 sm:px-8 sm:pt-20">
         <h1 className="max-w-[min(90vw,28rem)] text-balance font-medium text-2xl tracking-tight text-foreground sm:text-3xl">
           Around the World <span className="text-primary">·</span> From Galway
         </h1>
