@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Database,
   Loader2,
   Send,
   Sparkles,
@@ -75,28 +76,255 @@ function nextFrameBoundary(buffer: string): { end: number; advance: number } | n
   return lf < crlf ? { end: lf, advance: 2 } : { end: crlf, advance: 4 };
 }
 
-function summarizeResult(preview: string | undefined): string | undefined {
-  if (!preview) return undefined;
+function safeParse(raw: string | undefined): unknown {
+  if (!raw) return undefined;
   try {
-    const parsed = JSON.parse(preview.replace(/…$/, ""));
-    if (parsed && typeof parsed === "object") {
-      if (Array.isArray((parsed as { activities?: unknown[] }).activities)) {
-        return `${(parsed as { activities: unknown[] }).activities.length} activities`;
+    return JSON.parse(raw.replace(/…$/, ""));
+  } catch {
+    return undefined;
+  }
+}
+
+type InnerCall = {
+  name: string;
+  args: Record<string, unknown>;
+} | null;
+
+function unwrapMcpToolCall(
+  outerName: string,
+  argsRaw: string | undefined,
+): InnerCall {
+  const parsed = safeParse(argsRaw);
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
+
+  const innerName =
+    typeof obj.name === "string"
+      ? obj.name
+      : typeof obj.tool === "string"
+        ? obj.tool
+        : typeof obj.toolName === "string"
+          ? obj.toolName
+          : typeof obj.tool_name === "string"
+            ? obj.tool_name
+            : undefined;
+  const innerArgs =
+    (obj.arguments as Record<string, unknown> | undefined) ??
+    (obj.args as Record<string, unknown> | undefined) ??
+    (obj.input as Record<string, unknown> | undefined) ??
+    (obj.params as Record<string, unknown> | undefined);
+  if (innerName && innerArgs && typeof innerArgs === "object") {
+    return { name: innerName, args: innerArgs };
+  }
+
+  const generic = ["mcp", "callTool", "call_tool", "invoke_mcp", "mcp_call"];
+  if (generic.includes(outerName)) {
+    return { name: outerName, args: obj };
+  }
+  return null;
+}
+
+function unwrapMcpResult(resultRaw: string | undefined): unknown {
+  const parsed = safeParse(resultRaw);
+  if (!parsed) return undefined;
+
+  const candidates: unknown[] = [parsed];
+  const obj = parsed as Record<string, unknown>;
+  if (obj && typeof obj === "object") {
+    if (obj.success && typeof obj.success === "object") {
+      candidates.push(obj.success);
+    }
+    if (obj.result !== undefined) candidates.push(obj.result);
+  }
+
+  for (const cand of candidates) {
+    if (!cand || typeof cand !== "object") continue;
+    const c = cand as Record<string, unknown>;
+    const content = c.content;
+    if (Array.isArray(content) && content.length > 0) {
+      const first = content[0] as Record<string, unknown> | undefined;
+      let text: string | undefined;
+      if (typeof first?.text === "string") {
+        text = first.text;
+      } else if (
+        first?.text &&
+        typeof first.text === "object" &&
+        typeof (first.text as Record<string, unknown>).text === "string"
+      ) {
+        text = (first.text as Record<string, unknown>).text as string;
       }
-      if (Array.isArray((parsed as { buckets?: unknown[] }).buckets)) {
-        return `${(parsed as { buckets: unknown[] }).buckets.length} buckets`;
-      }
-      if (typeof (parsed as { activityCount?: number }).activityCount === "number") {
-        return `${(parsed as { activityCount: number }).activityCount} activities`;
-      }
-      if ((parsed as { activity?: unknown }).activity) {
-        return "1 activity";
+      if (text !== undefined) {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return text;
+        }
       }
     }
-  } catch {
-    /* fall through */
   }
+  return parsed;
+}
+
+function quoteSqlValue(value: unknown): string {
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
+  if (value === null || value === undefined) return "NULL";
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function describeAsSql(
+  name: string,
+  args: Record<string, unknown>,
+): string | null {
+  switch (name) {
+    case "list_activities": {
+      const where: string[] = [];
+      if (typeof args.sport === "string" && args.sport.trim()) {
+        where.push(`sport = ${quoteSqlValue(args.sport.trim())}`);
+      }
+      if (typeof args.from === "string" && args.from) {
+        where.push(`start_time >= ${quoteSqlValue(args.from)}`);
+      }
+      if (typeof args.to === "string" && args.to) {
+        where.push(`start_time <= ${quoteSqlValue(args.to)}`);
+      }
+      const rawLimit =
+        typeof args.limit === "number" && Number.isFinite(args.limit)
+          ? Math.floor(args.limit)
+          : 25;
+      const limit = Math.min(Math.max(rawLimit, 1), 100);
+      const lines = [
+        "SELECT id, sport, start_time, duration_seconds,",
+        "       distance_meters, avg_heart_rate, avg_power,",
+        "       normalized_power, total_elev_gain_meters",
+        "FROM activities",
+      ];
+      if (where.length) lines.push(`WHERE ${where.join("\n  AND ")}`);
+      lines.push("ORDER BY start_time DESC", `LIMIT ${limit};`);
+      return lines.join("\n");
+    }
+    case "get_training_stats": {
+      const where: string[] = [];
+      if (typeof args.from === "string" && args.from) {
+        where.push(`start_time >= ${quoteSqlValue(args.from)}`);
+      }
+      if (typeof args.to === "string" && args.to) {
+        where.push(`start_time <= ${quoteSqlValue(args.to)}`);
+      }
+      const groupBy =
+        typeof args.groupBy === "string" &&
+        ["none", "sport", "week", "month"].includes(args.groupBy)
+          ? args.groupBy
+          : "none";
+      const select: string[] = [];
+      let groupExpr: string | null = null;
+      if (groupBy === "sport") {
+        select.push("sport");
+        groupExpr = "sport";
+      } else if (groupBy === "week") {
+        select.push(
+          "date_trunc('week', start_time AT TIME ZONE 'UTC') AS bucket_start",
+        );
+        groupExpr = "date_trunc('week', start_time AT TIME ZONE 'UTC')";
+      } else if (groupBy === "month") {
+        select.push(
+          "date_trunc('month', start_time AT TIME ZONE 'UTC') AS bucket_start",
+        );
+        groupExpr = "date_trunc('month', start_time AT TIME ZONE 'UTC')";
+      }
+      select.push(
+        "COUNT(*) AS activity_count",
+        "SUM(distance_meters) AS total_distance_meters",
+        "SUM(duration_seconds) AS total_duration_seconds",
+      );
+      const lines = [
+        `SELECT ${select.join(",\n       ")}`,
+        "FROM activities",
+      ];
+      if (where.length) lines.push(`WHERE ${where.join("\n  AND ")}`);
+      if (groupExpr) {
+        lines.push(`GROUP BY ${groupExpr}`, `ORDER BY ${groupExpr};`);
+      } else {
+        lines[lines.length - 1] += ";";
+      }
+      return lines.join("\n");
+    }
+    case "get_activity_detail": {
+      const id =
+        typeof args.id === "number" || typeof args.id === "string"
+          ? quoteSqlValue(args.id)
+          : "?";
+      const include = args.includeDataPoints === true;
+      const rawLimit =
+        typeof args.dataPointsLimit === "number" &&
+        Number.isFinite(args.dataPointsLimit)
+          ? Math.floor(args.dataPointsLimit)
+          : 200;
+      const limit = Math.min(Math.max(rawLimit, 1), 500);
+      const lines = [
+        `SELECT * FROM activities WHERE id = ${id} LIMIT 1;`,
+      ];
+      if (include) {
+        lines.push(
+          `SELECT * FROM activity_data_points\nWHERE activity_id = ${id}\nORDER BY timestamp DESC\nLIMIT ${limit};`,
+        );
+      }
+      return lines.join("\n\n");
+    }
+    default:
+      return null;
+  }
+}
+
+function summarizeUnwrapped(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string") {
+    return value.length > 80 ? `${value.slice(0, 80)}…` : value;
+  }
+  if (typeof value !== "object") return String(value);
+  const obj = value as Record<string, unknown>;
+  if (Array.isArray(obj.activities)) {
+    return `${obj.activities.length} activities`;
+  }
+  if (Array.isArray(obj.buckets)) {
+    const groupBy = typeof obj.groupBy === "string" ? obj.groupBy : "buckets";
+    return `${obj.buckets.length} ${groupBy === "sport" ? "sports" : `${groupBy} buckets`}`;
+  }
+  if (typeof obj.activityCount === "number") {
+    const dist =
+      typeof obj.totalDistanceMeters === "number"
+        ? `, ${(obj.totalDistanceMeters / 1000).toFixed(1)} km`
+        : "";
+    return `${obj.activityCount} activities${dist}`;
+  }
+  if (obj.activity) {
+    return "1 activity";
+  }
+  if (typeof obj.error === "string") {
+    return obj.error;
+  }
+  return undefined;
+}
+
+function summarizeResult(preview: string | undefined): string | undefined {
+  if (!preview) return undefined;
+  const unwrapped = unwrapMcpResult(preview);
+  const fromUnwrapped = summarizeUnwrapped(unwrapped);
+  if (fromUnwrapped) return fromUnwrapped;
   return preview.length > 60 ? `${preview.slice(0, 60)}…` : preview;
+}
+
+function prettyJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function effectiveToolName(tool: ToolState): string {
+  const inner = unwrapMcpToolCall(tool.name, tool.argsPreview);
+  return inner?.name ?? tool.name;
 }
 
 function phaseFor(round: ChatRound): { label: string; icon: typeof Brain } {
@@ -108,7 +336,8 @@ function phaseFor(round: ChatRound): { label: string; icon: typeof Brain } {
   if (lastBubble?.kind === "tool") {
     const tool = round.tools[lastBubble.id];
     if (tool) {
-      const nice = tool.name
+      const effective = effectiveToolName(tool);
+      const nice = effective
         .replace(/_/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
       const label =
@@ -175,14 +404,37 @@ function ThinkingBubble({
 }
 
 function ToolBubble({ tool }: { tool: ToolState }) {
+  const [showRaw, setShowRaw] = useState(false);
   const pending = tool.status === "pending";
   const error = tool.status === "error";
-  const summary = summarizeResult(tool.resultPreview);
-  const nice = tool.name.replace(/_/g, " ");
+
+  const inner = unwrapMcpToolCall(tool.name, tool.argsPreview);
+  const effectiveName = inner?.name ?? tool.name;
+  const effectiveArgs: Record<string, unknown> | undefined =
+    inner?.args ??
+    (safeParse(tool.argsPreview) as Record<string, unknown> | undefined);
+  const wasWrapped = inner !== null && inner.name !== tool.name;
+
+  const sql = effectiveArgs
+    ? describeAsSql(effectiveName, effectiveArgs)
+    : null;
+
+  const unwrappedResult = unwrapMcpResult(tool.resultPreview);
+  const summary =
+    summarizeUnwrapped(unwrappedResult) ?? summarizeResult(tool.resultPreview);
+
+  const nice = effectiveName.replace(/_/g, " ");
   const elapsed =
     tool.endedAt !== undefined
       ? `${Math.max(1, Math.round((tool.endedAt - tool.startedAt) / 100) / 10)}s`
       : undefined;
+
+  const argChips =
+    effectiveArgs && !sql
+      ? Object.entries(effectiveArgs)
+          .filter(([, v]) => v !== undefined && v !== null && v !== "")
+          .slice(0, 6)
+      : [];
 
   return (
     <motion.div
@@ -220,29 +472,102 @@ function ToolBubble({ tool }: { tool: ToolState }) {
           <Loader2 className="h-3 w-3 animate-spin" />
         ) : error ? (
           <Wrench className="h-3 w-3" />
+        ) : sql ? (
+          <Database className="h-3 w-3" />
         ) : (
           <CheckCircle2 className="h-3 w-3" />
         )}
       </motion.div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 mb-0.5">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-            Tool
+            {sql ? "Query" : "Tool"}
           </span>
           <span className="font-mono text-[11px] text-foreground/90">{nice}</span>
+          {wasWrapped ? (
+            <span className="label-mono text-[9px] text-muted-foreground/70">
+              via {tool.name}
+            </span>
+          ) : null}
           {elapsed ? (
             <span className="label-mono text-[9px] text-muted-foreground ml-auto">
               {elapsed}
             </span>
           ) : null}
         </div>
-        <div className="text-foreground/70 leading-snug break-words">
+
+        {sql ? (
+          <pre className="font-mono text-[10.5px] leading-relaxed text-foreground/80 bg-background/60 border border-border/60 rounded-md px-2 py-1.5 overflow-x-auto whitespace-pre">
+            {sql}
+          </pre>
+        ) : argChips.length > 0 ? (
+          <div className="flex flex-wrap gap-1 mb-1">
+            {argChips.map(([k, v]) => (
+              <span
+                key={k}
+                className="inline-flex items-center gap-1 rounded-full bg-background/70 border border-border/60 px-2 py-0.5 font-mono text-[10px]"
+              >
+                <span className="text-muted-foreground">{k}:</span>
+                <span className="text-foreground/90 truncate max-w-[160px]">
+                  {typeof v === "object"
+                    ? JSON.stringify(v)
+                    : String(v)}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-1 text-foreground/70 leading-snug break-words">
           {pending
             ? "Querying your training data…"
             : error
-              ? "Tool returned an error"
+              ? (summary ?? "Tool returned an error")
               : (summary ?? "Result received")}
         </div>
+
+        {(tool.argsPreview || tool.resultPreview) && !pending ? (
+          <button
+            type="button"
+            onClick={() => setShowRaw((v) => !v)}
+            aria-expanded={showRaw}
+            className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showRaw ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
+            {showRaw ? "Hide raw payload" : "Show raw payload"}
+          </button>
+        ) : null}
+
+        {showRaw ? (
+          <div className="mt-1 flex flex-col gap-1.5">
+            {effectiveArgs ? (
+              <div>
+                <div className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                  Args
+                </div>
+                <pre className="font-mono text-[10px] leading-snug text-foreground/80 bg-background/60 border border-border/60 rounded-md px-2 py-1.5 overflow-x-auto whitespace-pre max-h-48 overflow-y-auto">
+                  {prettyJson(effectiveArgs)}
+                </pre>
+              </div>
+            ) : null}
+            {unwrappedResult !== undefined ? (
+              <div>
+                <div className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                  Result
+                </div>
+                <pre className="font-mono text-[10px] leading-snug text-foreground/80 bg-background/60 border border-border/60 rounded-md px-2 py-1.5 overflow-x-auto whitespace-pre max-h-48 overflow-y-auto">
+                  {typeof unwrappedResult === "string"
+                    ? unwrappedResult
+                    : prettyJson(unwrappedResult)}
+                </pre>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </motion.div>
   );
