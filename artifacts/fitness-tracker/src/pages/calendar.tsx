@@ -137,10 +137,9 @@ function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps)
   function handleMouseEnter(e: React.MouseEvent, date: string) {
     if (!date) return;
     const rect = (e.target as HTMLElement).getBoundingClientRect();
-    const containerRect = (e.currentTarget as HTMLElement).closest(".heatmap-container")?.getBoundingClientRect();
     setTooltip({
-      x: rect.left - (containerRect?.left ?? 0) + CELL_SIZE / 2,
-      y: rect.top - (containerRect?.top ?? 0),
+      x: rect.left + CELL_SIZE / 2,
+      y: rect.top,
       date,
       bucket: buckets.get(date) ?? null,
     });
@@ -210,7 +209,7 @@ function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps)
         {/* Tooltip */}
         {tooltip && (
           <div
-            className="absolute z-20 pointer-events-none bg-popover border border-border rounded-lg px-3 py-2 shadow-lg text-xs label-mono"
+            className="fixed z-50 pointer-events-none bg-popover border border-border rounded-lg px-3 py-2 shadow-lg text-xs label-mono"
             style={{
               left: tooltip.x,
               top: tooltip.y - 8,
