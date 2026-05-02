@@ -32,7 +32,11 @@ function toDisplayValue(paceSecPerKm: number, category: SportCategory): number {
   return paceSecPerKm;
 }
 
-function computeKmSplits(dataPoints: DataPoint[], category: SportCategory): Split[] {
+function computeSplits(
+  dataPoints: DataPoint[],
+  category: SportCategory,
+  splitDistance: number,
+): Split[] {
   const pts = [...dataPoints]
     .filter((p) => p.distance != null)
     .sort((a, b) => a.distance! - b.distance!);
@@ -40,14 +44,15 @@ function computeKmSplits(dataPoints: DataPoint[], category: SportCategory): Spli
   if (pts.length < 2) return [];
 
   const maxDistance = pts[pts.length - 1].distance!;
-  if (maxDistance < 500) return [];
+  if (maxDistance < splitDistance / 2) return [];
 
-  const numKms = Math.ceil(maxDistance / 1000);
+  const minSegment = Math.min(100, splitDistance / 2);
+  const numSplits = Math.ceil(maxDistance / splitDistance);
   const splits: Split[] = [];
   let prevPt = pts[0];
 
-  for (let km = 1; km <= numKms; km++) {
-    const target = km * 1000;
+  for (let km = 1; km <= numSplits; km++) {
+    const target = km * splitDistance;
     const ptAtTarget = pts.reduce<DataPoint | null>((best, pt) => {
       if (
         pt.distance! <= target &&
@@ -60,7 +65,7 @@ function computeKmSplits(dataPoints: DataPoint[], category: SportCategory): Spli
     if (!ptAtTarget) break;
 
     const distanceCovered = ptAtTarget.distance! - prevPt.distance!;
-    if (distanceCovered < 100) continue;
+    if (distanceCovered < minSegment) continue;
 
     const timeDiffSec =
       (new Date(ptAtTarget.timestamp).getTime() -
@@ -103,7 +108,8 @@ interface ActivitySplitsProps {
 
 export function ActivitySplits({ dataPoints, sport }: ActivitySplitsProps) {
   const category = getSportCategory(sport);
-  const splits = computeKmSplits(dataPoints, category);
+  const splitDistance = category === "swim" ? 100 : 1000;
+  const splits = computeSplits(dataPoints, category, splitDistance);
 
   if (splits.length === 0) return null;
 
@@ -113,7 +119,7 @@ export function ActivitySplits({ dataPoints, sport }: ActivitySplitsProps) {
   const isReversed = category !== "speed";
   const axisFormatter = makePaceAxisFormatter(category);
 
-  const sectionTitle = category === "swim" ? "Splits" : "Km Splits";
+  const sectionTitle = category === "swim" ? "100m Splits" : "Km Splits";
 
   return (
     <div className="bg-card border border-border rounded-xl shadow-card p-6">
@@ -136,7 +142,7 @@ export function ActivitySplits({ dataPoints, sport }: ActivitySplitsProps) {
             axisLine={false}
             tickLine={false}
             label={{
-              value: category === "swim" ? "Split" : "Km",
+              value: category === "swim" ? "100m" : "Km",
               position: "insideBottomRight",
               offset: -4,
               fill: "#736E67",
