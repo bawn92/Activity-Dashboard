@@ -126,31 +126,72 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
 
   try {
     const run = await agent.send(fullPrompt);
-    let accumulated = "";
+
+    // Track text per assistant-message id. The Cursor SDK can emit multiple
+    // distinct assistant messages within one run (e.g. before/after tool
+    // calls), each with its own id. Within a single message id, content
+    // grows cumulatively, so we send only the newly-appended tail. When the
+    // id changes we start a fresh accumulator and prefix a separator so the
+    // user sees a visible break between the model's pre-tool-call text and
+    // its post-tool-call answer.
+    const accumByMsgId = new Map<string, string>();
+    let lastEmittedMsgId: string | null = null;
 
     for await (const msg of run.stream()) {
-      if (msg.type === "assistant") {
-        let piece = "";
-        for (const block of msg.message.content) {
-          if (block.type === "text") {
-            piece += block.text;
-          }
-        }
-        // Cloud streams may send cumulative text, pure deltas, or occasional
-        // resets. Only slice when `piece` clearly extends the previous snapshot.
-        if (piece.length === 0) {
-          continue;
-        }
-        if (!piece.startsWith(accumulated)) {
-          writeSse(res, "replace", { text: piece });
-          accumulated = piece;
-        } else if (piece.length > accumulated.length) {
-          writeSse(res, "delta", {
-            text: piece.slice(accumulated.length),
-          });
-          accumulated = piece;
+      // Log every event type so the operator can verify in api-server logs
+      // that the agent is actually reaching the MCP server and receiving
+      // tool results. Set AGENT_DEBUG=1 to enable.
+      if (process.env.AGENT_DEBUG) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log(
+            "[agent stream]",
+            msg.type,
+            JSON.stringify(msg).slice(0, 500),
+          );
+        } catch {
+          /* ignore */
         }
       }
+
+      if (msg.type !== "assistant") continue;
+
+      const msgId =
+        (msg.message as { id?: string }).id ??
+        `anon-${accumByMsgId.size}`;
+
+      let fullText = "";
+      for (const block of msg.message.content) {
+        if (block.type === "text") {
+          fullText += block.text;
+        }
+      }
+      if (!fullText) continue;
+
+      const prev = accumByMsgId.get(msgId) ?? "";
+
+      if (fullText === prev) {
+        continue;
+      }
+
+      let delta: string;
+      if (fullText.startsWith(prev)) {
+        // Normal cumulative growth within the same message
+        delta = fullText.slice(prev.length);
+      } else {
+        // Either a different message id, or content was rewritten.
+        // Emit the whole new piece, with a separator if we previously
+        // emitted text from a different message.
+        delta = fullText;
+      }
+
+      if (lastEmittedMsgId !== null && lastEmittedMsgId !== msgId) {
+        delta = "\n\n" + delta;
+      }
+
+      writeSse(res, "delta", { text: delta });
+      accumByMsgId.set(msgId, fullText);
+      lastEmittedMsgId = msgId;
     }
 
     const result = await run.wait();
