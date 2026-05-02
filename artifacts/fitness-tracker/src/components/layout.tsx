@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, Upload, LogIn, LogOut } from "lucide-react";
+import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, Upload, LogIn, LogOut, Menu, X } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -43,10 +44,39 @@ function AuthControl() {
   );
 }
 
+const navLinks = [
+  { href: "/", label: "Activities", icon: null },
+  { href: "/table", label: "Table", icon: null },
+  { href: "/globe", label: "Globe", icon: <Globe2 className="w-4 h-4 opacity-70" aria-hidden /> },
+  { href: "/agent", label: "Coach", icon: <MessageSquareText className="w-4 h-4 opacity-70" aria-hidden /> },
+  { href: "/calendar", label: "Calendar", icon: <CalendarDays className="w-4 h-4 opacity-70" aria-hidden /> },
+  { href: "/stats", label: "Stats", icon: <BarChart3 className="w-4 h-4 opacity-70" aria-hidden /> },
+  { href: "/upload", label: "Upload", icon: <Upload className="w-4 h-4 opacity-70" aria-hidden /> },
+];
+
 export function Layout({ children }: { children: React.ReactNode }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [location] = useLocation();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur-sm">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur-sm" ref={menuRef}>
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5 hover:opacity-75 transition-opacity" data-testid="link-home">
@@ -104,8 +134,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             </nav>
           </div>
-          <AuthControl />
+          <div className="flex items-center gap-2">
+            <AuthControl />
+            <button
+              className="sm:hidden inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+              data-testid="mobile-menu-button"
+            >
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        {menuOpen && (
+          <div className="sm:hidden border-t border-border bg-background/95">
+            <nav className="container mx-auto px-4 py-2 flex flex-col label-mono text-sm">
+              {navLinks.map(({ href, label, icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMenuOpen(false)}
+                  className="inline-flex items-center gap-2.5 text-muted-foreground hover:text-foreground px-2 py-3 rounded-md transition-colors border-b border-border last:border-0"
+                  data-testid={`mobile-link-${label.toLowerCase()}`}
+                >
+                  {icon}
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
       <main className="flex-1">
         {children}
