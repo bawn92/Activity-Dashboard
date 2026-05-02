@@ -116,46 +116,51 @@ async function persistActivity(
 }
 
 router.get("/activities", async (req: Request, res: Response) => {
-  const activities = await db
-    .select()
-    .from(activitiesTable)
-    .orderBy(desc(activitiesTable.startTime));
+  try {
+    const activities = await db
+      .select()
+      .from(activitiesTable)
+      .orderBy(desc(activitiesTable.startTime));
 
-  const parsed = ListActivitiesResponse.safeParse(
-    activities.map((a) => ({
-      id: a.id,
-      sport: a.sport,
-      name: a.name,
-      notes: a.notes,
-      startTime: a.startTime,
-      durationSeconds: a.durationSeconds,
-      distanceMeters: a.distanceMeters,
-      avgSpeedMps: a.avgSpeedMps,
-      avgPaceSecPerKm: a.avgPaceSecPerKm,
-      totalElevGainMeters: a.totalElevGainMeters,
-      totalElevDescMeters: a.totalElevDescMeters,
-      maxSpeedMps: a.maxSpeedMps,
-      avgHeartRate: a.avgHeartRate,
-      maxHeartRate: a.maxHeartRate,
-      totalCalories: a.totalCalories,
-      avgCadence: a.avgCadence,
-      avgPower: a.avgPower,
-      normalizedPower: a.normalizedPower,
-      avgVerticalOscillationMm: a.avgVerticalOscillationMm,
-      avgStanceTimeMs: a.avgStanceTimeMs,
-      avgVerticalRatio: a.avgVerticalRatio,
-      avgStepLengthMm: a.avgStepLengthMm,
-      createdAt: a.createdAt,
-    })),
-  );
+    const parsed = ListActivitiesResponse.safeParse(
+      activities.map((a) => ({
+        id: a.id,
+        sport: a.sport,
+        name: a.name,
+        notes: a.notes,
+        startTime: a.startTime,
+        durationSeconds: a.durationSeconds,
+        distanceMeters: a.distanceMeters,
+        avgSpeedMps: a.avgSpeedMps,
+        avgPaceSecPerKm: a.avgPaceSecPerKm,
+        totalElevGainMeters: a.totalElevGainMeters,
+        totalElevDescMeters: a.totalElevDescMeters,
+        maxSpeedMps: a.maxSpeedMps,
+        avgHeartRate: a.avgHeartRate,
+        maxHeartRate: a.maxHeartRate,
+        totalCalories: a.totalCalories,
+        avgCadence: a.avgCadence,
+        avgPower: a.avgPower,
+        normalizedPower: a.normalizedPower,
+        avgVerticalOscillationMm: a.avgVerticalOscillationMm,
+        avgStanceTimeMs: a.avgStanceTimeMs,
+        avgVerticalRatio: a.avgVerticalRatio,
+        avgStepLengthMm: a.avgStepLengthMm,
+        createdAt: a.createdAt,
+      })),
+    );
 
-  if (!parsed.success) {
-    req.log.error({ err: parsed.error }, "Failed to serialize activities");
-    res.status(500).json({ error: "Serialization error" });
-    return;
+    if (!parsed.success) {
+      req.log.error({ err: parsed.error }, "Failed to serialize activities");
+      res.status(500).json({ error: "Serialization error" });
+      return;
+    }
+
+    res.json(parsed.data);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch activities");
+    res.status(500).json({ error: "Failed to fetch activities" });
   }
-
-  res.json(parsed.data);
 });
 
 router.post(
@@ -452,80 +457,90 @@ router.get("/activities/stats/sport", async (req: Request, res: Response) => {
     return;
   }
 
-  const now = new Date();
-  const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+  try {
+    const now = new Date();
+    const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
-  const activities = await db
-    .select()
-    .from(activitiesTable)
-    .where(eq(activitiesTable.sport, sport));
+    const activities = await db
+      .select()
+      .from(activitiesTable)
+      .where(eq(activitiesTable.sport, sport));
 
-  const recentActivities = activities.filter(
-    (a) => a.startTime >= fourWeeksAgo,
-  );
+    const recentActivities = activities.filter(
+      (a) => a.startTime >= fourWeeksAgo,
+    );
 
-  function aggregatePeriod(acts: typeof activities) {
-    return {
-      activityCount: acts.length,
-      totalDistanceMeters: acts.reduce((s, a) => s + (a.distanceMeters ?? 0), 0),
-      totalDurationSeconds: acts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0),
-      totalElevGainMeters: acts.reduce((s, a) => s + (a.totalElevGainMeters ?? 0), 0),
-    };
+    function aggregatePeriod(acts: typeof activities) {
+      return {
+        activityCount: acts.length,
+        totalDistanceMeters: acts.reduce((s, a) => s + (a.distanceMeters ?? 0), 0),
+        totalDurationSeconds: acts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0),
+        totalElevGainMeters: acts.reduce((s, a) => s + (a.totalElevGainMeters ?? 0), 0),
+      };
+    }
+
+    const allTime = aggregatePeriod(activities);
+    const last4Weeks = aggregatePeriod(recentActivities);
+
+    // Best efforts come from a pre-computed cache (best_efforts table) so the
+    // page is instant even with hundreds of activities. The cache is refreshed
+    // on activity upload and recomputed on activity deletion.
+    const bestEfforts = await getBestEffortsForSport(sport);
+
+    res.json({
+      sport,
+      last4Weeks,
+      allTime,
+      bestEfforts,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch sport stats");
+    res.status(500).json({ error: "Failed to fetch sport stats" });
   }
-
-  const allTime = aggregatePeriod(activities);
-  const last4Weeks = aggregatePeriod(recentActivities);
-
-  // Best efforts come from a pre-computed cache (best_efforts table) so the
-  // page is instant even with hundreds of activities. The cache is refreshed
-  // on activity upload and recomputed on activity deletion.
-  const bestEfforts = await getBestEffortsForSport(sport);
-
-  res.json({
-    sport,
-    last4Weeks,
-    allTime,
-    bestEfforts,
-  });
 });
 
 router.get("/activities/stats", async (req: Request, res: Response) => {
-  const activities = await db.select().from(activitiesTable);
+  try {
+    const activities = await db.select().from(activitiesTable);
 
-  const totalActivities = activities.length;
-  const totalDistanceMeters = activities.reduce(
-    (sum, a) => sum + (a.distanceMeters ?? 0),
-    0,
-  );
-  const totalDurationSeconds = activities.reduce(
-    (sum, a) => sum + (a.durationSeconds ?? 0),
-    0,
-  );
+    const totalActivities = activities.length;
+    const totalDistanceMeters = activities.reduce(
+      (sum, a) => sum + (a.distanceMeters ?? 0),
+      0,
+    );
+    const totalDurationSeconds = activities.reduce(
+      (sum, a) => sum + (a.durationSeconds ?? 0),
+      0,
+    );
 
-  const sportCounts: Record<string, number> = {};
-  for (const a of activities) {
-    sportCounts[a.sport] = (sportCounts[a.sport] ?? 0) + 1;
+    const sportCounts: Record<string, number> = {};
+    for (const a of activities) {
+      sportCounts[a.sport] = (sportCounts[a.sport] ?? 0) + 1;
+    }
+    const sportBreakdown = Object.entries(sportCounts).map(([sport, count]) => ({
+      sport,
+      count,
+    }));
+
+    const avgDistanceMeters =
+      totalActivities > 0 ? totalDistanceMeters / totalActivities : 0;
+    const avgDurationSeconds =
+      totalActivities > 0 ? totalDurationSeconds / totalActivities : 0;
+
+    const result = GetActivityStatsResponse.parse({
+      totalActivities,
+      totalDistanceMeters,
+      totalDurationSeconds,
+      avgDistanceMeters,
+      avgDurationSeconds,
+      sportBreakdown,
+    });
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch activity stats");
+    res.status(500).json({ error: "Failed to fetch activity stats" });
   }
-  const sportBreakdown = Object.entries(sportCounts).map(([sport, count]) => ({
-    sport,
-    count,
-  }));
-
-  const avgDistanceMeters =
-    totalActivities > 0 ? totalDistanceMeters / totalActivities : 0;
-  const avgDurationSeconds =
-    totalActivities > 0 ? totalDurationSeconds / totalActivities : 0;
-
-  const result = GetActivityStatsResponse.parse({
-    totalActivities,
-    totalDistanceMeters,
-    totalDurationSeconds,
-    avgDistanceMeters,
-    avgDurationSeconds,
-    sportBreakdown,
-  });
-
-  res.json(result);
 });
 
 router.get("/activities/:id", async (req: Request, res: Response) => {
@@ -535,61 +550,66 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  const [activity] = await db
-    .select()
-    .from(activitiesTable)
-    .where(eq(activitiesTable.id, params.data.id));
+  try {
+    const [activity] = await db
+      .select()
+      .from(activitiesTable)
+      .where(eq(activitiesTable.id, params.data.id));
 
-  if (!activity) {
-    res.status(404).json({ error: "Activity not found" });
-    return;
+    if (!activity) {
+      res.status(404).json({ error: "Activity not found" });
+      return;
+    }
+
+    const dataPoints = await db
+      .select()
+      .from(activityDataPointsTable)
+      .where(eq(activityDataPointsTable.activityId, params.data.id))
+      .orderBy(activityDataPointsTable.timestamp);
+
+    const result = GetActivityResponse.parse({
+      id: activity.id,
+      sport: activity.sport,
+      name: activity.name,
+      notes: activity.notes,
+      startTime: activity.startTime,
+      durationSeconds: activity.durationSeconds,
+      distanceMeters: activity.distanceMeters,
+      avgSpeedMps: activity.avgSpeedMps,
+      avgPaceSecPerKm: activity.avgPaceSecPerKm,
+      totalElevGainMeters: activity.totalElevGainMeters,
+      totalElevDescMeters: activity.totalElevDescMeters,
+      maxSpeedMps: activity.maxSpeedMps,
+      avgHeartRate: activity.avgHeartRate,
+      maxHeartRate: activity.maxHeartRate,
+      totalCalories: activity.totalCalories,
+      avgCadence: activity.avgCadence,
+      avgPower: activity.avgPower,
+      normalizedPower: activity.normalizedPower,
+      avgVerticalOscillationMm: activity.avgVerticalOscillationMm,
+      avgStanceTimeMs: activity.avgStanceTimeMs,
+      avgVerticalRatio: activity.avgVerticalRatio,
+      avgStepLengthMm: activity.avgStepLengthMm,
+      fileObjectPath: activity.fileObjectPath,
+      createdAt: activity.createdAt,
+      dataPoints: dataPoints.map((p) => ({
+        timestamp: p.timestamp,
+        heartRate: p.heartRate,
+        cadence: p.cadence,
+        altitude: p.altitude,
+        lat: p.lat,
+        lng: p.lng,
+        speed: p.speed,
+        distance: p.distance,
+        power: p.power,
+      })),
+    });
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch activity");
+    res.status(500).json({ error: "Failed to fetch activity" });
   }
-
-  const dataPoints = await db
-    .select()
-    .from(activityDataPointsTable)
-    .where(eq(activityDataPointsTable.activityId, params.data.id))
-    .orderBy(activityDataPointsTable.timestamp);
-
-  const result = GetActivityResponse.parse({
-    id: activity.id,
-    sport: activity.sport,
-    name: activity.name,
-    notes: activity.notes,
-    startTime: activity.startTime,
-    durationSeconds: activity.durationSeconds,
-    distanceMeters: activity.distanceMeters,
-    avgSpeedMps: activity.avgSpeedMps,
-    avgPaceSecPerKm: activity.avgPaceSecPerKm,
-    totalElevGainMeters: activity.totalElevGainMeters,
-    totalElevDescMeters: activity.totalElevDescMeters,
-    maxSpeedMps: activity.maxSpeedMps,
-    avgHeartRate: activity.avgHeartRate,
-    maxHeartRate: activity.maxHeartRate,
-    totalCalories: activity.totalCalories,
-    avgCadence: activity.avgCadence,
-    avgPower: activity.avgPower,
-    normalizedPower: activity.normalizedPower,
-    avgVerticalOscillationMm: activity.avgVerticalOscillationMm,
-    avgStanceTimeMs: activity.avgStanceTimeMs,
-    avgVerticalRatio: activity.avgVerticalRatio,
-    avgStepLengthMm: activity.avgStepLengthMm,
-    fileObjectPath: activity.fileObjectPath,
-    createdAt: activity.createdAt,
-    dataPoints: dataPoints.map((p) => ({
-      timestamp: p.timestamp,
-      heartRate: p.heartRate,
-      cadence: p.cadence,
-      altitude: p.altitude,
-      lat: p.lat,
-      lng: p.lng,
-      speed: p.speed,
-      distance: p.distance,
-      power: p.power,
-    })),
-  });
-
-  res.json(result);
 });
 
 router.patch(
