@@ -1,0 +1,49 @@
+#5 - Single-User Clerk Auth Lockdown
+What & Why
+Right now anyone with the URL can chat with the coach and upload .fit / .tcx files. The owner wants this to stay a private, single-person app: only one specific email address (configured via a secret) is allowed to sign in, and only signed-in sessions can use the coach chat or upload new activity data. Everything else (viewing activities, the map, the share page, etc.) keeps working for anyone with the link, just like today.
+
+Done looks like
+The fitness-tracker app has Clerk-powered sign-in / sign-up pages, branded to match the rest of the site (logo, fonts, colors).
+A new ALLOWED_USER_EMAIL secret controls who is allowed in. Any other account that completes Clerk sign-in is immediately signed back out and shown a clear "this app is private" message.
+When the allowed user is signed in, the header shows their avatar / email and a sign-out button.
+The Coach page (/agent) and the upload widgets on Home only render for the signed-in allowed user; signed-out (or wrong-email) visitors see a friendly "Sign in to use this feature" prompt with a button to the sign-in page.
+The coach API (POST /api/agent), single upload (POST /api/activities/upload), batch upload (POST /api/activities/upload-batch), and the upload presigned-URL endpoint (POST /api/storage/uploads/request-url) reject anonymous or wrong-email requests with 401.
+All existing read endpoints (list activities, activity detail, stats, share page, render jobs, video downloads) keep working without authentication — no behavior change for viewers.
+Clerk publishable / secret keys are auto-provisioned by the Replit-managed Clerk setup; no manual key entry by the user.
+Out of scope
+Multi-user support, per-user data ownership, or adding userId columns to the database (this is intentionally a single-user app).
+Locking down read-only endpoints or the public share page.
+Mobile / Expo client (none exists).
+MFA, magic links, organizations, or SMS sign-in.
+Migrating any existing data.
+Steps
+Provision Replit-managed Clerk — Run the Clerk setup so CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY, and VITE_CLERK_PUBLISHABLE_KEY are auto-set. Copy the proxy middleware template into the api-server, install @clerk/express, @clerk/shared, http-proxy-middleware on the server, and @clerk/react + @clerk/themes on the fitness-tracker app.
+
+Request the allowed-user secret — Use the environment-secrets flow to ask the user for ALLOWED_USER_EMAIL (a single email address). The server must read this at startup and treat it as the only authorized account.
+
+Wire Clerk into the API server — In app.ts, mount the Clerk proxy at /api/__clerk before body parsers, then mount clerkMiddleware() after CORS / JSON parsers. Add a shared requireAllowedUser middleware that: (a) requires a valid Clerk session, (b) loads the user's primary email via the Clerk backend SDK, (c) compares (case-insensitive) against ALLOWED_USER_EMAIL, (d) responds 401 with a clear JSON error otherwise. Apply it to the agent route and the three upload-related routes only.
+
+Add Clerk sign-in / sign-up pages to the web app — Set up <ClerkProvider> in App.tsx with the proxy URL, routerPush / routerReplace wired to wouter, and a branded appearance object (use the existing app colors / font from index.css, generate a public/logo.svg matching current branding, and use the shadcn theme). Add /sign-in/*? and /sign-up/*? routes using <SignIn routing="path" path={...}> with the full base-prefixed paths. Keep / (Home) publicly viewable per the Clerk skill's home-route rules — never redirect anonymous visitors away from the landing page.
+
+Gate the Coach page and upload widgets in the UI — On /agent, wrap the chat UI in <Show when="signed-in"> plus an allowed-email check (read the user's primary email via useUser); show a "This is a private app — sign in to chat with the coach" card with a "Sign in" button to anonymous or wrong-email visitors. Do the same around <UploadZone> and <BatchUploadZone> on the Home page. The rest of Home (recent activities, charts, etc.) stays visible to everyone.
+
+Header sign-in / sign-out affordance — In the shared Layout component, add a small auth control in the top-right: when signed out, a "Sign in" link to /sign-in; when signed in as the allowed user, show their email or avatar plus a sign-out button. When signed in as a non-allowed email, show a brief "Not authorized" badge and a sign-out button so they can leave cleanly.
+
+Wrong-email handling — When a Clerk session exists but the email doesn't match ALLOWED_USER_EMAIL, the UI should render a full-page "This app is private" notice with a sign-out button instead of the gated features. The API already returns 401 for this case (step 3); the client should surface that gracefully on the coach and upload flows.
+
+Smoke test — Verify end-to-end with the testing skill: signed-out user can browse Home / activities / share pages; signed-out user sees the gated card on /agent and on the upload widgets; signing in with the allowed email unlocks both; signing in with any other email shows the "private app" notice and the API rejects coach + upload calls with 401; sign-out returns to the public landing page.
+
+Relevant files
+artifacts/api-server/src/app.ts
+artifacts/api-server/src/routes/index.ts
+artifacts/api-server/src/routes/agent.ts
+artifacts/api-server/src/routes/activities.ts
+artifacts/api-server/src/routes/storage.ts
+artifacts/fitness-tracker/src/App.tsx
+artifacts/fitness-tracker/src/main.tsx
+artifacts/fitness-tracker/src/index.css
+artifacts/fitness-tracker/src/components/layout.tsx
+artifacts/fitness-tracker/src/components/upload-zone.tsx
+artifacts/fitness-tracker/src/components/batch-upload-zone.tsx
+artifacts/fitness-tracker/src/pages/home.tsx
+artifacts/fitness-tracker/src/pages/agent.tsx
