@@ -88,15 +88,6 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
     return;
   }
 
-  res.status(200);
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  if (typeof (res as Response & { flushHeaders?: () => void }).flushHeaders === "function") {
-    (res as Response & { flushHeaders: () => void }).flushHeaders();
-  }
-
   const startingRef = process.env.CURSOR_CLOUD_REPO_REF?.trim() || "main";
 
   let agent: Awaited<ReturnType<typeof Agent.create>>;
@@ -129,9 +120,17 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
         : err instanceof Error
           ? err.message
           : String(err);
-    writeSse(res, "error", { message });
-    res.end();
+    res.status(502).json({ error: message });
     return;
+  }
+
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof (res as Response & { flushHeaders?: () => void }).flushHeaders === "function") {
+    (res as Response & { flushHeaders: () => void }).flushHeaders();
   }
 
   const fullPrompt = `${COACH_SYSTEM}\n\n---\n\nUser:\n${userText}`;
@@ -142,6 +141,15 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
     let thinkingAccum = "";
 
     for await (const msg of run.stream()) {
+      if (process.env.AGENT_DEBUG) {
+        try {
+          // eslint-disable-next-line no-console
+          console.log("[agent stream]", msg.type, JSON.stringify(msg).slice(0, 500));
+        } catch {
+          /* ignore */
+        }
+      }
+
       if (msg.type === "thinking") {
         const t = typeof msg.text === "string" ? msg.text : "";
         if (!t) {
@@ -188,8 +196,6 @@ router.post("/agent", requireAgentAuth, async (req, res) => {
             piece += block.text;
           }
         }
-        // Cloud streams may send cumulative text, pure deltas, or occasional
-        // resets. Only slice when `piece` clearly extends the previous snapshot.
         if (piece.length === 0) {
           continue;
         }

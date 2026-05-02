@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,9 +101,16 @@ export default function AgentPage() {
         }),
       });
 
-      if (!res.ok || !res.body) {
-        const errText = await res.text().catch(() => res.statusText);
-        throw new Error(errText || `HTTP ${res.status}`);
+      if (!res.ok) {
+        const ct = res.headers.get("content-type") ?? "";
+        const errBody = ct.includes("application/json")
+          ? JSON.stringify(await res.json())
+          : await res.text();
+        throw new Error(errBody || `HTTP ${res.status}`);
+      }
+
+      if (!res.body) {
+        throw new Error("No response body");
       }
 
       const reader = res.body.getReader();
@@ -219,7 +227,7 @@ export default function AgentPage() {
                   : "Agent error";
               throw new Error(msg);
             } else if (parsed.event === "done") {
-              // terminal — stream complete
+              // stream complete
             }
           } catch (e) {
             if (e instanceof SyntaxError) continue;
@@ -242,8 +250,8 @@ export default function AgentPage() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-3xl flex flex-col gap-4 min-h-[calc(100dvh-4rem)]">
-        <Card className="border-border/80 shadow-sm flex-1 flex flex-col min-h-0">
+      <div className="container mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col gap-4 px-4 py-8">
+        <Card className="flex min-h-0 flex-1 flex-col border-border/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xl font-medium tracking-tight">
               Training coach
@@ -253,8 +261,8 @@ export default function AgentPage() {
               live thinking and tool calls, then your answer (UTC, MCP-backed data).
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col flex-1 gap-3 min-h-0 pt-0">
-            <ScrollArea className="flex-1 min-h-[280px] min-w-0 rounded-md border border-border/60 bg-muted/20 p-3">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-3 pt-0">
+            <ScrollArea className="min-h-[280px] min-w-0 flex-1 rounded-md border border-border/60 bg-muted/20 p-3">
               <div className="flex min-w-0 w-full flex-col gap-3 pr-2">
                 {messages.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
@@ -267,86 +275,98 @@ export default function AgentPage() {
                     const isStreamingAssistant =
                       busy && m.role === "assistant" && m.id === tailId;
                     return (
-                    <div
-                      key={m.id}
-                      className={
-                        m.role === "user"
-                          ? "ml-8 w-full max-w-[min(100%,42rem)] min-w-0 self-end rounded-lg bg-primary/10 px-3 py-2 text-sm break-words [overflow-wrap:anywhere]"
-                          : "mr-8 w-full max-w-[min(100%,42rem)] min-w-0 self-start rounded-lg border border-border/70 bg-background px-3 py-2 text-sm break-words whitespace-pre-wrap [overflow-wrap:anywhere]"
-                      }
-                    >
-                      <span className="label-mono mb-1 block text-[10px] uppercase text-muted-foreground">
-                        {m.role === "user" ? "You" : "Coach"}
-                      </span>
-                      {m.role === "assistant" &&
-                      ((m.thinking && m.thinking.length > 0) ||
-                        (m.tools && m.tools.length > 0)) ? (
-                        <Collapsible
-                          defaultOpen
-                          className="group/activity mb-2 rounded-md border border-border/50 bg-muted/25 data-[state=open]:shadow-sm"
-                        >
-                          <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground">
-                            <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]/activity:rotate-180" />
-                            <span className="inline-flex items-center gap-1.5">
-                              <Loader2
-                                className={`h-3 w-3 ${isStreamingAssistant ? "animate-spin" : "opacity-40"}`}
-                                aria-hidden
-                              />
-                              Working
-                            </span>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent className="space-y-2 border-t border-border/40 px-2 py-2">
-                            {m.thinking && m.thinking.length > 0 ? (
-                              <div>
-                                <div className="label-mono mb-1 text-[10px] uppercase text-muted-foreground">
-                                  Thinking
+                      <div
+                        key={m.id}
+                        className={
+                          m.role === "user"
+                            ? "ml-8 w-full max-w-[min(100%,42rem)] min-w-0 self-end break-words rounded-lg bg-primary/10 px-3 py-2 text-sm [overflow-wrap:anywhere]"
+                            : "mr-8 w-full max-w-[min(100%,42rem)] min-w-0 self-start break-words rounded-lg border border-border/70 bg-background px-3 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
+                        }
+                      >
+                        <span className="label-mono mb-1 block text-[10px] uppercase text-muted-foreground">
+                          {m.role === "user" ? "You" : "Coach"}
+                        </span>
+                        {m.role === "assistant" &&
+                        ((m.thinking && m.thinking.length > 0) ||
+                          (m.tools && m.tools.length > 0)) ? (
+                          <Collapsible
+                            defaultOpen
+                            className="group/activity mb-2 rounded-md border border-border/50 bg-muted/25 data-[state=open]:shadow-sm"
+                          >
+                            <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground">
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]/activity:rotate-180" />
+                              <span className="inline-flex items-center gap-1.5">
+                                <Loader2
+                                  className={`h-3 w-3 ${isStreamingAssistant ? "animate-spin" : "opacity-40"}`}
+                                  aria-hidden
+                                />
+                                Working
+                              </span>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-2 border-t border-border/40 px-2 py-2">
+                              {m.thinking && m.thinking.length > 0 ? (
+                                <div>
+                                  <div className="label-mono mb-1 text-[10px] uppercase text-muted-foreground">
+                                    Thinking
+                                  </div>
+                                  <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-muted-foreground">
+                                    {m.thinking}
+                                  </pre>
                                 </div>
-                                <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-muted-foreground">
-                                  {m.thinking}
-                                </pre>
-                              </div>
-                            ) : null}
-                            {m.tools && m.tools.length > 0 ? (
-                              <div>
-                                <div className="label-mono mb-1 text-[10px] uppercase text-muted-foreground">
-                                  Tools
-                                </div>
-                                <ul className="space-y-2">
-                                  {m.tools.map((t) => (
-                                    <li
-                                      key={t.id}
-                                      className="rounded border border-border/50 bg-background/90 p-2"
-                                    >
-                                      <div className="flex flex-wrap items-baseline gap-2">
-                                        <span className="font-medium text-foreground">
-                                          {t.name}
-                                        </span>
-                                        {t.status ? (
-                                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                            {t.status}
+                              ) : null}
+                              {m.tools && m.tools.length > 0 ? (
+                                <div>
+                                  <div className="label-mono mb-1 text-[10px] uppercase text-muted-foreground">
+                                    Tools
+                                  </div>
+                                  <ul className="space-y-2">
+                                    {m.tools.map((t) => (
+                                      <li
+                                        key={t.id}
+                                        className="rounded border border-border/50 bg-background/90 p-2"
+                                      >
+                                        <div className="flex flex-wrap items-baseline gap-2">
+                                          <span className="font-medium text-foreground">
+                                            {t.name}
                                           </span>
+                                          {t.status ? (
+                                            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                              {t.status}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        {t.argsPreview ? (
+                                          <pre className="mt-1 max-h-28 overflow-y-auto text-[10px] leading-snug text-muted-foreground">
+                                            {t.argsPreview}
+                                          </pre>
                                         ) : null}
-                                      </div>
-                                      {t.argsPreview ? (
-                                        <pre className="mt-1 max-h-28 overflow-y-auto text-[10px] leading-snug text-muted-foreground">
-                                          {t.argsPreview}
-                                        </pre>
-                                      ) : null}
-                                      {t.resultPreview ? (
-                                        <pre className="mt-1 max-h-28 overflow-y-auto text-[10px] leading-snug text-emerald-700 dark:text-emerald-400/90">
-                                          {t.resultPreview}
-                                        </pre>
-                                      ) : null}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                          </CollapsibleContent>
-                        </Collapsible>
-                      ) : null}
-                      {m.content || (m.role === "assistant" && busy ? "…" : "")}
-                    </div>
+                                        {t.resultPreview ? (
+                                          <pre className="mt-1 max-h-28 overflow-y-auto text-[10px] leading-snug text-emerald-700 dark:text-emerald-400/90">
+                                            {t.resultPreview}
+                                          </pre>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        ) : null}
+                        {m.role === "assistant" ? (
+                          m.content ? (
+                            <div className="prose prose-sm prose-neutral max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                              <ReactMarkdown>{m.content}</ReactMarkdown>
+                            </div>
+                          ) : isStreamingAssistant ? (
+                            <span className="text-xs italic text-muted-foreground">
+                              …
+                            </span>
+                          ) : null
+                        ) : (
+                          m.content
+                        )}
+                      </div>
                     );
                   })
                 )}
