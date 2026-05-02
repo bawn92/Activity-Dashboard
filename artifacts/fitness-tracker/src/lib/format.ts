@@ -32,6 +32,46 @@ export function formatAvgSpeedKmh(mps?: number | null): string {
   return `${kmh.toFixed(1)} km/h`;
 }
 
+/**
+ * Classify a sport string into a canonical category for unit formatting.
+ * Uses substring matching so variants like "open_water_swimming",
+ * "trail_running", "mountain_biking", etc. are handled correctly.
+ */
+function classifySport(sport: string | null | undefined): "swim" | "pace" | "speed" {
+  const s = (sport ?? "").toLowerCase().replace(/[_\s-]/g, "");
+  if (s.includes("swim")) return "swim";
+  if (s.includes("run") || s.includes("hik") || s.includes("walk")) return "pace";
+  if (s.includes("cycl") || s.includes("bik")) return "speed";
+  return "speed";
+}
+
+export function formatSpeedForSport(
+  sport: string | null | undefined,
+  mps: number | null | undefined,
+): { formatted: string; label: string } {
+  const category = classifySport(sport);
+
+  if (category === "swim") {
+    if (mps == null || mps <= 0) return { formatted: "—", label: "Pace" };
+    const secPer100m = 100 / mps;
+    const m = Math.floor(secPer100m / 60);
+    const sec = Math.floor(secPer100m % 60);
+    return { formatted: `${m}:${sec.toString().padStart(2, "0")} /100m`, label: "Pace" };
+  }
+
+  if (category === "pace") {
+    if (mps == null || mps <= 0) return { formatted: "—", label: "Pace" };
+    const secPerKm = 1000 / mps;
+    const m = Math.floor(secPerKm / 60);
+    const sec = Math.floor(secPerKm % 60);
+    return { formatted: `${m}:${sec.toString().padStart(2, "0")} /km`, label: "Pace" };
+  }
+
+  if (mps == null || mps <= 0) return { formatted: "—", label: "Speed" };
+  const kmh = mps * 3.6;
+  return { formatted: `${kmh.toFixed(1)} km/h`, label: "Speed" };
+}
+
 export function formatDate(isoString: string): string {
   const date = new Date(isoString);
   return date.toLocaleDateString(undefined, { 

@@ -1,4 +1,5 @@
 import type { ActivityDetail } from "@workspace/api-client-react";
+import { formatSpeedForSport } from "./format";
 
 type Activity = ActivityDetail;
 
@@ -317,11 +318,6 @@ function formatDate(iso: string): string {
   });
 }
 
-function formatPace(secPerKm: number): string {
-  const m = Math.floor(secPerKm / 60);
-  const s = Math.floor(secPerKm % 60);
-  return `${m}:${s.toString().padStart(2, "0")} /km`;
-}
 
 function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
@@ -520,14 +516,8 @@ export function renderShareCard(
 
   const halfX = W / 2 + 20;
   drawBigStat(ctx, theme, "Distance", formatDistance(activity.distanceMeters ?? 0), PAD, y);
-  drawBigStat(
-    ctx,
-    theme,
-    "Pace",
-    activity.avgPaceSecPerKm ? formatPace(activity.avgPaceSecPerKm) : "—",
-    halfX,
-    y,
-  );
+  const speedStat = formatSpeedForSport(activity.sport, activity.avgSpeedMps);
+  drawBigStat(ctx, theme, speedStat.label, speedStat.formatted, halfX, y);
   y += 140;
 
   if (activity.durationSeconds != null || activity.avgHeartRate != null) {

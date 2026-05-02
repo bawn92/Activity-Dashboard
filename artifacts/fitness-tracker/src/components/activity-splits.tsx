@@ -9,14 +9,30 @@ import {
   Cell,
 } from "recharts";
 import type { DataPoint } from "@workspace/api-client-react";
+import { formatSpeedForSport } from "@/lib/format";
+
+type SportCategory = "swim" | "pace" | "speed";
+
+function getSportCategory(sport: string | null | undefined): SportCategory {
+  const s = (sport ?? "").toLowerCase().replace(/[_\s-]/g, "");
+  if (s.includes("swim")) return "swim";
+  if (s.includes("run") || s.includes("hik") || s.includes("walk")) return "pace";
+  return "speed";
+}
 
 interface Split {
   km: number;
   paceSecPerKm: number;
-  label: string;
+  displayValue: number;
 }
 
-function computeKmSplits(dataPoints: DataPoint[]): Split[] {
+function toDisplayValue(paceSecPerKm: number, category: SportCategory): number {
+  if (category === "swim") return paceSecPerKm / 10;
+  if (category === "speed") return 3600 / paceSecPerKm;
+  return paceSecPerKm;
+}
+
+function computeKmSplits(dataPoints: DataPoint[], category: SportCategory): Split[] {
   const pts = [...dataPoints]
     .filter((p) => p.distance != null)
     .sort((a, b) => a.distance! - b.distance!);
@@ -54,57 +70,54 @@ function computeKmSplits(dataPoints: DataPoint[]): Split[] {
     if (timeDiffSec <= 0) continue;
 
     const paceSecPerKm = (timeDiffSec / distanceCovered) * 1000;
+    const displayValue = toDisplayValue(paceSecPerKm, category);
 
-    const totalSec = Math.round(paceSecPerKm);
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    const label = `${mins}:${secs.toString().padStart(2, "0")}`;
-
-    splits.push({ km, paceSecPerKm, label });
+    splits.push({ km, paceSecPerKm, displayValue });
     prevPt = ptAtTarget;
   }
 
   return splits;
 }
 
-function formatPaceAxis(sec: number): string {
-  const mins = Math.floor(sec / 60);
-  const secs = Math.round(sec % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+function makePaceAxisFormatter(category: SportCategory) {
+  return (val: number): string => {
+    if (category === "speed") {
+      return `${val.toFixed(1)}`;
+    }
+    const totalSec = Math.round(val);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 }
 
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: number;
-}
-
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
-  if (!active || !payload?.length) return null;
-  const sec = payload[0].value;
-  return (
-    <div className="bg-card border border-border rounded-xl px-3 py-2 text-sm shadow-card">
-      <p className="label-mono text-muted-foreground mb-1">Km {label}</p>
-      <p className="font-medium text-foreground">{formatPaceAxis(sec)} /km</p>
-    </div>
-  );
+function isBetterThanAvg(displayValue: number, avgDisplay: number, category: SportCategory): boolean {
+  if (category === "speed") return displayValue >= avgDisplay;
+  return displayValue <= avgDisplay;
 }
 
 interface ActivitySplitsProps {
   dataPoints: DataPoint[];
+  sport?: string | null;
 }
 
-export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
-  const splits = computeKmSplits(dataPoints);
+export function ActivitySplits({ dataPoints, sport }: ActivitySplitsProps) {
+  const category = getSportCategory(sport);
+  const splits = computeKmSplits(dataPoints, category);
 
   if (splits.length === 0) return null;
 
-  const avgPace =
-    splits.reduce((sum, s) => sum + s.paceSecPerKm, 0) / splits.length;
+  const avgDisplay =
+    splits.reduce((sum, s) => sum + s.displayValue, 0) / splits.length;
+
+  const isReversed = category !== "speed";
+  const axisFormatter = makePaceAxisFormatter(category);
+
+  const sectionTitle = category === "swim" ? "Splits" : "Km Splits";
 
   return (
     <div className="bg-card border border-border rounded-xl shadow-card p-6">
-      <h2 className="label-mono text-muted-foreground mb-5">Km Splits</h2>
+      <h2 className="label-mono text-muted-foreground mb-5">{sectionTitle}</h2>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart
           data={splits}
@@ -123,7 +136,7 @@ export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
             axisLine={false}
             tickLine={false}
             label={{
-              value: "Km",
+              value: category === "swim" ? "Split" : "Km",
               position: "insideBottomRight",
               offset: -4,
               fill: "#736E67",
@@ -132,20 +145,41 @@ export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
           />
           <YAxis
             domain={["auto", "auto"]}
-            tickFormatter={formatPaceAxis}
+            tickFormatter={axisFormatter}
             tick={{ fill: "#736E67", fontSize: 11, fontFamily: "JetBrains Mono" }}
             axisLine={false}
             tickLine={false}
-            width={48}
-            reversed
+            width={52}
+            reversed={isReversed}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
-          <Bar dataKey="paceSecPerKm" radius={[4, 4, 0, 0]}>
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const raw = payload[0].value;
+              const displayVal = typeof raw === "number" ? raw : 0;
+              const mps = displayVal > 0
+                ? category === "swim"
+                  ? 100 / displayVal
+                  : category === "speed"
+                  ? displayVal / 3.6
+                  : 1000 / displayVal
+                : 0;
+              const { formatted } = formatSpeedForSport(sport, mps);
+              return (
+                <div className="bg-card border border-border rounded-xl px-3 py-2 text-sm shadow-card">
+                  <p className="label-mono text-muted-foreground mb-1">{category === "swim" ? `Split ${label}` : `Km ${label}`}</p>
+                  <p className="font-medium text-foreground">{formatted}</p>
+                </div>
+              );
+            }}
+            cursor={{ fill: "rgba(0,0,0,0.03)" }}
+          />
+          <Bar dataKey="displayValue" radius={[4, 4, 0, 0]}>
             {splits.map((s) => (
               <Cell
                 key={s.km}
                 fill={
-                  s.paceSecPerKm <= avgPace
+                  isBetterThanAvg(s.displayValue, avgDisplay, category)
                     ? "hsl(21 95% 48%)"
                     : "hsl(21 95% 72%)"
                 }
@@ -161,10 +195,10 @@ export function ActivitySplits({ dataPoints }: ActivitySplitsProps) {
             className="flex items-center gap-1.5 bg-muted rounded-lg px-2.5 py-1.5"
           >
             <span className="label-mono text-muted-foreground">
-              Km {s.km}
+              {category === "swim" ? `Split ${s.km}` : `Km ${s.km}`}
             </span>
             <span className="label-mono text-foreground font-medium">
-              {s.label}
+              {formatSpeedForSport(sport, s.paceSecPerKm > 0 ? 1000 / s.paceSecPerKm : 0).formatted}
             </span>
           </div>
         ))}

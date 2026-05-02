@@ -3,11 +3,10 @@ import { Link } from "wouter";
 import { useListActivities, type ActivitySummary } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import {
-  formatAvgSpeedKmh,
   formatDate,
   formatDistance,
   formatDuration,
-  formatPace,
+  formatSpeedForSport,
 } from "@/lib/format";
 import {
   Table,
@@ -573,13 +572,7 @@ export default function ActivitiesTablePage() {
                       onClick={() => handleSort("distance")}
                     />
                     <TableHead>Duration</TableHead>
-                    <TableHead>Avg pace</TableHead>
-                    <SortHeader
-                      label="Avg speed"
-                      active={sortKey === "avgSpeed"}
-                      dir={sortDir}
-                      onClick={() => handleSort("avgSpeed")}
-                    />
+                    <TableHead className="whitespace-nowrap">Pace / Speed</TableHead>
                     <SortHeader
                       label="Avg HR"
                       active={sortKey === "avgHeartRate"}
@@ -592,7 +585,7 @@ export default function ActivitiesTablePage() {
                 <TableBody>
                   {filteredSorted.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
                         No activities match these filters.
                       </TableCell>
                     </TableRow>
@@ -605,8 +598,7 @@ export default function ActivitiesTablePage() {
                         </TableCell>
                         <TableCell className="label-mono">{formatDistance(a.distanceMeters)}</TableCell>
                         <TableCell className="label-mono">{formatDuration(a.durationSeconds)}</TableCell>
-                        <TableCell className="label-mono">{formatPace(a.avgPaceSecPerKm)}</TableCell>
-                        <TableCell className="label-mono">{formatAvgSpeedKmh(a.avgSpeedMps)}</TableCell>
+                        <TableCell className="label-mono">{formatSpeedForSport(a.sport, a.avgSpeedMps).formatted}</TableCell>
                         <TableCell className="label-mono">
                           {a.avgHeartRate != null ? `${Math.round(a.avgHeartRate)} bpm` : "—"}
                         </TableCell>

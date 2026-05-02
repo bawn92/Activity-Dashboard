@@ -10,7 +10,7 @@ import {
 import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
-import { formatDistance, formatDuration, formatPace, formatDate } from "@/lib/format";
+import { formatDistance, formatDuration, formatPace, formatDate, formatSpeedForSport } from "@/lib/format";
 import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, Share2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -173,9 +173,8 @@ export default function ActivityDetail() {
             icon={Timer} 
           />
           <MetricCard 
-            title="Pace" 
-            value={formatPace(activity.avgPaceSecPerKm).split(" ")[0]} 
-            unit="/km"
+            title={formatSpeedForSport(activity.sport, activity.avgSpeedMps).label}
+            value={formatSpeedForSport(activity.sport, activity.avgSpeedMps).formatted}
             icon={Zap} 
           />
           <MetricCard 
@@ -230,9 +229,8 @@ export default function ActivityDetail() {
             )}
             {activity.maxSpeedMps != null && (
               <MetricCard
-                title="Max Pace"
-                value={formatPace(1000 / activity.maxSpeedMps).split(" ")[0]}
-                unit="/km"
+                title={`Max ${formatSpeedForSport(activity.sport, activity.maxSpeedMps).label}`}
+                value={formatSpeedForSport(activity.sport, activity.maxSpeedMps).formatted}
                 icon={Zap}
               />
             )}
@@ -316,7 +314,7 @@ export default function ActivityDetail() {
 
         {activity.dataPoints.some((p) => p.distance != null) && (
           <div className="mb-8">
-            <ActivitySplits dataPoints={activity.dataPoints} />
+            <ActivitySplits dataPoints={activity.dataPoints} sport={activity.sport} />
           </div>
         )}
       </div>
