@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, LogIn, LogOut } from "lucide-react";
+import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, Upload, LogIn, LogOut } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -56,7 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="font-medium tracking-tight text-foreground">Evolve Log</span>
             </Link>
             <nav className="hidden sm:flex items-center gap-1 label-mono text-sm">
-              <Link href="/activities" className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors" data-testid="link-nav-activities">
+              <Link href="/" className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors" data-testid="link-nav-activities">
                 Activities
               </Link>
               <Link href="/table" className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors" data-testid="link-nav-table">
@@ -93,6 +93,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 <BarChart3 className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Stats
+              </Link>
+              <Link
+                href="/upload"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
+                data-testid="link-nav-upload"
+              >
+                <Upload className="w-3.5 h-3.5 opacity-80" aria-hidden />
+                Upload
               </Link>
             </nav>
           </div>

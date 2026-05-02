@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
+import UploadPage from "@/pages/upload";
 import ActivitiesListPage from "@/pages/activities-list";
 import ActivitiesTablePage from "@/pages/activities-table";
 import ActivityDetail from "@/pages/activity";
@@ -216,7 +216,8 @@ function WrongEmailAutoSignOut() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={ActivitiesListPage} />
+      <Route path="/upload" component={UploadPage} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/table" component={ActivitiesTablePage} />

@@ -106,7 +106,7 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
         <p className="text-sm text-muted-foreground">
           Upload a .fit file to see your data.
         </p>
-        <Link href="/">
+        <Link href="/upload">
           <span className="inline-block mt-4 text-sm text-primary hover:underline cursor-pointer" data-testid="link-upload">
             Upload your first activity
           </span>
@@ -126,7 +126,7 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
           Nothing recorded for {dateFilter}.
         </p>
         <button
-          onClick={() => setLocation("/activities")}
+          onClick={() => setLocation("/")}
           className="label-mono text-sm text-primary hover:underline"
         >
           View all activities
@@ -201,7 +201,7 @@ export default function ActivitiesListPage() {
           <h1 className="text-2xl font-medium tracking-tight" data-testid="page-title-activities">
             Activities
           </h1>
-          <Link href="/">
+          <Link href="/upload">
             <button
               className="label-mono px-5 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
               data-testid="button-upload-new"
@@ -218,7 +218,7 @@ export default function ActivitiesListPage() {
               Showing activities for <span className="text-primary">{formatFilterDate(dateFilter)}</span>
             </span>
             <button
-              onClick={() => setLocation("/activities")}
+              onClick={() => setLocation("/")}
               className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Clear date filter"
             >

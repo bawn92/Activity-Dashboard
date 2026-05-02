@@ -1,13 +1,12 @@
 import { Layout } from "@/components/layout";
 import { UploadZone } from "@/components/upload-zone";
 import { BatchUploadZone } from "@/components/batch-upload-zone";
-import { Link, useLocation } from "wouter";
-import { ArrowRight } from "lucide-react";
+import { useLocation } from "wouter";
 
 function UploadSection() {
   const [, setLocation] = useLocation();
   const goToSignIn = () =>
-    setLocation(`/sign-in?redirect=${encodeURIComponent("/")}`);
+    setLocation(`/sign-in?redirect=${encodeURIComponent("/upload")}`);
 
   return (
     <>
@@ -22,7 +21,7 @@ function UploadSection() {
   );
 }
 
-export default function Home() {
+export default function UploadPage() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-16 max-w-2xl">
@@ -39,18 +38,6 @@ export default function Home() {
         </div>
 
         <UploadSection />
-
-        <div className="mt-8 text-center">
-          <Link href="/activities">
-            <span
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              data-testid="link-view-activities"
-            >
-              View all activities
-              <ArrowRight className="w-4 h-4" />
-            </span>
-          </Link>
-        </div>
       </div>
     </Layout>
   );
