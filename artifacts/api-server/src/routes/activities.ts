@@ -614,7 +614,7 @@ router.patch(
   },
 );
 
-router.delete("/activities/:id", async (req: Request, res: Response) => {
+router.delete("/activities/:id", requireAllowedUser, async (req: Request, res: Response) => {
   const params = DeleteActivityParams.safeParse({ id: Number(req.params.id) });
   if (!params.success) {
     res.status(400).json({ error: "Invalid activity ID" });
