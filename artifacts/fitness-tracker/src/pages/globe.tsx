@@ -70,7 +70,7 @@ export default function GlobePage() {
             "pointer-events-auto shadow-sm no-underline",
           )}
         >
-          ← Gearóid Fitness Diary
+          ← Evolve Log
         </Link>
       </div>
 
