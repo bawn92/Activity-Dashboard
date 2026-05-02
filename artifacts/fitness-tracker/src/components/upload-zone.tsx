@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { UploadCloud, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { UploadCloud, Loader2, CheckCircle2, AlertCircle, Lock } from "lucide-react";
 import {
   getUploadActivityUrl,
   getListActivitiesQueryKey,
@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 export function UploadZone() {
@@ -15,6 +15,7 @@ export function UploadZone() {
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -48,6 +49,7 @@ export function UploadZone() {
     const lower = file.name.toLowerCase();
     if (!lower.endsWith(".fit") && !lower.endsWith(".tcx")) {
       setUploadError("Only .fit and .tcx files are accepted");
+      setNeedsSignIn(false);
       return;
     }
 
@@ -57,6 +59,7 @@ export function UploadZone() {
     setIsPending(true);
     setIsSuccess(false);
     setUploadError(null);
+    setNeedsSignIn(false);
 
     try {
       const resp = await fetch(getUploadActivityUrl(), {
@@ -64,6 +67,11 @@ export function UploadZone() {
         body: formData,
         credentials: "include",
       });
+
+      if (resp.status === 401) {
+        setNeedsSignIn(true);
+        return;
+      }
 
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
@@ -99,21 +107,28 @@ export function UploadZone() {
     }
   };
 
+  const stopClick = (e: React.MouseEvent) => e.stopPropagation();
+
   return (
     <div
       className={cn(
         "relative flex flex-col items-center justify-center p-10 rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer shadow-card",
         isDragging
           ? "border-primary bg-primary/5 scale-[1.01]"
-          : uploadError
-            ? "border-destructive/60 bg-destructive/5"
-            : "border-border bg-card hover:border-primary/40 hover:bg-muted/40",
+          : needsSignIn
+            ? "border-border bg-muted/30"
+            : uploadError
+              ? "border-destructive/60 bg-destructive/5"
+              : "border-border bg-card hover:border-primary/40 hover:bg-muted/40",
         isPending && "pointer-events-none opacity-50",
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={() => fileInputRef.current?.click()}
+      onClick={() => {
+        if (needsSignIn) return;
+        fileInputRef.current?.click();
+      }}
       data-testid="upload-zone"
     >
       <input
@@ -129,6 +144,8 @@ export function UploadZone() {
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
       ) : isSuccess ? (
         <CheckCircle2 className="w-8 h-8 text-green-500 mb-4" />
+      ) : needsSignIn ? (
+        <Lock className="w-8 h-8 text-muted-foreground mb-4" />
       ) : uploadError ? (
         <AlertCircle className="w-8 h-8 text-destructive mb-4" />
       ) : (
@@ -140,11 +157,30 @@ export function UploadZone() {
           ? "Uploading..."
           : isSuccess
             ? "Uploaded!"
-            : uploadError
-              ? "Upload failed"
-              : "Upload .fit or .tcx file"}
+            : needsSignIn
+              ? "Please sign in to upload"
+              : uploadError
+                ? "Upload failed"
+                : "Upload .fit or .tcx file"}
       </div>
-      {uploadError ? (
+      {needsSignIn ? (
+        <div
+          className="mt-3 flex flex-col items-center gap-2"
+          data-testid="upload-needs-signin"
+        >
+          <p className="text-xs text-muted-foreground text-center max-w-xs">
+            You need to be signed in to upload activities.
+          </p>
+          <Link href="/sign-in">
+            <span
+              onClick={stopClick}
+              className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer"
+            >
+              Sign in
+            </span>
+          </Link>
+        </div>
+      ) : uploadError ? (
         <div
           className="text-xs text-destructive mt-2 text-center max-w-xs"
           data-testid="upload-error"

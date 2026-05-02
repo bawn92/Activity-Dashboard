@@ -52,6 +52,7 @@ type ChatRound = {
   answer: string;
   status: "streaming" | "done" | "error";
   errorMessage?: string;
+  needsSignIn?: boolean;
   startedAt: number;
   endedAt?: number;
   expanded: boolean;
@@ -827,6 +828,17 @@ export default function AgentPage() {
         signal: controller.signal,
       });
 
+      if (res.status === 401) {
+        updateRound(roundId, (r) => ({
+          ...r,
+          status: "error",
+          needsSignIn: true,
+          endedAt: Date.now(),
+          expanded: true,
+        }));
+        return;
+      }
+
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => res.statusText);
         throw new Error(errText || `HTTP ${res.status}`);
@@ -1181,7 +1193,19 @@ export default function AgentPage() {
                         </div>
                       ) : null}
 
-                      {round.status === "error" && round.errorMessage ? (
+                      {round.status === "error" && round.needsSignIn ? (
+                        <div className="mr-8 rounded-lg bg-muted/40 border border-border/70 px-3 py-2 text-sm flex items-center gap-2 flex-wrap">
+                          <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="text-foreground/80">
+                            Please sign in to chat with your coach.
+                          </span>
+                          <Link href="/sign-in">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
+                              Sign in
+                            </span>
+                          </Link>
+                        </div>
+                      ) : round.status === "error" && round.errorMessage ? (
                         <div className="mr-8 rounded-lg bg-destructive/5 border border-destructive/30 px-3 py-2 text-sm text-destructive">
                           {round.errorMessage}
                         </div>

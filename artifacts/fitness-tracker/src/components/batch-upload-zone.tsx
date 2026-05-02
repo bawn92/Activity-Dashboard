@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { UploadCloud, Loader2, CheckCircle2, AlertCircle, FileWarning, Files } from "lucide-react";
+import { UploadCloud, Loader2, CheckCircle2, AlertCircle, FileWarning, Files, Lock } from "lucide-react";
 import {
   getUploadActivityBatchUrl,
   getListActivitiesQueryKey,
@@ -8,11 +8,12 @@ import {
   type UploadActivityBatchItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
 const BATCH_SIZE = 10;
 
-type Phase = "idle" | "uploading" | "done";
+type Phase = "idle" | "uploading" | "done" | "needs_signin";
 
 interface BatchSummary {
   success: number;
@@ -128,6 +129,12 @@ export function BatchUploadZone() {
           credentials: "include",
         });
 
+        if (resp.status === 401) {
+          setPhase("needs_signin");
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
           throw new Error(
@@ -176,6 +183,7 @@ export function BatchUploadZone() {
 
   const isUploading = phase === "uploading";
   const isDone = phase === "done";
+  const needsSignIn = phase === "needs_signin";
 
   return (
     <div
@@ -223,6 +231,26 @@ export function BatchUploadZone() {
             Click to select multiple .fit or .fit.gz files
           </div>
         </button>
+      )}
+
+      {needsSignIn && (
+        <div
+          className="w-full flex flex-col items-center justify-center gap-3 py-8 rounded-xl border-2 border-dashed border-border bg-muted/30"
+          data-testid="batch-needs-signin"
+        >
+          <Lock className="w-7 h-7 text-muted-foreground" />
+          <div className="label-mono text-foreground">
+            Please sign in to upload
+          </div>
+          <p className="text-xs text-muted-foreground text-center max-w-xs">
+            You need to be signed in to upload activities.
+          </p>
+          <Link href="/sign-in">
+            <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
+              Sign in
+            </span>
+          </Link>
+        </div>
       )}
 
       {isUploading && (
