@@ -7,6 +7,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import {
   Brain,
@@ -21,6 +31,7 @@ import {
   Send,
   Sparkles,
   Star,
+  Trash2,
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -816,19 +827,24 @@ function ThreadList({
   activeThreadId,
   canFavourite,
   canCreate,
+  canDelete,
   onSelect,
   onNewChat,
   onToggleFavourite,
+  onDelete,
 }: {
   threads: ThreadSummary[];
   loading: boolean;
   activeThreadId: number | null;
   canFavourite: boolean;
   canCreate: boolean;
+  canDelete: boolean;
   onSelect: (id: number) => void;
   onNewChat: () => void;
   onToggleFavourite: (id: number) => void;
+  onDelete: (id: number) => void;
 }) {
+  const [pendingDelete, setPendingDelete] = useState<ThreadSummary | null>(null);
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border/60 flex items-center justify-between gap-2">
@@ -906,12 +922,59 @@ function ThreadList({
                       {relativeTime(t.updatedAt)}
                     </div>
                   </div>
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingDelete(t);
+                      }}
+                      aria-label="Delete conversation"
+                      data-testid={`button-delete-thread-${t.id}`}
+                      className="shrink-0 p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         )}
       </ScrollArea>
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete
+              {pendingDelete ? ` "${pendingDelete.title}"` : " this conversation"}
+              {" "}and all of its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border hover:bg-card">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDelete) {
+                  onDelete(pendingDelete.id);
+                  setPendingDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1003,6 +1066,53 @@ export default function AgentPage() {
     setBusy(false);
     setDrawerOpen(false);
   }, []);
+
+  const handleDeleteThread = useCallback(
+    async (id: number) => {
+      const previousThreads = threads;
+      const wasActive = activeThreadId === id;
+
+      // Optimistic removal
+      setThreads((ts) => ts.filter((t) => t.id !== id));
+
+      // If the deleted thread was open, clear it out.
+      if (wasActive) {
+        abortRef.current?.abort();
+        abortRef.current = null;
+        setActiveThreadId(null);
+        setRounds([]);
+        setHistoryRounds([]);
+        setBusy(false);
+      }
+
+      try {
+        const res = await fetch(`${apiBase()}/api/coach/threads/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => res.statusText);
+          throw new Error(errText || `HTTP ${res.status}`);
+        }
+        toast({ title: "Conversation deleted" });
+      } catch (e) {
+        // Revert optimistic removal
+        setThreads(previousThreads);
+        // If the deleted thread was the open one, restore it as active and
+        // re-fetch its messages so the conversation reappears.
+        if (wasActive) {
+          setActiveThreadId(id);
+          void loadThread(id);
+        }
+        toast({
+          title: "Couldn't delete conversation",
+          description: e instanceof Error ? e.message : String(e),
+          variant: "destructive",
+        });
+      }
+    },
+    [threads, activeThreadId, loadThread],
+  );
 
   const handleToggleFavourite = useCallback(
     async (id: number) => {
@@ -1422,9 +1532,11 @@ export default function AgentPage() {
       activeThreadId={activeThreadId}
       canFavourite={canChat}
       canCreate={canChat}
+      canDelete={canChat}
       onSelect={handleSelectThread}
       onNewChat={handleNewChat}
       onToggleFavourite={handleToggleFavourite}
+      onDelete={handleDeleteThread}
     />
   );
 
