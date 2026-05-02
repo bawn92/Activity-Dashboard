@@ -244,13 +244,13 @@ function ClerkProviderWithRoutes() {
         signIn: {
           start: {
             title: "Welcome back",
-            subtitle: "Sign in to access your Gearoid Fitness Diary",
+            subtitle: "Sign in to access your Gearóid Fitness Diary",
           },
         },
         signUp: {
           start: {
             title: "Create your account",
-            subtitle: "Get started with Gearoid Fitness Diary",
+            subtitle: "Get started with Gearóid Fitness Diary",
           },
         },
       }}
