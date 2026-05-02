@@ -48,7 +48,11 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-export function BatchUploadZone() {
+interface BatchUploadZoneProps {
+  onUnauthenticated?: () => void;
+}
+
+export function BatchUploadZone({ onUnauthenticated }: BatchUploadZoneProps = {}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [batchIndex, setBatchIndex] = useState(0);
   const [batchTotal, setBatchTotal] = useState(0);
@@ -130,7 +134,11 @@ export function BatchUploadZone() {
         });
 
         if (resp.status === 401) {
-          setPhase("needs_signin");
+          if (onUnauthenticated) {
+            onUnauthenticated();
+          } else {
+            setPhase("needs_signin");
+          }
           if (fileInputRef.current) fileInputRef.current.value = "";
           return;
         }

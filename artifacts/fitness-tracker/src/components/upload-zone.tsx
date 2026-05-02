@@ -10,7 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
-export function UploadZone() {
+interface UploadZoneProps {
+  onUnauthenticated?: () => void;
+}
+
+export function UploadZone({ onUnauthenticated }: UploadZoneProps = {}) {
   const [isDragging, setIsDragging] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -69,7 +73,11 @@ export function UploadZone() {
       });
 
       if (resp.status === 401) {
-        setNeedsSignIn(true);
+        if (onUnauthenticated) {
+          onUnauthenticated();
+        } else {
+          setNeedsSignIn(true);
+        }
         return;
       }
 
