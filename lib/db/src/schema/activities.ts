@@ -14,6 +14,8 @@ import { z } from "zod/v4";
 export const activitiesTable = pgTable("activities", {
   id: serial("id").primaryKey(),
   sport: text("sport").notNull().default("unknown"),
+  name: text("name"),
+  notes: text("notes"),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   durationSeconds: real("duration_seconds"),
   distanceMeters: real("distance_meters"),

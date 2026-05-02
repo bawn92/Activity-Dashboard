@@ -10,6 +10,10 @@ import type { DataPoint } from "./dataPoint";
 export interface ActivityDetail {
   id: number;
   sport: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  notes?: string | null;
   startTime: Date;
   /** @nullable */
   durationSeconds: number | null;

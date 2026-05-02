@@ -9,6 +9,10 @@
 export interface ActivitySummary {
   id: number;
   sport: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  notes?: string | null;
   startTime: Date;
   /** @nullable */
   durationSeconds: number | null;

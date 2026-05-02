@@ -13,9 +13,24 @@ export interface ErrorResponse {
   error: string;
 }
 
+/**
+ * Fields that can be updated on an activity
+ */
+export interface UpdateActivityBody {
+  sport?: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export interface ActivitySummary {
   id: number;
   sport: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  notes?: string | null;
   startTime: string;
   /** @nullable */
   durationSeconds: number | null;
@@ -77,6 +92,10 @@ export interface DataPoint {
 export interface ActivityDetail {
   id: number;
   sport: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  notes?: string | null;
   startTime: string;
   /** @nullable */
   durationSeconds: number | null;

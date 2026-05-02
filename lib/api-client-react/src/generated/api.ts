@@ -26,6 +26,7 @@ import type {
   RenderJob,
   StorageUploadPresignedUrl,
   StorageUploadRequestBody,
+  UpdateActivityBody,
   UploadActivityBatchBody,
   UploadActivityBatchResponse,
 } from "./api.schemas";
@@ -531,6 +532,94 @@ export function useGetActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Update editable metadata fields (sport, name, notes) for an activity. Requires authentication.
+ * @summary Update activity metadata
+ */
+export const getUpdateActivityUrl = (id: number) => {
+  return `/api/activities/${id}`;
+};
+
+export const updateActivity = async (
+  id: number,
+  updateActivityBody: UpdateActivityBody,
+  options?: RequestInit,
+): Promise<ActivityDetail> => {
+  return customFetch<ActivityDetail>(getUpdateActivityUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateActivityBody),
+  });
+};
+
+export const getUpdateActivityMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateActivity>>,
+    TError,
+    { id: number; data: BodyType<UpdateActivityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateActivity>>,
+  TError,
+  { id: number; data: BodyType<UpdateActivityBody> },
+  TContext
+> => {
+  const mutationKey = ["updateActivity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateActivity>>,
+    { id: number; data: BodyType<UpdateActivityBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateActivity(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateActivityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateActivity>>
+>;
+export type UpdateActivityMutationBody = BodyType<UpdateActivityBody>;
+export type UpdateActivityMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update activity metadata
+ */
+export const useUpdateActivity = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateActivity>>,
+    TError,
+    { id: number; data: BodyType<UpdateActivityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateActivity>>,
+  TError,
+  { id: number; data: BodyType<UpdateActivityBody> },
+  TContext
+> => {
+  return useMutation(getUpdateActivityMutationOptions(options));
+};
 
 /**
  * Delete an activity and its associated data points

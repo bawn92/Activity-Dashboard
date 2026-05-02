@@ -13,6 +13,7 @@ import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
 import {
   GetActivityParams,
   DeleteActivityParams,
+  UpdateActivityBody,
   GetActivityResponse,
   GetActivityStatsResponse,
   ListActivitiesResponse,
@@ -119,6 +120,8 @@ router.get("/activities", async (req: Request, res: Response) => {
     activities.map((a) => ({
       id: a.id,
       sport: a.sport,
+      name: a.name,
+      notes: a.notes,
       startTime: a.startTime,
       durationSeconds: a.durationSeconds,
       distanceMeters: a.distanceMeters,
@@ -488,6 +491,8 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
   const result = GetActivityResponse.parse({
     id: activity.id,
     sport: activity.sport,
+    name: activity.name,
+    notes: activity.notes,
     startTime: activity.startTime,
     durationSeconds: activity.durationSeconds,
     distanceMeters: activity.distanceMeters,
@@ -523,6 +528,91 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
 
   res.json(result);
 });
+
+router.patch(
+  "/activities/:id",
+  requireAllowedUser,
+  async (req: Request, res: Response) => {
+    const params = GetActivityParams.safeParse({ id: Number(req.params.id) });
+    if (!params.success) {
+      res.status(400).json({ error: "Invalid activity ID" });
+      return;
+    }
+
+    const body = UpdateActivityBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: "Invalid request body" });
+      return;
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (body.data.sport !== undefined) updates.sport = body.data.sport;
+    if ("name" in body.data) updates.name = body.data.name ?? null;
+    if ("notes" in body.data) updates.notes = body.data.notes ?? null;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No fields to update" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(activitiesTable)
+      .set(updates)
+      .where(eq(activitiesTable.id, params.data.id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Activity not found" });
+      return;
+    }
+
+    const dataPoints = await db
+      .select()
+      .from(activityDataPointsTable)
+      .where(eq(activityDataPointsTable.activityId, params.data.id))
+      .orderBy(activityDataPointsTable.timestamp);
+
+    const result = GetActivityResponse.parse({
+      id: updated.id,
+      sport: updated.sport,
+      name: updated.name,
+      notes: updated.notes,
+      startTime: updated.startTime,
+      durationSeconds: updated.durationSeconds,
+      distanceMeters: updated.distanceMeters,
+      avgSpeedMps: updated.avgSpeedMps,
+      avgPaceSecPerKm: updated.avgPaceSecPerKm,
+      totalElevGainMeters: updated.totalElevGainMeters,
+      totalElevDescMeters: updated.totalElevDescMeters,
+      maxSpeedMps: updated.maxSpeedMps,
+      avgHeartRate: updated.avgHeartRate,
+      maxHeartRate: updated.maxHeartRate,
+      totalCalories: updated.totalCalories,
+      avgCadence: updated.avgCadence,
+      avgPower: updated.avgPower,
+      normalizedPower: updated.normalizedPower,
+      avgVerticalOscillationMm: updated.avgVerticalOscillationMm,
+      avgStanceTimeMs: updated.avgStanceTimeMs,
+      avgVerticalRatio: updated.avgVerticalRatio,
+      avgStepLengthMm: updated.avgStepLengthMm,
+      fileObjectPath: updated.fileObjectPath,
+      createdAt: updated.createdAt,
+      dataPoints: dataPoints.map((p) => ({
+        timestamp: p.timestamp,
+        heartRate: p.heartRate,
+        cadence: p.cadence,
+        altitude: p.altitude,
+        lat: p.lat,
+        lng: p.lng,
+        speed: p.speed,
+        distance: p.distance,
+        power: p.power,
+      })),
+    });
+
+    res.json(result);
+  },
+);
 
 router.delete("/activities/:id", async (req: Request, res: Response) => {
   const params = DeleteActivityParams.safeParse({ id: Number(req.params.id) });

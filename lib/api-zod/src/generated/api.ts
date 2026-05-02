@@ -22,6 +22,8 @@ export const HealthCheckResponse = zod.object({
 export const ListActivitiesResponseItem = zod.object({
   id: zod.number(),
   sport: zod.string(),
+  name: zod.string().nullish(),
+  notes: zod.string().nullish(),
   startTime: zod.coerce.date(),
   durationSeconds: zod.number().nullable(),
   distanceMeters: zod.number().nullable(),
@@ -105,6 +107,64 @@ export const GetActivityParams = zod.object({
 export const GetActivityResponse = zod.object({
   id: zod.number(),
   sport: zod.string(),
+  name: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  startTime: zod.coerce.date(),
+  durationSeconds: zod.number().nullable(),
+  distanceMeters: zod.number().nullable(),
+  avgSpeedMps: zod.number().nullable(),
+  avgPaceSecPerKm: zod.number().nullable(),
+  totalElevGainMeters: zod.number().nullable(),
+  totalElevDescMeters: zod.number().nullable(),
+  maxSpeedMps: zod.number().nullable(),
+  avgHeartRate: zod.number().nullable(),
+  maxHeartRate: zod.number().nullable(),
+  totalCalories: zod.number().nullable(),
+  avgCadence: zod.number().nullable(),
+  avgPower: zod.number().nullable(),
+  normalizedPower: zod.number().nullable(),
+  avgVerticalOscillationMm: zod.number().nullable(),
+  avgStanceTimeMs: zod.number().nullable(),
+  avgVerticalRatio: zod.number().nullable(),
+  avgStepLengthMm: zod.number().nullable(),
+  fileObjectPath: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  dataPoints: zod.array(
+    zod.object({
+      timestamp: zod.coerce.date(),
+      heartRate: zod.number().nullable(),
+      cadence: zod.number().nullable(),
+      altitude: zod.number().nullable(),
+      lat: zod.number().nullable(),
+      lng: zod.number().nullable(),
+      speed: zod.number().nullable(),
+      distance: zod.number().nullable(),
+      power: zod.number().nullable(),
+    }),
+  ),
+});
+
+/**
+ * Update editable metadata fields (sport, name, notes) for an activity. Requires authentication.
+ * @summary Update activity metadata
+ */
+export const UpdateActivityParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateActivityBody = zod
+  .object({
+    sport: zod.string().optional(),
+    name: zod.string().nullish(),
+    notes: zod.string().nullish(),
+  })
+  .describe("Fields that can be updated on an activity");
+
+export const UpdateActivityResponse = zod.object({
+  id: zod.number(),
+  sport: zod.string(),
+  name: zod.string().nullish(),
+  notes: zod.string().nullish(),
   startTime: zod.coerce.date(),
   durationSeconds: zod.number().nullable(),
   distanceMeters: zod.number().nullable(),

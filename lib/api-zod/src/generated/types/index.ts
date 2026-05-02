@@ -22,6 +22,7 @@ export * from "./renderJobStyle";
 export * from "./sportCount";
 export * from "./storageUploadPresignedUrl";
 export * from "./storageUploadRequestBody";
+export * from "./updateActivityBody";
 export * from "./uploadActivityBatchBody";
 export * from "./uploadActivityBatchItem";
 export * from "./uploadActivityBatchItemStatus";

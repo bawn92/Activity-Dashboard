@@ -152,6 +152,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateActivity
+      tags: [activities]
+      summary: Update activity metadata
+      description: Update editable metadata fields (sport, name, notes) for an activity. Requires authentication.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityBody"
+      responses:
+        "200":
+          description: Updated activity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityDetail"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized – user is not signed in or not on the allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteActivity
       tags: [activities]
@@ -297,6 +345,17 @@ components:
       required:
         - error
 
+    UpdateActivityBody:
+      type: object
+      description: Fields that can be updated on an activity
+      properties:
+        sport:
+          type: string
+        name:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
     ActivitySummary:
       type: object
       properties:
@@ -304,6 +363,10 @@ components:
           type: integer
         sport:
           type: string
+        name:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
         startTime:
           type: string
           format: date-time
@@ -407,6 +470,10 @@ components:
           type: integer
         sport:
           type: string
+        name:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
         startTime:
           type: string
           format: date-time

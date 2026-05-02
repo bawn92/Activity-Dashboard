@@ -1,9 +1,11 @@
 import { useParams, Link, useLocation } from "wouter";
+import { useState } from "react";
 import { Layout } from "@/components/layout";
 import { 
   useGetActivity, 
   getGetActivityQueryKey,
   useDeleteActivity,
+  useUpdateActivity,
   getListActivitiesQueryKey,
   getGetActivityStatsQueryKey
 } from "@workspace/api-client-react";
@@ -11,9 +13,19 @@ import { ActivityMap } from "@/components/activity-map";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
 import { formatDistance, formatDuration, formatPace, formatDate, formatSpeedForSport } from "@/lib/format";
-import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, Share2, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Trash2, Activity, Mountain, Timer, Zap, Map, Heart, Flame, Footprints, TrendingDown, Gauge, MoveVertical, Clock, Percent, ArrowRight, Share2, Pencil, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -27,6 +39,35 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+const BASE_SPORT_OPTIONS = [
+  "running",
+  "cycling",
+  "swimming",
+  "walking",
+  "hiking",
+  "trail_running",
+  "virtual_cycling",
+  "open_water_swimming",
+  "strength_training",
+  "yoga",
+  "other",
+  "unknown",
+];
+
+function getSportOptions(currentSport?: string): string[] {
+  if (!currentSport || BASE_SPORT_OPTIONS.includes(currentSport)) {
+    return BASE_SPORT_OPTIONS;
+  }
+  return [currentSport, ...BASE_SPORT_OPTIONS];
+}
 
 function MetricCard({ title, value, icon: Icon, unit }: { title: string; value: string | React.ReactNode; icon: LucideIcon; unit?: string }) {
   return (
@@ -59,6 +100,45 @@ export default function ActivityDetail() {
   });
 
   const deleteMutation = useDeleteActivity();
+  const updateMutation = useUpdateActivity();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSport, setEditSport] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  const openEdit = () => {
+    if (!activity) return;
+    setEditSport(activity.sport || "unknown");
+    setEditName(activity.name ?? "");
+    setEditNotes(activity.notes ?? "");
+    setEditOpen(true);
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(
+      {
+        id,
+        data: {
+          sport: editSport || undefined,
+          name: editName.trim() || null,
+          notes: editNotes.trim() || null,
+        },
+      },
+      {
+        onSuccess: (updated) => {
+          queryClient.setQueryData(getGetActivityQueryKey(id), updated);
+          queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetActivityStatsQueryKey() });
+          toast({ title: "Activity updated", description: "Your changes have been saved." });
+          setEditOpen(false);
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" });
+        },
+      }
+    );
+  };
 
   const handleDelete = () => {
     deleteMutation.mutate({ id }, {
@@ -104,6 +184,8 @@ export default function ActivityDetail() {
   const hasMapData = activity.dataPoints?.some((dp) => dp.lat != null && dp.lng != null) ?? false;
   const hasChartData = (activity.dataPoints?.length ?? 0) > 0;
 
+  const displayTitle = activity.name || activity.sport || "Activity";
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -118,8 +200,11 @@ export default function ActivityDetail() {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-medium tracking-tight capitalize text-foreground">
-                  {activity.sport || "Activity"}
+                  {displayTitle}
                 </h1>
+                {activity.name && (
+                  <p className="text-sm text-muted-foreground capitalize">{activity.sport}</p>
+                )}
                 <p className="text-sm text-muted-foreground mt-1">
                   {formatDate(activity.startTime)}
                 </p>
@@ -128,6 +213,16 @@ export default function ActivityDetail() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-border text-foreground hover:bg-muted"
+              onClick={openEdit}
+              data-testid="button-edit"
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+
             <Link href={`/activities/${id}/share`}>
               <Button variant="outline" className="border-border text-foreground hover:bg-muted">
                 <Share2 className="w-4 h-4 mr-2" />
@@ -159,6 +254,13 @@ export default function ActivityDetail() {
           </AlertDialog>
           </div>
         </div>
+
+        {activity.notes && (
+          <div className="mb-8 bg-card border border-border rounded-xl p-5">
+            <p className="label-mono text-muted-foreground mb-2">Notes</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{activity.notes}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-testid="activity-metrics">
           <MetricCard 
@@ -318,6 +420,67 @@ export default function ActivityDetail() {
           </div>
         )}
       </div>
+
+      <Dialog open={editOpen} onOpenChange={(open) => { if (!updateMutation.isPending) setEditOpen(open); }}>
+        <DialogContent className="bg-popover border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Activity</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                placeholder="e.g. Morning run"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="border-border bg-background"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-sport">Sport type</Label>
+              <Select value={editSport} onValueChange={setEditSport}>
+                <SelectTrigger id="edit-sport" className="border-border bg-background">
+                  <SelectValue placeholder="Select sport" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSportOptions(activity.sport).map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">
+                      {s.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                placeholder="Add any notes about this activity…"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                className="border-border bg-background min-h-[80px] resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-border"
+              onClick={() => setEditOpen(false)}
+              disabled={updateMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
