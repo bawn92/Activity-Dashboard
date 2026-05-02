@@ -40,7 +40,7 @@ function StatsOverview() {
       <Card className="bg-card border-border shadow-card">
         <CardContent className="p-6 sm:p-8 flex flex-col justify-center">
           <p className="label-mono text-muted-foreground mb-2">Activities</p>
-          <div className="text-3xl sm:text-4xl font-medium tracking-tight">
+          <div className="text-xl sm:text-2xl font-medium tracking-tight">
             {stats.totalActivities}
           </div>
         </CardContent>
@@ -48,7 +48,7 @@ function StatsOverview() {
       <Card className="bg-card border-border shadow-card">
         <CardContent className="p-6 sm:p-8 flex flex-col justify-center">
           <p className="label-mono text-muted-foreground mb-2">Total Distance</p>
-          <div className="text-3xl sm:text-4xl font-medium tracking-tight">
+          <div className="text-xl sm:text-2xl font-medium tracking-tight">
             {formatDistance(stats.totalDistanceMeters)}
           </div>
         </CardContent>
@@ -56,7 +56,7 @@ function StatsOverview() {
       <Card className="bg-card border-border shadow-card">
         <CardContent className="p-6 sm:p-8 flex flex-col justify-center">
           <p className="label-mono text-muted-foreground mb-2">Total Time</p>
-          <div className="text-3xl sm:text-4xl font-medium tracking-tight">
+          <div className="text-xl sm:text-2xl font-medium tracking-tight">
             {formatDuration(stats.totalDurationSeconds)}
           </div>
         </CardContent>
@@ -64,7 +64,7 @@ function StatsOverview() {
       <Card className="bg-card border-border shadow-card">
         <CardContent className="p-6 sm:p-8 flex flex-col justify-center">
           <p className="label-mono text-muted-foreground mb-2">Top Sport</p>
-          <div className="text-3xl sm:text-4xl font-medium tracking-tight capitalize">
+          <div className="text-xl sm:text-2xl font-medium tracking-tight capitalize">
             {topSport}
           </div>
         </CardContent>
