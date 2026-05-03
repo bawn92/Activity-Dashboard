@@ -212,13 +212,20 @@ export function mountGlobeScene(
   // north pole stays oriented "up" in world space — it will sit toward the
   // top of the rendered view, just no longer at perfect 12 o'clock since
   // we're looking obliquely down at 53°N from above-and-in-front.
-  const galwayLatRad = data.start.lat * DEG2RAD;
-  const galwayWorld = new THREE.Vector3(
-    0,
-    Math.sin(galwayLatRad),
-    Math.cos(galwayLatRad),
+  // Offset the camera south-east of Galway so Galway sits in the upper-left
+  // of the frame on load, exposing more of continental Europe (east of
+  // Galway) where the user has travelled.
+  const VIEW_LAT_OFFSET_DEG = -25; // camera lower than Galway → Galway moves up
+  const VIEW_LON_OFFSET_DEG = 30;  // camera east of Galway   → Galway moves left
+  const viewLatRad = (data.start.lat + VIEW_LAT_OFFSET_DEG) * DEG2RAD;
+  const viewLonRad = VIEW_LON_OFFSET_DEG * DEG2RAD;
+  const cosLat = Math.cos(viewLatRad);
+  const camDir = new THREE.Vector3(
+    cosLat * Math.sin(viewLonRad),
+    Math.sin(viewLatRad),
+    cosLat * Math.cos(viewLonRad),
   );
-  camera.position.copy(galwayWorld).multiplyScalar(CAM_DISTANCE);
+  camera.position.copy(camDir).multiplyScalar(CAM_DISTANCE);
   controls.target.set(0, 0, 0);
   controls.update();
 
