@@ -120,7 +120,7 @@ export function Layout({
               <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
                 <ActivityIcon className="w-4 h-4 text-primary" />
               </div>
-              <span className={`font-medium tracking-tight ${brandClass}`}>Evolve Log</span>
+              <span className={`font-medium tracking-tight ${brandClass}`}>breath.md</span>
             </Link>
             <nav className="hidden sm:flex items-center gap-1 label-mono text-sm">
               <Link href="/" className={navLinkIconClass} data-testid="link-nav-agent">
@@ -202,7 +202,7 @@ export function Footer() {
           fitness.md — Write the Story of Your Body
         </p>
         <p className="label-mono text-xs text-muted-foreground/30">
-          Evolve Log
+          breath.md
         </p>
       </div>
     </footer>

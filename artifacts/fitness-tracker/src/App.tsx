@@ -265,13 +265,13 @@ function ClerkProviderWithRoutes() {
         signIn: {
           start: {
             title: "Welcome back",
-            subtitle: "Sign in to access your Evolve Log",
+            subtitle: "Sign in to access your breath.md",
           },
         },
         signUp: {
           start: {
             title: "Create your account",
-            subtitle: "Get started with Evolve Log",
+            subtitle: "Get started with breath.md",
           },
         },
       }}

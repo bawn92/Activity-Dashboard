@@ -571,7 +571,7 @@ export function renderShareCard(
   ctx.textAlign = "center";
   ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = theme.textMuted;
-  ctx.fillText("Evolve Log", W / 2, H - 72);
+  ctx.fillText("breath.md", W / 2, H - 72);
   clearShadow(ctx);
 }
 
