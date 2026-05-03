@@ -170,11 +170,17 @@ export default function ManifestoPage() {
               becoming, one workout at a time.
             </p>
             <div className="flex flex-col items-center gap-4">
-              <Link href="/sign-in">
-                <button className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-2xl text-base font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
-                  Begin writing my fitness.md
-                </button>
-              </Link>
+              <button
+                type="button"
+                onClick={() =>
+                  document
+                    .getElementById("register-interest")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-2xl text-base font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+              >
+                Begin writing my fitness.md
+              </button>
               <button
                 type="button"
                 onClick={() => setWhyOpen(true)}
@@ -278,7 +284,7 @@ export default function ManifestoPage() {
               ))}
             </div>
             <FadeSection>
-              <div className="mt-16 rounded-2xl border border-border bg-muted/20 p-8">
+              <div id="register-interest" className="mt-16 rounded-2xl border border-border bg-muted/20 p-8 scroll-mt-24">
                 <p className="font-serif-display text-base text-foreground/70 italic mb-6 leading-relaxed">
                   fitness.md is a private, invite-only project for now. If it sounds like something
                   you'd want to keep, register your interest and we'll be in touch when there's room.
@@ -419,14 +425,20 @@ export default function ManifestoPage() {
               <p className="text-sm text-muted-foreground/70 italic font-serif-display">
                 Every entry is a small act of self-respect.
               </p>
-              <Link href="/sign-in">
-                <button
-                  onClick={() => setWhyOpen(false)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
-                >
-                  Begin writing my fitness.md
-                </button>
-              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setWhyOpen(false);
+                  setTimeout(() => {
+                    document
+                      .getElementById("register-interest")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 150);
+                }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Begin writing my fitness.md
+              </button>
             </div>
           </div>
         </DialogContent>
