@@ -765,8 +765,8 @@ function ThinkingPanel({
   );
 }
 
-function StreamedAnswer({ text }: { text: string }) {
-  const initialFullRef = useRef(text.length > 0);
+function StreamedAnswer({ text, animate }: { text: string; animate: boolean }) {
+  const initialFullRef = useRef(animate ? false : text.length > 0);
   const [shown, setShown] = useState<string>(initialFullRef.current ? text : "");
   const targetRef = useRef(text);
   const rafRef = useRef<number | null>(null);
@@ -1650,7 +1650,13 @@ Ask me anything — I'll reference these and your real training data.`;
     }
   };
 
-  const allRounds = useMemo(() => [...historyRounds, ...rounds], [historyRounds, rounds]);
+  const allRounds = useMemo(
+    () => [
+      ...historyRounds.map((r) => ({ round: r, isLive: false })),
+      ...rounds.map((r) => ({ round: r, isLive: true })),
+    ],
+    [historyRounds, rounds],
+  );
   const empty = allRounds.length === 0;
   const activeThread = useMemo(
     () => threads.find((t) => t.id === activeThreadId) ?? null,
@@ -1809,7 +1815,7 @@ Ask me anything — I'll reference these and your real training data.`;
                       </div>
                     </div>
                   ) : (
-                    allRounds.map((round) => (
+                    allRounds.map(({ round, isLive }) => (
                       <div key={round.id} className="flex flex-col gap-2">
                         {round.userText ? (
                           <div className="ml-8 self-end rounded-lg bg-primary/10 px-3 py-2 text-sm">
@@ -1834,7 +1840,7 @@ Ask me anything — I'll reference these and your real training data.`;
                               Coach
                             </span>
                             <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                              <StreamedAnswer text={round.answer} />
+                              <StreamedAnswer text={round.answer} animate={isLive} />
                             </div>
                           </div>
                         ) : null}
