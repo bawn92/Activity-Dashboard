@@ -655,24 +655,28 @@ router.patch(
       return;
     }
 
-    // If the sport was reclassified (e.g. run -> cycle), the best-efforts
-    // cache is now stale for both sports: the old sport may still credit
-    // this activity (or even rank it as the winner), and the new sport
-    // hasn't seen it yet. Rebuild both caches so leaderboards are correct.
+    // Always rebuild the best-efforts cache for this activity's sport on
+    // any edit, so the Stats page reflects the latest state without waiting
+    // for a new upload. If the sport was reclassified (e.g. run -> cycle),
+    // also rebuild the previous sport's cache — otherwise it would still
+    // credit (or be led by) an activity that no longer belongs to it.
+    const sportsToRebuild = new Set<string>([updated.sport]);
     if (
       previous &&
       body.data.sport !== undefined &&
       previous.sport !== updated.sport
     ) {
-      try {
-        await recomputeBestEffortsForSport(previous.sport);
-        await recomputeBestEffortsForSport(updated.sport);
-      } catch (err) {
-        req.log.error(
-          { err, activityId: updated.id, from: previous.sport, to: updated.sport },
-          "Failed to recompute best efforts after sport reclassification",
-        );
+      sportsToRebuild.add(previous.sport);
+    }
+    try {
+      for (const sport of sportsToRebuild) {
+        await recomputeBestEffortsForSport(sport);
       }
+    } catch (err) {
+      req.log.error(
+        { err, activityId: updated.id, sports: [...sportsToRebuild] },
+        "Failed to recompute best efforts after activity edit",
+      );
     }
 
     const dataPoints = await db
