@@ -1,4 +1,4 @@
-import { useInfiniteListActivities } from "@workspace/api-client-react";
+import { useInfiniteListActivities, type ActivitySummary } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { formatDistance, formatDuration } from "@/lib/format";
 import { useLocation } from "wouter";
@@ -308,7 +308,10 @@ export default function CalendarPage() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const activities = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
+  const activities = useMemo(
+    () => data?.pages.flatMap((p: { data: ActivitySummary[] }) => p.data) ?? [],
+    [data],
+  );
   const isLoadingAny = isLoading || hasNextPage || isFetchingNextPage;
 
   const buckets = useMemo<Map<string, DayBucket>>(() => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { useListActivities, useDeleteActivity, getListActivitiesQueryKey, type ActivitySummary } from "@workspace/api-client-react";
+import { useListActivities, useDeleteActivity, getListActivitiesQueryKey } from "@workspace/api-client-react";
+import type { ActivitySummary } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/layout";
@@ -147,10 +148,8 @@ const PAGE_SIZE = 250;
 export default function ActivitiesTablePage() {
   const [page, setPage] = useState(0);
   const tableTopRef = useRef<HTMLDivElement>(null);
-  const { data: activitiesPage, isLoading } = useListActivities({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
-  const activities = activitiesPage?.data ?? undefined;
-  const total = activitiesPage?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const { data: activitiesAll, isLoading } = useListActivities();
+  const activities = activitiesAll;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -287,6 +286,17 @@ export default function ActivitiesTablePage() {
     sortKey,
     sortDir,
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pagedRows = useMemo(
+    () => filteredSorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filteredSorted, safePage],
+  );
+
+  useEffect(() => {
+    if (page > totalPages - 1) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -631,7 +641,7 @@ export default function ActivitiesTablePage() {
             })()}
 
             <p className="label-mono text-muted-foreground mb-3">
-              Showing {filteredSorted.length} of {activities.length} on this page
+              Showing {pagedRows.length} of {filteredSorted.length} matching {activities?.length ?? 0} total
             </p>
 
             <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
@@ -673,14 +683,14 @@ export default function ActivitiesTablePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSorted.length === 0 ? (
+                  {pagedRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
                         No activities match these filters.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredSorted.map((a) => (
+                    pagedRows.map((a: ActivitySummary) => (
                       <TableRow key={a.id}>
                         <TableCell className="font-medium capitalize">{a.sport || "—"}</TableCell>
                         <TableCell className="label-mono whitespace-nowrap">
@@ -718,20 +728,20 @@ export default function ActivitiesTablePage() {
                 <Button
                   variant="outline"
                   className="border-border"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  onClick={() => setPage((p: number) => Math.max(0, p - 1))}
                   data-testid="pagination-prev"
                 >
                   Previous
                 </Button>
                 <span data-testid="pagination-info">
-                  Page {page + 1} of {totalPages}
+                  Page {safePage + 1} of {totalPages}
                 </span>
                 <Button
                   variant="outline"
                   className="border-border"
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={safePage >= totalPages - 1}
+                  onClick={() => setPage((p: number) => Math.min(totalPages - 1, p + 1))}
                   data-testid="pagination-next"
                 >
                   Next

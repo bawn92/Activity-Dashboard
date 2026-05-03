@@ -1,4 +1,4 @@
-import { useInfiniteListActivities, useGetActivityStats } from "@workspace/api-client-react";
+import { useInfiniteListActivities, useGetActivityStats, type ActivitySummary } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { formatDistance, formatDuration, formatDate } from "@/lib/format";
 import { Link, useLocation } from "wouter";
@@ -103,13 +103,15 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const allActivities = useMemo(
-    () => data?.pages.flatMap((p) => p.data) ?? [],
+    () => data?.pages.flatMap((p: { data: ActivitySummary[] }) => p.data) ?? [],
     [data],
   );
 
   const filtered = useMemo(() => {
     if (!dateFilter) return allActivities;
-    return allActivities.filter((a) => a.startTime?.slice(0, 10) === dateFilter);
+    return allActivities.filter(
+      (a: ActivitySummary) => a.startTime?.slice(0, 10) === dateFilter,
+    );
   }, [allActivities, dateFilter]);
 
   if (isLoading) {
@@ -165,7 +167,7 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
       )}
 
       <div className="flex flex-col gap-6" data-testid="activities-list">
-        {filtered.map((activity) => (
+        {filtered.map((activity: ActivitySummary) => (
           <Link key={activity.id} href={`/activities/${activity.id}`} className="block">
             <div
               className="group flex items-center justify-between p-5 bg-card border border-border rounded-xl shadow-card hover:border-primary/40 transition-all duration-200 cursor-pointer"
