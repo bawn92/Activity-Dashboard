@@ -62,9 +62,42 @@ function isPlausibleDistance(d: number | null): d is number {
   );
 }
 
-function isPlausibleEffort(distanceM: number, elapsedSec: number): boolean {
+/**
+ * Per-sport minimum plausible elapsed time for a benchmark distance. Anything
+ * faster is treated as a corrupt-data artefact and rejected from best efforts.
+ *
+ * Tuned for a strong amateur ("99th percentile, not a record-breaker"):
+ *
+ * Running:
+ *   - Sub-1km (the 400 m benchmark): floor at 60 s — comfortably faster than
+ *     any non-elite amateur 400 m, but slower than world-class so genuine
+ *     PRs aren't trimmed.
+ *   - 1 km and longer: floor at 2:50 / km (170 s/km) avg pace. Anything
+ *     faster than that over a kilometre or more is dropped.
+ *
+ * Other sports fall back to a generic 30 m/s ceiling (≈ 108 km/h), which
+ * still catches the corrupt-distance class of bug without imposing
+ * sport-specific caps the user hasn't asked for.
+ */
+function minPlausibleSeconds(sport: string, distanceM: number): number {
+  const s = sport.toLowerCase();
+  const isRunning = s === "running" || s.includes("run");
+  if (isRunning) {
+    if (distanceM < 1000) {
+      return 60;
+    }
+    return (distanceM / 1000) * 170;
+  }
+  return distanceM / MAX_REASONABLE_SPEED_MPS;
+}
+
+function isPlausibleEffort(
+  sport: string,
+  distanceM: number,
+  elapsedSec: number,
+): boolean {
   if (elapsedSec <= 0) return false;
-  return distanceM / elapsedSec <= MAX_REASONABLE_SPEED_MPS;
+  return elapsedSec >= minPlausibleSeconds(sport, distanceM);
 }
 
 /**
@@ -76,6 +109,7 @@ function isPlausibleEffort(distanceM: number, elapsedSec: number): boolean {
 export function computeBestTimesForPoints(
   rawPoints: DataPoint[],
   benchmarks: Benchmark[],
+  sport: string,
 ): Map<number, number> {
   const result = new Map<number, number>();
   // Drop any points whose distance is corrupt before scanning so a single
@@ -105,7 +139,7 @@ export function computeBestTimesForPoints(
         if (
           elapsed > 0 &&
           elapsed < best &&
-          isPlausibleEffort(dj - di, elapsed)
+          isPlausibleEffort(sport, dj - di, elapsed)
         ) {
           best = elapsed;
         }
@@ -145,7 +179,7 @@ export async function recomputeBestEffortsForSport(sport: string): Promise<void>
       .where(eq(activityDataPointsTable.activityId, activity.id))
       .orderBy(activityDataPointsTable.timestamp);
 
-    const times = computeBestTimesForPoints(points, benchmarks);
+    const times = computeBestTimesForPoints(points, benchmarks, sport);
     for (const [dist, t] of times) {
       const cur = best.get(dist);
       if (!cur || t < cur.duration) {
@@ -207,7 +241,7 @@ export async function updateBestEffortsForActivity(
     .where(eq(activityDataPointsTable.activityId, activityId))
     .orderBy(activityDataPointsTable.timestamp);
 
-  const times = computeBestTimesForPoints(points, benchmarks);
+  const times = computeBestTimesForPoints(points, benchmarks, sport);
   const byDist = new Map(existing.map((r) => [r.distanceMeters, r]));
 
   for (const b of benchmarks) {
@@ -259,7 +293,7 @@ export async function getBestEffortsForSport(
   const poisoned = rows.some(
     (r) =>
       r.durationSeconds != null &&
-      !isPlausibleEffort(r.distanceMeters, r.durationSeconds),
+      !isPlausibleEffort(sport, r.distanceMeters, r.durationSeconds),
   );
 
   if (rows.length === 0 || poisoned) {
