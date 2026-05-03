@@ -300,6 +300,53 @@ export default function ActivitiesTablePage() {
     if (page > totalPages - 1) setPage(totalPages - 1);
   }, [page, totalPages]);
 
+  const paginationBar = (
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 label-mono text-sm text-muted-foreground">
+      <div className="flex items-center gap-2">
+        <label className="whitespace-nowrap">Rows per page</label>
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setPage(0);
+          }}
+          className="bg-card border border-border rounded-md px-2 py-1.5 text-foreground"
+          data-testid="pagination-size"
+        >
+          {PAGE_SIZE_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center justify-between sm:justify-end gap-3">
+        <Button
+          variant="outline"
+          className="border-border"
+          disabled={safePage === 0}
+          onClick={() => setPage((p: number) => Math.max(0, p - 1))}
+          data-testid="pagination-prev"
+        >
+          Previous
+        </Button>
+        <span data-testid="pagination-info" className="whitespace-nowrap">
+          Showing {pagedRows.length} of {filteredSorted.length}
+          {" · "}Page {safePage + 1} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          className="border-border"
+          disabled={safePage >= totalPages - 1}
+          onClick={() => setPage((p: number) => Math.min(totalPages - 1, p + 1))}
+          data-testid="pagination-next"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -646,6 +693,8 @@ export default function ActivitiesTablePage() {
               Showing {pagedRows.length} of {filteredSorted.length} matching {activities?.length ?? 0} total
             </p>
 
+            <div className="mb-4">{paginationBar}</div>
+
             <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
               <Table data-testid="activities-data-table">
                 <TableHeader>
@@ -725,53 +774,7 @@ export default function ActivitiesTablePage() {
               </Table>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4 label-mono text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <label htmlFor="page-size-select" className="whitespace-nowrap">
-                  Rows per page
-                </label>
-                <select
-                  id="page-size-select"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setPage(0);
-                  }}
-                  className="bg-card border border-border rounded-md px-2 py-1.5 text-foreground"
-                  data-testid="pagination-size"
-                >
-                  {PAGE_SIZE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center justify-between sm:justify-end gap-3">
-                <Button
-                  variant="outline"
-                  className="border-border"
-                  disabled={safePage === 0}
-                  onClick={() => setPage((p: number) => Math.max(0, p - 1))}
-                  data-testid="pagination-prev"
-                >
-                  Previous
-                </Button>
-                <span data-testid="pagination-info" className="whitespace-nowrap">
-                  Showing {pagedRows.length} of {filteredSorted.length}
-                  {" · "}Page {safePage + 1} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  className="border-border"
-                  disabled={safePage >= totalPages - 1}
-                  onClick={() => setPage((p: number) => Math.min(totalPages - 1, p + 1))}
-                  data-testid="pagination-next"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+            <div className="mt-4">{paginationBar}</div>
 
             <AlertDialog
               open={pendingDeleteId != null}

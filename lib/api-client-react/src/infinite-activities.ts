@@ -7,13 +7,30 @@ type ListActivitiesResponse =
   | ActivitySummary[]
   | { data: ActivitySummary[]; total?: number };
 
+const SERVER_PAGE_SIZE = 500;
+
 async function fetchActivitiesFlat(signal?: AbortSignal): Promise<ActivitySummary[]> {
-  const raw = await customFetch<ListActivitiesResponse>("/api/activities", {
-    method: "GET",
-    signal,
-  });
-  if (Array.isArray(raw)) return raw;
-  return raw?.data ?? [];
+  const all: ActivitySummary[] = [];
+  let offset = 0;
+  let total: number | undefined;
+  while (true) {
+    const raw = await customFetch<ListActivitiesResponse>(
+      `/api/activities?limit=${SERVER_PAGE_SIZE}&offset=${offset}`,
+      { method: "GET", signal },
+    );
+    let pageData: ActivitySummary[];
+    if (Array.isArray(raw)) {
+      pageData = raw;
+    } else {
+      pageData = raw?.data ?? [];
+      if (typeof raw?.total === "number") total = raw.total;
+    }
+    all.push(...pageData);
+    if (pageData.length < SERVER_PAGE_SIZE) break;
+    if (total !== undefined && all.length >= total) break;
+    offset += SERVER_PAGE_SIZE;
+  }
+  return all;
 }
 
 export type ActivitiesPage = {
