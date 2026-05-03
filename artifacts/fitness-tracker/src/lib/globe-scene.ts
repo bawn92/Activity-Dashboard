@@ -219,7 +219,7 @@ export function mountGlobeScene(
     Math.cos(galwayLatRad),
   );
   camera.position.copy(galwayWorld).multiplyScalar(CAM_DISTANCE);
-  controls.target.copy(galwayWorld);
+  controls.target.set(0, 0, 0);
   controls.update();
 
 
