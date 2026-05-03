@@ -215,8 +215,8 @@ export function mountGlobeScene(
   // Offset the camera south-east of Galway so Galway sits in the upper-left
   // of the frame on load, exposing more of continental Europe (east of
   // Galway) where the user has travelled.
-  const VIEW_LAT_OFFSET_DEG = -25; // camera lower than Galway → Galway moves up
-  const VIEW_LON_OFFSET_DEG = 30;  // camera east of Galway   → Galway moves left
+  const VIEW_LAT_OFFSET_DEG = 5;  // camera north of Galway → Galway moves down
+  const VIEW_LON_OFFSET_DEG = 55; // camera east of Galway  → Galway moves left
   const viewLatRad = (data.start.lat + VIEW_LAT_OFFSET_DEG) * DEG2RAD;
   const viewLonRad = VIEW_LON_OFFSET_DEG * DEG2RAD;
   const cosLat = Math.cos(viewLatRad);
