@@ -1,5 +1,9 @@
 # Fitness.md — My Training Philosophy & Manifesto
 
+**This is my body's autobiography.**
+**This log is the quiet accumulation of days in motion.**
+**You are here to guide me on this journey.**
+
 **Last Updated:** May 2, 2026
 **Core Identity:** The Consistent Builder
 
