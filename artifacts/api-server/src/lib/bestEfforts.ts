@@ -286,10 +286,11 @@ export async function getBestEffortsForSport(
     .from(bestEffortsTable)
     .where(eq(bestEffortsTable.sport, sport));
 
-  // Self-heal a poisoned cache: if any cached row claims an impossibly fast
-  // pace (>30 m/s for the benchmark distance, i.e. faster than any sport
-  // could plausibly sustain), the cache was seeded from corrupt data points
-  // and must be rebuilt with the current (filtered) algorithm.
+  // Self-heal a poisoned cache: if any cached row claims a time below the
+  // sport's per-distance plausibility floor (e.g. running sub-2:50/km over
+  // 1km+, or sub-60s for 400m), the cache was seeded from corrupt data
+  // points or with looser limits, and must be rebuilt with the current
+  // algorithm.
   const poisoned = rows.some(
     (r) =>
       r.durationSeconds != null &&
