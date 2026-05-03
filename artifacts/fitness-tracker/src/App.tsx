@@ -17,6 +17,7 @@ import AgentPage from "@/pages/agent";
 import CalendarPage from "@/pages/calendar";
 import StatsPage from "@/pages/stats";
 import { useAllowedStatus } from "@/hooks/use-allowed-status";
+import { usePreviousLocationTracker } from "@/hooks/use-previous-location";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -213,6 +214,11 @@ function WrongEmailAutoSignOut() {
   return null;
 }
 
+function PreviousLocationTracker() {
+  usePreviousLocationTracker();
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
@@ -263,6 +269,7 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
         <WrongEmailAutoSignOut />
+        <PreviousLocationTracker />
         <TooltipProvider>
           <Router />
           <Toaster />

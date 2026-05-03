@@ -30,6 +30,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAllowedStatus } from "@/hooks/use-allowed-status";
+import { getBackTarget } from "@/hooks/use-previous-location";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,6 +106,7 @@ export default function ActivityDetail() {
   const updateMutation = useUpdateActivity();
   const allowedStatus = useAllowedStatus();
   const canEdit = allowedStatus.state === "allowed";
+  const [backTarget] = useState(() => getBackTarget());
 
   const [editOpen, setEditOpen] = useState(false);
   const [editSport, setEditSport] = useState("");
@@ -198,8 +200,8 @@ export default function ActivityDetail() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <Link href="/activities" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-4 transition-colors">
-              <ArrowLeft className="w-4 h-4 mr-1" /> Back to activities
+            <Link href={backTarget.href} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-4 transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1" /> {backTarget.label}
             </Link>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
