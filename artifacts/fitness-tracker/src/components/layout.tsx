@@ -54,10 +54,36 @@ const navLinks = [
   { href: "/upload", label: "Upload", icon: <Upload className="w-4 h-4 opacity-70" aria-hidden /> },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout({
+  children,
+  headerVariant = "default",
+}: {
+  children: React.ReactNode;
+  headerVariant?: "default" | "black";
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
+  const isBlack = headerVariant === "black";
+  const headerClass = isBlack
+    ? "sticky top-0 z-10 border-b border-white/10 bg-black"
+    : "sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur-sm";
+  const brandClass = isBlack ? "text-white" : "text-foreground";
+  const navLinkClass = isBlack
+    ? "text-white/70 hover:text-white px-2 py-1 rounded-md transition-colors"
+    : "text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors";
+  const navLinkIconClass = isBlack
+    ? "inline-flex items-center gap-1.5 text-white/70 hover:text-white px-2 py-1 rounded-md transition-colors"
+    : "inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors";
+  const mobileToggleClass = isBlack
+    ? "sm:hidden inline-flex items-center justify-center p-1.5 rounded-md text-white/70 hover:text-white transition-colors"
+    : "sm:hidden inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors";
+  const mobilePanelClass = isBlack
+    ? "sm:hidden border-t border-white/10 bg-black"
+    : "sm:hidden border-t border-border bg-background/95";
+  const mobileLinkClass = isBlack
+    ? "inline-flex items-center gap-2.5 text-white/70 hover:text-white px-2 py-3 rounded-md transition-colors border-b border-white/10 last:border-0"
+    : "inline-flex items-center gap-2.5 text-muted-foreground hover:text-foreground px-2 py-3 rounded-md transition-colors border-b border-border last:border-0";
 
   useEffect(() => {
     setMenuOpen(false);
@@ -76,59 +102,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur-sm" ref={menuRef}>
+      <header className={headerClass} ref={menuRef}>
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5 hover:opacity-75 transition-opacity" data-testid="link-home">
               <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
                 <ActivityIcon className="w-4 h-4 text-primary" />
               </div>
-              <span className="font-medium tracking-tight text-foreground">Evolve Log</span>
+              <span className={`font-medium tracking-tight ${brandClass}`}>Evolve Log</span>
             </Link>
             <nav className="hidden sm:flex items-center gap-1 label-mono text-sm">
-              <Link href="/" className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors" data-testid="link-nav-activities">
+              <Link href="/" className={navLinkClass} data-testid="link-nav-activities">
                 Activities
               </Link>
-              <Link href="/table" className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors" data-testid="link-nav-table">
+              <Link href="/table" className={navLinkClass} data-testid="link-nav-table">
                 Table
               </Link>
-              <Link
-                href="/globe"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                data-testid="link-nav-globe"
-              >
+              <Link href="/globe" className={navLinkIconClass} data-testid="link-nav-globe">
                 <Globe2 className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Globe
               </Link>
-              <Link
-                href="/agent"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                data-testid="link-nav-agent"
-              >
+              <Link href="/agent" className={navLinkIconClass} data-testid="link-nav-agent">
                 <MessageSquareText className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Coach
               </Link>
-              <Link
-                href="/calendar"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                data-testid="link-nav-calendar"
-              >
+              <Link href="/calendar" className={navLinkIconClass} data-testid="link-nav-calendar">
                 <CalendarDays className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Calendar
               </Link>
-              <Link
-                href="/stats"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                data-testid="link-nav-stats"
-              >
+              <Link href="/stats" className={navLinkIconClass} data-testid="link-nav-stats">
                 <BarChart3 className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Stats
               </Link>
-              <Link
-                href="/upload"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                data-testid="link-nav-upload"
-              >
+              <Link href="/upload" className={navLinkIconClass} data-testid="link-nav-upload">
                 <Upload className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Upload
               </Link>
@@ -137,7 +143,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <AuthControl />
             <button
-              className="sm:hidden inline-flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              className={mobileToggleClass}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
@@ -149,14 +155,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {menuOpen && (
-          <div className="sm:hidden border-t border-border bg-background/95">
+          <div className={mobilePanelClass}>
             <nav className="container mx-auto px-4 py-2 flex flex-col label-mono text-sm">
               {navLinks.map(({ href, label, icon }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setMenuOpen(false)}
-                  className="inline-flex items-center gap-2.5 text-muted-foreground hover:text-foreground px-2 py-3 rounded-md transition-colors border-b border-border last:border-0"
+                  className={mobileLinkClass}
                   data-testid={`mobile-link-${label.toLowerCase()}`}
                 >
                   {icon}
