@@ -280,8 +280,8 @@ export default function ManifestoPage() {
             <FadeSection>
               <div className="mt-16 rounded-2xl border border-border bg-muted/20 p-8">
                 <p className="font-serif-display text-base text-foreground/70 italic mb-6 leading-relaxed">
-                  Want a reminder to keep writing? Leave your email and we'll send one thoughtful
-                  note a month. Nothing more.
+                  fitness.md is a private, invite-only project for now. If it sounds like something
+                  you'd want to keep, register your interest and we'll be in touch when there's room.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <input
@@ -293,11 +293,11 @@ export default function ManifestoPage() {
                     type="button"
                     className="px-6 py-3 rounded-xl bg-primary/10 text-primary border border-primary/20 text-sm font-medium hover:bg-primary/15 transition-colors whitespace-nowrap"
                   >
-                    Stay in touch
+                    Register interest
                   </button>
                 </div>
                 <p className="mt-3 label-mono text-xs text-muted-foreground/40">
-                  No spam. Unsubscribe anytime. This is a courtesy, not a funnel.
+                  No marketing. No funnel. Just a quiet note if and when a spot opens.
                 </p>
               </div>
             </FadeSection>
