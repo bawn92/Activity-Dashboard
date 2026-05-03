@@ -40,6 +40,11 @@
 - **Bay Club** — 25-yard outdoor pool where I swim 2–3 times per week with the Masters group + full gym with good equipment and machines.
 - **Primary Training Locations** — Building gym for strength work, Bay Club for swimming and heavier gym sessions, San Francisco streets and hills for running and cycling.
 
+  **Masters Swim Schedule (sacred slots I rarely miss or swap):**
+  - Tuesday evenings 5:30pm
+  - Thursday evenings 5:30pm
+  - Saturday 9:30am
+
 ## Key Metrics I Care About
 - Weekly volume (km + hours)
 - Chronic Training Load trend
