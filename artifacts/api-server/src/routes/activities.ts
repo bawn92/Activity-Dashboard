@@ -9,7 +9,7 @@ const gunzipAsync = promisify(gunzip);
 // Cap on decompressed .fit size: a Garmin .fit usually < 5MB, so 50MB is
 // more than safe and prevents an accidental gzip bomb from blowing memory.
 const MAX_DECOMPRESSED_SIZE = 50 * 1024 * 1024;
-import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
+import { db, activitiesTable, activityDataPointsTable, bestEffortsTable } from "@workspace/db";
 import {
   GetActivityParams,
   DeleteActivityParams,
@@ -27,7 +27,7 @@ import {
   recomputeBestEffortsForSport,
   updateBestEffortsForActivity,
 } from "../lib/bestEfforts";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -726,26 +726,45 @@ router.delete("/activities/:id", requireAllowedUser, async (req: Request, res: R
     return;
   }
 
-  const [deleted] = await db
-    .delete(activitiesTable)
-    .where(eq(activitiesTable.id, params.data.id))
-    .returning();
+  // Check first whether this activity actually owns any best-effort cache
+  // rows. If it doesn't, deletion can't change the cache and we can skip
+  // the (expensive) recompute entirely.
+  const [activity] = await db
+    .select({ id: activitiesTable.id, sport: activitiesTable.sport })
+    .from(activitiesTable)
+    .where(eq(activitiesTable.id, params.data.id));
 
-  if (!deleted) {
+  if (!activity) {
     res.status(404).json({ error: "Activity not found" });
     return;
   }
 
-  // Deleting an activity may invalidate the cached best efforts for its
-  // sport (the deleted activity may have held one or more bests). A full
-  // recompute is the simplest correct option.
-  try {
-    await recomputeBestEffortsForSport(deleted.sport);
-  } catch (err) {
-    req.log.error({ err, sport: deleted.sport }, "Failed to recompute best efforts after delete");
-  }
+  const heldBests = await db
+    .select({ id: bestEffortsTable.id })
+    .from(bestEffortsTable)
+    .where(
+      and(
+        eq(bestEffortsTable.sport, activity.sport),
+        eq(bestEffortsTable.activityId, activity.id),
+      ),
+    )
+    .limit(1);
 
+  await db.delete(activitiesTable).where(eq(activitiesTable.id, activity.id));
+
+  // Reply immediately. If this activity held a best, refresh the cache in
+  // the background so the next stats fetch is correct without keeping the
+  // user waiting on a full sport-wide rescan.
   res.status(204).send();
+
+  if (heldBests.length > 0) {
+    void recomputeBestEffortsForSport(activity.sport).catch((err) => {
+      req.log.error(
+        { err, sport: activity.sport },
+        "Background best-efforts recompute failed after delete",
+      );
+    });
+  }
 });
 
 export default router;
