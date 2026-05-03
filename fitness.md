@@ -31,6 +31,11 @@
 - Weekly structure: 4–6 sessions, 1 full rest day
 - Strength: 2x/week (core, hips, posterior chain)
 
+## Facilities
+- **Building Gym** — Convenient in-building gym with squat rack and most basic equipment. Ideal for quick strength sessions without leaving home.
+- **Bay Club** — 25-yard outdoor pool where I swim 2–3 times per week with the Masters group + full gym with good equipment and machines.
+- **Primary Training Locations** — Building gym for strength work, Bay Club for swimming and heavier gym sessions, San Francisco streets and hills for running and cycling.
+
 ## Key Metrics I Care About
 - Weekly volume (km + hours)
 - Chronic Training Load trend
