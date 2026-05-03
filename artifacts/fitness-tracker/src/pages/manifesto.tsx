@@ -236,14 +236,6 @@ export default function ManifestoPage() {
                 </div>
               </FadeSection>
             </div>
-            <FadeSection>
-              <div className="mt-16 pt-16 border-t border-border text-center">
-                <p className="font-serif-display text-xl sm:text-2xl text-foreground/70 italic leading-relaxed max-w-2xl mx-auto">
-                  "The examined life extends beyond thought. It includes the miles, the sweat, the
-                  quiet victory of showing up when you didn't want to."
-                </p>
-              </div>
-            </FadeSection>
           </div>
         </section>
 
