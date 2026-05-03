@@ -27,6 +27,7 @@ import {
   Lock,
   Loader2,
   Menu,
+  MessagesSquare,
   MessageSquarePlus,
   Send,
   Sparkles,
@@ -1605,15 +1606,20 @@ Ask me anything — I'll reference these and your real training data.`;
               {/* Mobile drawer trigger */}
               <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
                 <SheetTrigger asChild>
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="md:hidden h-8 w-8"
+                    className="md:hidden inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background hover:bg-muted px-3 py-1 text-xs label-mono transition-colors shrink-0"
                     aria-label="Open conversations"
+                    data-testid="button-open-conversations"
                   >
-                    <Menu className="h-4 w-4" />
-                  </Button>
+                    <MessagesSquare className="h-3.5 w-3.5 opacity-80" />
+                    <span>Chats</span>
+                    {threads.length > 0 ? (
+                      <span className="ml-0.5 rounded-full bg-primary/15 text-primary px-1.5 py-px text-[10px] leading-none">
+                        {threads.length}
+                      </span>
+                    ) : null}
+                  </button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 w-72 flex flex-col">
                   <SheetHeader className="p-3 border-b border-border/60">
