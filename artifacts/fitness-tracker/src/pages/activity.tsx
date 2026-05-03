@@ -9,7 +9,7 @@ import {
   getListActivitiesQueryKey,
   getGetActivityStatsQueryKey
 } from "@workspace/api-client-react";
-import { ActivityMap } from "@/components/activity-map";
+import { ActivityMapPreview } from "@/components/activity-map-preview";
 import { ActivityCharts } from "@/components/activity-charts";
 import { ActivitySplits } from "@/components/activity-splits";
 import { formatDistance, formatDuration, formatPace, formatDate, formatSpeedForSport } from "@/lib/format";
@@ -398,7 +398,10 @@ export default function ActivityDetail() {
               <Map className="w-3.5 h-3.5" />
               GPS Route
             </p>
-            <ActivityMap dataPoints={activity.dataPoints} />
+            <ActivityMapPreview
+              dataPoints={activity.dataPoints}
+              className="h-[400px] w-full rounded-lg overflow-hidden border border-border relative"
+            />
           </div>
         )}
 
