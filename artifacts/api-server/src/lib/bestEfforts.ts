@@ -50,6 +50,23 @@ interface DataPoint {
   distance: number | null;
 }
 
+const MAX_REASONABLE_DISTANCE_M = 1_000_000_000;
+const MAX_REASONABLE_SPEED_MPS = 30;
+
+function isPlausibleDistance(d: number | null): d is number {
+  return (
+    d != null &&
+    Number.isFinite(d) &&
+    d >= 0 &&
+    d <= MAX_REASONABLE_DISTANCE_M
+  );
+}
+
+function isPlausibleEffort(distanceM: number, elapsedSec: number): boolean {
+  if (elapsedSec <= 0) return false;
+  return distanceM / elapsedSec <= MAX_REASONABLE_SPEED_MPS;
+}
+
 /**
  * Compute the best (minimum) elapsed time the activity achieved for each
  * benchmark distance, using a sliding-window scan over its data points.
@@ -57,24 +74,21 @@ interface DataPoint {
  * are absent from the map.
  */
 export function computeBestTimesForPoints(
-  points: DataPoint[],
+  rawPoints: DataPoint[],
   benchmarks: Benchmark[],
 ): Map<number, number> {
   const result = new Map<number, number>();
+  // Drop any points whose distance is corrupt before scanning so a single
+  // garbage reading can't seed an impossibly-fast best effort.
+  const points = rawPoints.filter((p) => isPlausibleDistance(p.distance));
   if (points.length < 2 || benchmarks.length === 0) return result;
 
   for (const { meters: targetDist } of benchmarks) {
     let best = Infinity;
     let i = 0;
     for (let j = 0; j < points.length; j++) {
-      const dj = points[j].distance;
-      if (dj == null) continue;
+      const dj = points[j].distance!;
       while (i < j) {
-        const di = points[i].distance;
-        if (di == null) {
-          i++;
-          continue;
-        }
         const nextDi = points[i + 1]?.distance;
         if (nextDi == null) break;
         if (dj - nextDi >= targetDist) {
@@ -83,13 +97,16 @@ export function computeBestTimesForPoints(
           break;
         }
       }
-      const di = points[i].distance;
-      if (di == null) continue;
+      const di = points[i].distance!;
       if (dj - di >= targetDist) {
         const elapsed =
           (points[j].timestamp.getTime() - points[i].timestamp.getTime()) /
           1000;
-        if (elapsed > 0 && elapsed < best) {
+        if (
+          elapsed > 0 &&
+          elapsed < best &&
+          isPlausibleEffort(dj - di, elapsed)
+        ) {
           best = elapsed;
         }
       }
@@ -235,7 +252,17 @@ export async function getBestEffortsForSport(
     .from(bestEffortsTable)
     .where(eq(bestEffortsTable.sport, sport));
 
-  if (rows.length === 0) {
+  // Self-heal a poisoned cache: if any cached row claims an impossibly fast
+  // pace (>30 m/s for the benchmark distance, i.e. faster than any sport
+  // could plausibly sustain), the cache was seeded from corrupt data points
+  // and must be rebuilt with the current (filtered) algorithm.
+  const poisoned = rows.some(
+    (r) =>
+      r.durationSeconds != null &&
+      !isPlausibleEffort(r.distanceMeters, r.durationSeconds),
+  );
+
+  if (rows.length === 0 || poisoned) {
     await recomputeBestEffortsForSport(sport);
     rows = await db
       .select()
