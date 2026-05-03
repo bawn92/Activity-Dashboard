@@ -49,17 +49,17 @@ const principles = [
   {
     number: "01",
     title: "Consistency is the craft",
-    body: "Not every run is transcendent. Some days the pace is slow, the legs are heavy, the motivation thin. But you show up anyway — and that showing up is the practice. The log doesn't judge. It just remembers.",
+    body: "Not every run is transcendent. Some days the pace is slow, the legs are heavy, the motivation thin. But you show up anyway, and that showing up is the practice. The log doesn't judge. It just remembers.",
   },
   {
     number: "02",
     title: "The body is a text worth reading",
-    body: "Heart rate, cadence, elevation, rest — these are not metrics. They are sentences. Your body is always writing. Fitness journaling is the act of paying attention, of slowing down enough to read what it says.",
+    body: "Heart rate, cadence, elevation, rest. These are not metrics. They are sentences. Your body is always writing. Fitness journaling is the act of paying attention, of slowing down enough to read what it says.",
   },
   {
     number: "03",
     title: "Progress is non-linear by nature",
-    body: "The graph will dip. The streak will break. There will be weeks that feel like going backwards. This is not failure — it is the shape of growth. The log holds all of it, and in time the arc becomes visible.",
+    body: "The graph will dip. The streak will break. There will be weeks that feel like going backwards. This is not failure. It is the shape of growth. The log holds all of it, and in time the arc becomes visible.",
   },
   {
     number: "04",
@@ -69,14 +69,14 @@ const principles = [
   {
     number: "05",
     title: "The record is the relationship",
-    body: "To keep a log is to stay in conversation with yourself across time. It is an act of care — the quiet discipline of someone who takes their own story seriously. That seriousness is its own reward.",
+    body: "To keep a log is to stay in conversation with yourself across time. It is an act of care, the quiet discipline of someone who takes their own story seriously. That seriousness is its own reward.",
   },
 ];
 
 const writingExamples = [
   {
     label: "Long run with a friend",
-    name: "Long run with Eoin — chatting the whole way",
+    name: "Long run with Eoin, chatting the whole way",
     note: "21k @ easy. Legs felt fresh after the rest day. We talked the whole way which kept the effort honest. Could've gone longer. Save for next week's session.",
   },
   {
@@ -87,11 +87,11 @@ const writingExamples = [
   {
     label: "Junk mileage day",
     name: "Easy shake-out",
-    note: "Felt heavy from yesterday's session and only 5h sleep. Cut it short. Excluding from stats — this was a recovery jog, not a training stimulus.",
+    note: "Felt heavy from yesterday's session and only 5h sleep. Cut it short. Excluding from stats. This was a recovery jog, not a training stimulus.",
   },
   {
     label: "Race",
-    name: "Connemarathon — half",
+    name: "Connemarathon, half",
     note: "1:24:18. Negative split by 40s. Held back through 10k and let the long downhill at 16k do the work. Best half off marathon training. Quads trashed but happy.",
   },
 ];
@@ -119,19 +119,19 @@ const coachPrompts = [
   },
   {
     title: "Compare two efforts",
-    prompt: "Compare last Saturday's long run with the same route 6 weeks ago — what's actually changed?",
+    prompt: "Compare last Saturday's long run with the same route 6 weeks ago. What's actually changed?",
   },
 ];
 
 const coachContext = [
-  "Tell it your goals — a target race, a pace you're chasing, the season you're building toward.",
-  "Tell it the messy stuff — injury niggles, poor sleep, work stress, missed weeks. Context turns numbers into a story.",
-  "Reference specific activities — 'look at last Tuesday's session' or 'compare my last two long runs'. The coach has your full log.",
-  "Ask follow-ups — the conversation gets sharper the more you push back on its first answer.",
+  "Tell it your goals. A target race, a pace you're chasing, the season you're building toward.",
+  "Tell it the messy stuff. Injury niggles, poor sleep, work stress, missed weeks. Context turns numbers into a story.",
+  "Reference specific activities. 'Look at last Tuesday's session' or 'compare my last two long runs'. The coach has your full log.",
+  "Ask follow-ups. The conversation gets sharper the more you push back on its first answer.",
 ];
 
 export default function ManifestoPage() {
-  usePageTitle("fitness.md — Write the Story of Your Body");
+  usePageTitle("fitness.md · Write the Story of Your Body");
   const [whyOpen, setWhyOpen] = useState(false);
   return (
     <>
@@ -167,7 +167,7 @@ export default function ManifestoPage() {
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-xl mx-auto mb-12">
               Your training log is not a spreadsheet. It is a journal, a mirror, a record of who you were
-              becoming — one workout at a time.
+              becoming, one workout at a time.
             </p>
             <div className="flex flex-col items-center gap-4">
               <Link href="/sign-in">
@@ -211,7 +211,7 @@ export default function ManifestoPage() {
                   <h2 className="font-serif-display text-2xl font-medium text-foreground">soul.md</h2>
                   <p className="text-muted-foreground leading-relaxed">
                     Writers keep diaries. Philosophers keep notebooks. Poets scribble in margins.
-                    The inner life has always needed a container — somewhere to put the things
+                    The inner life has always needed a container, somewhere to put the things
                     that are too important to lose and too tender to say out loud.
                   </p>
                   <p className="text-muted-foreground leading-relaxed">
@@ -227,11 +227,11 @@ export default function ManifestoPage() {
                   <h2 className="font-serif-display text-2xl font-medium text-foreground">fitness.md</h2>
                   <p className="text-muted-foreground leading-relaxed">
                     Athletes keep logs. Runners track splits. Climbers note conditions.
-                    The body's life has always needed a container too — somewhere to put the efforts,
+                    The body's life has always needed a container too, somewhere to put the efforts,
                     the breakthroughs, the quiet ordinary days that add up to something remarkable.
                   </p>
                   <p className="text-muted-foreground leading-relaxed">
-                    That container is a fitness file. Numbers, yes — but also words. Context. Meaning.
+                    That container is a fitness file. Numbers, yes, but also words. Context. Meaning.
                   </p>
                 </div>
               </FadeSection>
@@ -263,7 +263,7 @@ export default function ManifestoPage() {
                   note: "Consistency? Courage? Curiosity?"
                 },
                 {
-                  q: "What would it mean to actually keep the record — honestly, without performance?",
+                  q: "What would it mean to actually keep the record, honestly, without performance?",
                   note: "Just the truth of it."
                 },
               ].map(({ q, note }, i) => (
@@ -280,7 +280,7 @@ export default function ManifestoPage() {
             <FadeSection>
               <div className="mt-16 rounded-2xl border border-border bg-muted/20 p-8">
                 <p className="font-serif-display text-base text-foreground/70 italic mb-6 leading-relaxed">
-                  Want a reminder to keep writing? Leave your email — we'll send one thoughtful
+                  Want a reminder to keep writing? Leave your email and we'll send one thoughtful
                   note a month. Nothing more.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -368,7 +368,7 @@ export default function ManifestoPage() {
               </div>
               <p className="text-sm text-muted-foreground/70 leading-relaxed mt-4">
                 Use <span className="label-mono text-foreground">Exclude from stats</span> for warm-ups,
-                shake-outs, or anything that wasn't really training — the averages stay honest, but the
+                shake-outs, or anything that wasn't really training. The averages stay honest, but the
                 memory is still there.
               </p>
             </div>
