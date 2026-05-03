@@ -4,6 +4,8 @@ import {
   type Request,
   type Response,
 } from "express";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { Agent, CursorAgentError } from "@cursor/sdk";
 import { logger } from "../lib/logger";
 import { requireAllowedUser } from "../middlewares/requireAllowedUser";
@@ -29,7 +31,7 @@ function getOpenAI(): OpenAI | null {
   return openaiClient;
 }
 
-const COACH_SYSTEM = `You are an expert endurance and strength coach helping the user interpret their own Strava-style activity data.
+const COACH_SYSTEM_BASE = `You are an expert endurance and strength coach helping the user interpret their own Strava-style activity data.
 
 Rules:
 - Always use the MCP tools (list_activities, get_training_stats, get_activity_detail) for factual metrics. Never invent distances, durations, counts, or personal records.
@@ -37,7 +39,38 @@ Rules:
 - The backing schema uses PostgreSQL snake_case column names in tool JSON (e.g. start_time, distance_meters, duration_seconds, normalized_power). Activity streams live in activity_data_points when requested.
 - Training Stress Score (TSS) is not persisted. Only mention this if the user explicitly asks about TSS; otherwise just answer using the metrics that are available.
 - Do not start replies with an "Assumption:" or "Note:" line. Skip preamble and answer the question directly.
-- Be concise, actionable, and encouraging.`;
+- Be concise, actionable, and encouraging.
+- The user has a personal training philosophy in fitness.md (included below when available). Treat it as their values and goals — reference it when it's relevant, respect their preferred training style, and align suggestions with the goals they've written down.`;
+
+function loadFitnessManifesto(): string | null {
+  // fitness.md lives at the monorepo root. Try a few candidate paths so this
+  // works whether the server is started from the package dir, the repo root,
+  // or a built/deployed location.
+  const candidates = [
+    resolve(process.cwd(), "fitness.md"),
+    resolve(process.cwd(), "..", "..", "fitness.md"),
+    resolve(process.cwd(), "..", "fitness.md"),
+  ];
+  for (const path of candidates) {
+    try {
+      const contents = readFileSync(path, "utf8").trim();
+      if (contents.length > 0) {
+        logger.info({ path }, "agent: loaded fitness.md");
+        return contents;
+      }
+    } catch {
+      /* try next candidate */
+    }
+  }
+  logger.warn({ candidates }, "agent: fitness.md not found, coach will run without it");
+  return null;
+}
+
+const FITNESS_MANIFESTO = loadFitnessManifesto();
+
+const COACH_SYSTEM = FITNESS_MANIFESTO
+  ? `${COACH_SYSTEM_BASE}\n\n--- USER'S fitness.md ---\n\n${FITNESS_MANIFESTO}`
+  : COACH_SYSTEM_BASE;
 
 function writeSse(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);

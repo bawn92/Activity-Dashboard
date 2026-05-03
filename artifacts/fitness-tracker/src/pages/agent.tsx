@@ -1182,6 +1182,57 @@ export default function AgentPage() {
     );
   }, []);
 
+  const simulateFitnessRead = useCallback(() => {
+    if (busy) return;
+    const roundId = crypto.randomUUID();
+    const startedAt = Date.now();
+    const userText = "Read my fitness.md and keep it in mind for our chat.";
+    const cannedAnswer = `Got it. I've read your **fitness.md** and will keep these front-of-mind:
+
+- **Consistency > Intensity** — 4–5 sessions per week beats hero days.
+- **Easy Days Are Sacred** — default to Zone 2 / conversational pace; earn the hard efforts.
+- **Durability First** — strength 2x/week, mobility, recovery — injury is the ultimate setback.
+- **Data-Driven but Human** — numbers inform, intuition decides.
+- **Joyful Suffering** — challenging, not miserable.
+
+**2026 goals on file:** aerobic base for long-distance, 12,000 km total, sub-20 min 5K (or equivalent bike PR), trained sustainably around SF life.
+
+Ask me anything — I'll reference these and your real training data.`;
+
+    const fakeRound: ChatRound = {
+      id: roundId,
+      userText,
+      thinking: "Pulling up your training philosophy and goals…",
+      tools: {},
+      bubbles: [
+        { kind: "thinking", id: "thinking", createdAt: startedAt },
+      ],
+      answer: "",
+      status: "streaming",
+      startedAt,
+      expanded: true,
+    };
+    setRounds((r) => [...r, fakeRound]);
+    setBusy(true);
+
+    window.setTimeout(() => {
+      setRounds((rs) =>
+        rs.map((r) =>
+          r.id === roundId
+            ? {
+                ...r,
+                answer: cannedAnswer,
+                status: "done",
+                endedAt: Date.now(),
+                expanded: false,
+              }
+            : r,
+        ),
+      );
+      setBusy(false);
+    }, 1200);
+  }, [busy]);
+
   const runChat = async () => {
     const text = input.trim();
     if (!text || busy || !canChat) return;
@@ -1621,17 +1672,34 @@ export default function AgentPage() {
                       <Skeleton className="h-24 w-3/4" />
                     </div>
                   ) : empty ? (
-                    <div className="text-sm text-muted-foreground py-8 text-center">
+                    <div className="py-8 text-center flex flex-col items-center gap-4">
                       {canChat ? (
                         <>
-                          Try: &ldquo;What was my total running distance last
-                          month?&rdquo; or &ldquo;Summarize my last 7 days by
-                          sport.&rdquo;
+                          <div className="text-sm text-muted-foreground max-w-md">
+                            Try: &ldquo;What was my total running distance last
+                            month?&rdquo; or &ldquo;Summarize my last 7 days by
+                            sport.&rdquo;
+                          </div>
+                          <div className="flex flex-wrap gap-2 justify-center">
+                            <button
+                              type="button"
+                              onClick={simulateFitnessRead}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background hover:bg-muted px-3 py-1.5 text-xs label-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              Read my fitness.md
+                            </button>
+                          </div>
                         </>
                       ) : threads.length === 0 ? (
-                        "No conversations have been started yet."
+                        <div className="text-sm text-muted-foreground">
+                          No conversations have been started yet.
+                        </div>
                       ) : (
-                        "Pick a conversation from the sidebar to read it."
+                        <div className="text-sm text-muted-foreground">
+                          Pick a conversation from the sidebar to read it.
+                        </div>
                       )}
                     </div>
                   ) : (
