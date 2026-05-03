@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useListActivities, useDeleteActivity, getListActivitiesQueryKey, type ActivitySummary } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -142,8 +142,16 @@ function SortHeader({
   );
 }
 
+const PAGE_SIZE = 250;
+
 export default function ActivitiesTablePage() {
-  const { data: activities, isLoading } = useListActivities();
+  const [page, setPage] = useState(0);
+  const tableTopRef = useRef<HTMLDivElement>(null);
+  const { data: activitiesPage, isLoading } = useListActivities({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
+  const activities = activitiesPage?.data ?? undefined;
+  const total = activitiesPage?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const deleteMutation = useDeleteActivity();
@@ -176,6 +184,12 @@ export default function ActivitiesTablePage() {
   const [distMaxKm, setDistMaxKm] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const resetPage = () => setPage(0);
+
+  useEffect(() => {
+    tableTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [page]);
 
   const sports = useMemo(() => {
     if (!activities?.length) return [];
@@ -283,9 +297,18 @@ export default function ActivitiesTablePage() {
     }
   };
 
+  const handleSetSport = (v: string) => { setSport(v); resetPage(); };
+  const handleSetDateFrom = (v: string) => { setDateFrom(v); resetPage(); };
+  const handleSetDateTo = (v: string) => { setDateTo(v); resetPage(); };
+  const handleSetPaceMinSec = (v: string) => { setPaceMinSec(v); resetPage(); };
+  const handleSetPaceMaxSec = (v: string) => { setPaceMaxSec(v); resetPage(); };
+  const handleSetDistMinKm = (v: string) => { setDistMinKm(v); resetPage(); };
+  const handleSetDistMaxKm = (v: string) => { setDistMaxKm(v); resetPage(); };
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div ref={tableTopRef} className="scroll-mt-4" />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
           <h1 className="text-2xl font-medium tracking-tight" data-testid="page-title-table">
             Activity table
@@ -385,7 +408,7 @@ export default function ActivitiesTablePage() {
                             type="button"
                             aria-label="Clear sport filter"
                             className={`${clearBtn} hover:bg-primary/20`}
-                            onClick={() => setSport(ALL_SPORTS)}
+                            onClick={() => handleSetSport(ALL_SPORTS)}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -396,10 +419,10 @@ export default function ActivitiesTablePage() {
                       <div className="flex items-center justify-between">
                         <Label htmlFor="filter-sport-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sport</Label>
                         {sportActive && (
-                          <button type="button" onClick={() => setSport(ALL_SPORTS)} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                          <button type="button" onClick={() => handleSetSport(ALL_SPORTS)} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
                         )}
                       </div>
-                      <Select value={sport} onValueChange={setSport}>
+                      <Select value={sport} onValueChange={handleSetSport}>
                         <SelectTrigger id="filter-sport-select" className="border-border bg-background">
                           <SelectValue placeholder="Sport" />
                         </SelectTrigger>
@@ -434,7 +457,7 @@ export default function ActivitiesTablePage() {
                             type="button"
                             aria-label="Clear date filter"
                             className={`${clearBtn} hover:bg-primary/20`}
-                            onClick={() => { setDateFrom(""); setDateTo(""); }}
+                            onClick={() => { handleSetDateFrom(""); handleSetDateTo(""); }}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -445,14 +468,14 @@ export default function ActivitiesTablePage() {
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date range</Label>
                         {dateActive && (
-                          <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                          <button type="button" onClick={() => { handleSetDateFrom(""); handleSetDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
                         <Input
                           type="date"
                           value={dateFrom}
-                          onChange={(e) => setDateFrom(e.target.value)}
+                          onChange={(e) => handleSetDateFrom(e.target.value)}
                           className="border-border bg-background"
                           aria-label="From date"
                         />
@@ -460,7 +483,7 @@ export default function ActivitiesTablePage() {
                         <Input
                           type="date"
                           value={dateTo}
-                          onChange={(e) => setDateTo(e.target.value)}
+                          onChange={(e) => handleSetDateTo(e.target.value)}
                           className="border-border bg-background"
                           aria-label="To date"
                         />
@@ -487,7 +510,7 @@ export default function ActivitiesTablePage() {
                             type="button"
                             aria-label="Clear pace filter"
                             className={`${clearBtn} hover:bg-primary/20`}
-                            onClick={() => { setPaceMinSec(""); setPaceMaxSec(""); }}
+                            onClick={() => { handleSetPaceMinSec(""); handleSetPaceMaxSec(""); }}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -498,7 +521,7 @@ export default function ActivitiesTablePage() {
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Avg pace (sec/km)</Label>
                         {paceActive && (
-                          <button type="button" onClick={() => { setPaceMinSec(""); setPaceMaxSec(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                          <button type="button" onClick={() => { handleSetPaceMinSec(""); handleSetPaceMaxSec(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
                         )}
                       </div>
                       <div className="flex gap-2">
@@ -508,7 +531,7 @@ export default function ActivitiesTablePage() {
                           step={1}
                           placeholder="Min"
                           value={paceMinSec}
-                          onChange={(e) => setPaceMinSec(e.target.value)}
+                          onChange={(e) => handleSetPaceMinSec(e.target.value)}
                           className="border-border bg-background"
                           aria-label="Minimum pace seconds per km"
                         />
@@ -518,7 +541,7 @@ export default function ActivitiesTablePage() {
                           step={1}
                           placeholder="Max"
                           value={paceMaxSec}
-                          onChange={(e) => setPaceMaxSec(e.target.value)}
+                          onChange={(e) => handleSetPaceMaxSec(e.target.value)}
                           className="border-border bg-background"
                           aria-label="Maximum pace seconds per km"
                         />
@@ -546,7 +569,7 @@ export default function ActivitiesTablePage() {
                             type="button"
                             aria-label="Clear distance filter"
                             className={`${clearBtn} hover:bg-primary/20`}
-                            onClick={() => { setDistMinKm(""); setDistMaxKm(""); }}
+                            onClick={() => { handleSetDistMinKm(""); handleSetDistMaxKm(""); }}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -557,7 +580,7 @@ export default function ActivitiesTablePage() {
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Distance (km)</Label>
                         {distActive && (
-                          <button type="button" onClick={() => { setDistMinKm(""); setDistMaxKm(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                          <button type="button" onClick={() => { handleSetDistMinKm(""); handleSetDistMaxKm(""); }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
                         )}
                       </div>
                       <div className="flex gap-2">
@@ -567,7 +590,7 @@ export default function ActivitiesTablePage() {
                           step={0.01}
                           placeholder="Min km"
                           value={distMinKm}
-                          onChange={(e) => setDistMinKm(e.target.value)}
+                          onChange={(e) => handleSetDistMinKm(e.target.value)}
                           className="border-border bg-background"
                         />
                         <Input
@@ -576,7 +599,7 @@ export default function ActivitiesTablePage() {
                           step={0.01}
                           placeholder="Max km"
                           value={distMaxKm}
-                          onChange={(e) => setDistMaxKm(e.target.value)}
+                          onChange={(e) => handleSetDistMaxKm(e.target.value)}
                           className="border-border bg-background"
                         />
                       </div>
@@ -589,13 +612,13 @@ export default function ActivitiesTablePage() {
                       type="button"
                       data-testid="filters-clear-all"
                       onClick={() => {
-                        setSport(ALL_SPORTS);
-                        setDateFrom("");
-                        setDateTo("");
-                        setPaceMinSec("");
-                        setPaceMaxSec("");
-                        setDistMinKm("");
-                        setDistMaxKm("");
+                        handleSetSport(ALL_SPORTS);
+                        handleSetDateFrom("");
+                        handleSetDateTo("");
+                        handleSetPaceMinSec("");
+                        handleSetPaceMaxSec("");
+                        handleSetDistMinKm("");
+                        handleSetDistMaxKm("");
                       }}
                       className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
@@ -608,7 +631,7 @@ export default function ActivitiesTablePage() {
             })()}
 
             <p className="label-mono text-muted-foreground mb-3">
-              Showing {filteredSorted.length} of {activities.length}
+              Showing {filteredSorted.length} of {activities.length} on this page
             </p>
 
             <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
@@ -689,6 +712,32 @@ export default function ActivitiesTablePage() {
                 </TableBody>
               </Table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 label-mono text-sm text-muted-foreground">
+                <Button
+                  variant="outline"
+                  className="border-border"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  data-testid="pagination-prev"
+                >
+                  Previous
+                </Button>
+                <span data-testid="pagination-info">
+                  Page {page + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  className="border-border"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  data-testid="pagination-next"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
 
             <AlertDialog
               open={pendingDeleteId != null}

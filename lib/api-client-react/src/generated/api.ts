@@ -5,11 +5,14 @@
  * Fitness Activity Tracker API
  * OpenAPI spec version: 0.1.0
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  InfiniteData,
   MutationFunction,
   QueryFunction,
   QueryKey,
+  UseInfiniteQueryOptions,
+  UseInfiniteQueryResult,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -119,44 +122,64 @@ export function useHealthCheck<
 }
 
 /**
- * Returns a list of all parsed fitness activities ordered by start time descending
+ * Returns a paginated list of fitness activities ordered by start time descending
  * @summary List all activities
  */
-export const getListActivitiesUrl = () => {
-  return `/api/activities`;
+export interface ListActivitiesParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListActivitiesPage {
+  data: ActivitySummary[];
+  total: number;
+}
+
+export const getListActivitiesUrl = (params?: ListActivitiesParams) => {
+  const searchParams = new URLSearchParams();
+  if (params?.limit !== undefined) searchParams.set("limit", String(params.limit));
+  if (params?.offset !== undefined) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  return qs ? `/api/activities?${qs}` : `/api/activities`;
 };
 
 export const listActivities = async (
+  params?: ListActivitiesParams,
   options?: RequestInit,
-): Promise<ActivitySummary[]> => {
-  return customFetch<ActivitySummary[]>(getListActivitiesUrl(), {
+): Promise<ListActivitiesPage> => {
+  return customFetch<ListActivitiesPage>(getListActivitiesUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListActivitiesQueryKey = () => {
-  return [`/api/activities`] as const;
+export const getListActivitiesQueryKey = (params?: ListActivitiesParams) => {
+  return params
+    ? ([`/api/activities`, params] as const)
+    : ([`/api/activities`] as const);
 };
 
 export const getListActivitiesQueryOptions = <
   TData = Awaited<ReturnType<typeof listActivities>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listActivities>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListActivitiesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActivities>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListActivitiesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListActivitiesQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listActivities>>> = ({
     signal,
-  }) => listActivities({ signal, ...requestOptions });
+  }) => listActivities(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listActivities>>,
@@ -171,27 +194,58 @@ export type ListActivitiesQueryResult = NonNullable<
 export type ListActivitiesQueryError = ErrorType<unknown>;
 
 /**
- * @summary List all activities
+ * @summary List all activities (single page)
  */
-
 export function useListActivities<
   TData = Awaited<ReturnType<typeof listActivities>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listActivities>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListActivitiesQueryOptions(options);
+>(
+  params?: ListActivitiesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActivities>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActivitiesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
   };
 
   return { ...query, queryKey: queryOptions.queryKey };
+}
+
+const ACTIVITIES_PAGE_SIZE = 250;
+
+/**
+ * @summary List all activities with infinite scroll (loads 250 at a time)
+ */
+export function useInfiniteListActivities(options?: {
+  request?: SecondParameter<typeof customFetch>;
+}): UseInfiniteQueryResult<InfiniteData<ListActivitiesPage>> & { queryKey: QueryKey } {
+  const { request: requestOptions } = options ?? {};
+
+  const queryKey = getListActivitiesQueryKey({ limit: ACTIVITIES_PAGE_SIZE, offset: 0 });
+
+  const query = useInfiniteQuery<ListActivitiesPage, ErrorType<unknown>, InfiniteData<ListActivitiesPage>, QueryKey, number>({
+    queryKey,
+    queryFn: ({ signal, pageParam }) =>
+      listActivities(
+        { limit: ACTIVITIES_PAGE_SIZE, offset: pageParam * ACTIVITIES_PAGE_SIZE },
+        { signal, ...requestOptions },
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: ListActivitiesPage, allPages: ListActivitiesPage[]) => {
+      const fetched = allPages.reduce((sum: number, p: ListActivitiesPage) => sum + p.data.length, 0);
+      return fetched < lastPage.total ? allPages.length : undefined;
+    },
+  }) as UseInfiniteQueryResult<InfiniteData<ListActivitiesPage>> & { queryKey: QueryKey };
+
+  return { ...query, queryKey };
 }
 
 /**

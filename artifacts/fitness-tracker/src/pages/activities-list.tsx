@@ -1,11 +1,11 @@
-import { useListActivities, useGetActivityStats } from "@workspace/api-client-react";
+import { useInfiniteListActivities, useGetActivityStats } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { formatDistance, formatDuration, formatDate } from "@/lib/format";
 import { Link, useLocation } from "wouter";
-import { Activity, Clock, Route, ChevronRight, ActivitySquare, X, CalendarDays, ArrowLeft } from "lucide-react";
+import { Activity, Clock, Route, ChevronRight, ActivitySquare, X, CalendarDays, ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getBackTarget } from "@/hooks/use-previous-location";
 
 function StatsOverview() {
@@ -75,14 +75,42 @@ function StatsOverview() {
 }
 
 function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
-  const { data: activities, isLoading } = useListActivities();
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteListActivities();
+
   const [, setLocation] = useLocation();
 
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allActivities = useMemo(
+    () => data?.pages.flatMap((p) => p.data) ?? [],
+    [data],
+  );
+
   const filtered = useMemo(() => {
-    if (!activities) return activities;
-    if (!dateFilter) return activities;
-    return activities.filter((a) => a.startTime?.slice(0, 10) === dateFilter);
-  }, [activities, dateFilter]);
+    if (!dateFilter) return allActivities;
+    return allActivities.filter((a) => a.startTime?.slice(0, 10) === dateFilter);
+  }, [allActivities, dateFilter]);
 
   if (isLoading) {
     return (
@@ -97,7 +125,7 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
     );
   }
 
-  if (!activities || activities.length === 0) {
+  if (!isLoading && allActivities.length === 0 && !hasNextPage) {
     return (
       <div className="text-center py-12 border border-border border-dashed rounded-lg bg-card/30">
         <ActivitySquare className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-20" />
@@ -116,62 +144,75 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
     );
   }
 
-  if (dateFilter && (!filtered || filtered.length === 0)) {
-    return (
-      <div className="text-center py-12 border border-border border-dashed rounded-lg bg-card/30">
-        <ActivitySquare className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-20" />
-        <h3 className="text-lg font-medium text-foreground mb-1">
-          No activities on this day
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Nothing recorded for {dateFilter}.
-        </p>
-        <button
-          onClick={() => setLocation("/")}
-          className="label-mono text-sm text-primary hover:underline"
-        >
-          View all activities
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6" data-testid="activities-list">
-      {(filtered ?? activities).map((activity) => (
-        <Link key={activity.id} href={`/activities/${activity.id}`} className="block">
-          <div
-            className="group flex items-center justify-between p-5 bg-card border border-border rounded-xl shadow-card hover:border-primary/40 transition-all duration-200 cursor-pointer"
-            data-testid={`activity-card-${activity.id}`}
+    <div>
+      {dateFilter && !hasNextPage && filtered.length === 0 && (
+        <div className="text-center py-12 border border-border border-dashed rounded-lg bg-card/30">
+          <ActivitySquare className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-20" />
+          <h3 className="text-lg font-medium text-foreground mb-1">
+            No activities on this day
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Nothing recorded for {dateFilter}.
+          </p>
+          <button
+            onClick={() => setLocation("/")}
+            className="label-mono text-sm text-primary hover:underline"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                <Activity className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-medium text-foreground capitalize group-hover:text-primary transition-colors">
-                  {activity.sport || "Activity"}
-                </h3>
-                <p className="label-mono text-muted-foreground mt-1">
-                  {formatDate(activity.startTime)}
-                </p>
-              </div>
-            </div>
+            View all activities
+          </button>
+        </div>
+      )}
 
-            <div className="flex items-center gap-6">
-              <div className="hidden sm:flex items-center gap-1.5 w-24 label-mono text-muted-foreground">
-                <Route className="w-3.5 h-3.5" />
-                {formatDistance(activity.distanceMeters ?? null)}
+      <div className="flex flex-col gap-6" data-testid="activities-list">
+        {filtered.map((activity) => (
+          <Link key={activity.id} href={`/activities/${activity.id}`} className="block">
+            <div
+              className="group flex items-center justify-between p-5 bg-card border border-border rounded-xl shadow-card hover:border-primary/40 transition-all duration-200 cursor-pointer"
+              data-testid={`activity-card-${activity.id}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-foreground capitalize group-hover:text-primary transition-colors">
+                    {activity.sport || "Activity"}
+                  </h3>
+                  <p className="label-mono text-muted-foreground mt-1">
+                    {formatDate(activity.startTime)}
+                  </p>
+                </div>
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 w-20 label-mono text-muted-foreground">
-                <Clock className="w-3.5 h-3.5" />
-                {formatDuration(activity.durationSeconds ?? null)}
+
+              <div className="flex items-center gap-6">
+                <div className="hidden sm:flex items-center gap-1.5 w-24 label-mono text-muted-foreground">
+                  <Route className="w-3.5 h-3.5" />
+                  {formatDistance(activity.distanceMeters ?? null)}
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5 w-20 label-mono text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5" />
+                  {formatDuration(activity.durationSeconds ?? null)}
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </div>
+          </Link>
+        ))}
+      </div>
+
+      <div ref={sentinelRef} className="py-6 flex justify-center">
+        {isFetchingNextPage ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading more…
           </div>
-        </Link>
-      ))}
+        ) : !hasNextPage && allActivities.length > 0 ? (
+          <p className="text-sm text-muted-foreground label-mono">
+            All {allActivities.length} activities loaded
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -197,7 +238,6 @@ export default function ActivitiesListPage() {
 
   const [backTarget] = useState(() => {
     const t = getBackTarget("", "");
-    // Only surface a back link when the user came from a non-activities page.
     return t.href && t.href !== "/activities" ? t : null;
   });
 

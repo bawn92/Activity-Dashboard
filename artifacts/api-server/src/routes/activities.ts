@@ -117,10 +117,32 @@ async function persistActivity(
 
 router.get("/activities", async (req: Request, res: Response) => {
   try {
-    const activities = await db
-      .select()
-      .from(activitiesTable)
-      .orderBy(desc(activitiesTable.startTime));
+    const rawLimit = req.query.limit;
+    const rawOffset = req.query.offset;
+    const parsedLimit = rawLimit !== undefined ? Number(rawLimit) : NaN;
+    const parsedOffset = rawOffset !== undefined ? Number(rawOffset) : NaN;
+    if (rawLimit !== undefined && (!Number.isFinite(parsedLimit) || !Number.isInteger(parsedLimit) || parsedLimit < 1)) {
+      res.status(400).json({ error: "Invalid 'limit' parameter: must be a positive integer" });
+      return;
+    }
+    if (rawOffset !== undefined && (!Number.isFinite(parsedOffset) || !Number.isInteger(parsedOffset) || parsedOffset < 0)) {
+      res.status(400).json({ error: "Invalid 'offset' parameter: must be a non-negative integer" });
+      return;
+    }
+    const limit = rawLimit !== undefined ? Math.min(1000, parsedLimit) : 250;
+    const offset = rawOffset !== undefined ? parsedOffset : 0;
+
+    const [countResult, activities] = await Promise.all([
+      db.$count(activitiesTable),
+      db
+        .select()
+        .from(activitiesTable)
+        .orderBy(desc(activitiesTable.startTime))
+        .limit(limit)
+        .offset(offset),
+    ]);
+
+    const total = Number(countResult);
 
     const parsed = ListActivitiesResponse.safeParse(
       activities.map((a) => ({
@@ -157,7 +179,7 @@ router.get("/activities", async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(parsed.data);
+    res.json({ data: parsed.data, total });
   } catch (err) {
     req.log.error({ err }, "Failed to fetch activities");
     res.status(500).json({ error: "Failed to fetch activities" });
