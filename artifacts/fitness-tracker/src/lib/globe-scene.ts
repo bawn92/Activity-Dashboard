@@ -169,7 +169,7 @@ export function mountGlobeScene(
     container.clientWidth / Math.max(container.clientHeight, 1),
     0.08, 100,
   );
-  camera.position.set(0, 0.2, 3.4);
+  camera.position.set(0, 0, 3.4);
 
   let renderer: THREE.WebGLRenderer;
   try {
@@ -454,19 +454,11 @@ export function mountGlobeScene(
 
   setLineResolutions();
 
-  // ── Initial orientation: rotate the globe so Galway faces the camera ───────
-  // The camera sits on the +Z axis looking at the origin, so the point on the
-  // sphere facing the viewer is (0, 0, 1). Build a quaternion that maps
-  // Galway's unit position vector onto +Z, then apply it to the globe group.
-  {
-    const galwayUnit = latLonToVector3(
-      data.start.lat,
-      data.start.lon,
-      1,
-    ).normalize();
-    const facing = new THREE.Vector3(0, 0, 1);
-    globeGroup.quaternion.setFromUnitVectors(galwayUnit, facing);
-  }
+  // ── Initial orientation: north-up with Galway's longitude facing camera ─────
+  // The camera sits on the +Z axis. A pure Y-axis rotation of -(longitude)
+  // spins the globe so Galway's longitude column faces the viewer while
+  // keeping the north pole pointing straight up — the standard map orientation.
+  globeGroup.rotation.y = -(data.start.lon * DEG2RAD);
 
   // ── Animation loop ─────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
