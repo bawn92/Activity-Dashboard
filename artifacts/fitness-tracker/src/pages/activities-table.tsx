@@ -758,7 +758,8 @@ export default function ActivitiesTablePage() {
                   Previous
                 </Button>
                 <span data-testid="pagination-info" className="whitespace-nowrap">
-                  Page {safePage + 1} of {totalPages}
+                  Showing {pagedRows.length} of {filteredSorted.length}
+                  {" · "}Page {safePage + 1} of {totalPages}
                 </span>
                 <Button
                   variant="outline"
