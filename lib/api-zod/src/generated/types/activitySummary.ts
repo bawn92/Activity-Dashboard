@@ -48,5 +48,6 @@ export interface ActivitySummary {
   avgVerticalRatio: number | null;
   /** @nullable */
   avgStepLengthMm: number | null;
+  excludedFromStats: boolean;
   createdAt: Date;
 }

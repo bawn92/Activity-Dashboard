@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -106,12 +107,14 @@ export default function ActivityDetail() {
   const [editSport, setEditSport] = useState("");
   const [editName, setEditName] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editExcluded, setEditExcluded] = useState(false);
 
   const openEdit = () => {
     if (!activity) return;
     setEditSport(activity.sport || "unknown");
     setEditName(activity.name ?? "");
     setEditNotes(activity.notes ?? "");
+    setEditExcluded(activity.excludedFromStats ?? false);
     setEditOpen(true);
   };
 
@@ -123,6 +126,7 @@ export default function ActivityDetail() {
           sport: editSport || undefined,
           name: editName.trim() || null,
           notes: editNotes.trim() || null,
+          excludedFromStats: editExcluded,
         },
       },
       {
@@ -463,6 +467,21 @@ export default function ActivityDetail() {
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
                 className="border-border bg-background min-h-[80px] resize-none"
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4 pt-1">
+              <div className="space-y-1">
+                <Label htmlFor="edit-excluded" className="cursor-pointer">
+                  Exclude from stats
+                </Label>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  Hide this activity from totals, averages, and best efforts.
+                </p>
+              </div>
+              <Switch
+                id="edit-excluded"
+                checked={editExcluded}
+                onCheckedChange={setEditExcluded}
               />
             </div>
           </div>

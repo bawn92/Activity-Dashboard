@@ -27,7 +27,7 @@ import {
   updateBestEffortsForActivity,
   recomputeBestEffortsForSport,
 } from "../lib/bestEfforts";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -146,6 +146,7 @@ router.get("/activities", async (req: Request, res: Response) => {
         avgStanceTimeMs: a.avgStanceTimeMs,
         avgVerticalRatio: a.avgVerticalRatio,
         avgStepLengthMm: a.avgStepLengthMm,
+        excludedFromStats: a.excludedFromStats,
         createdAt: a.createdAt,
       })),
     );
@@ -223,6 +224,7 @@ router.post(
         avgVerticalRatio: existing.avgVerticalRatio,
         avgStepLengthMm: existing.avgStepLengthMm,
         fileObjectPath: existing.fileObjectPath,
+        excludedFromStats: existing.excludedFromStats,
         createdAt: existing.createdAt,
         dataPoints: dataPoints.map((p) => ({
           timestamp: p.timestamp,
@@ -323,6 +325,7 @@ router.post(
       avgVerticalRatio: newActivity.avgVerticalRatio,
       avgStepLengthMm: newActivity.avgStepLengthMm,
       fileObjectPath: newActivity.fileObjectPath,
+      excludedFromStats: newActivity.excludedFromStats,
       createdAt: newActivity.createdAt,
       dataPoints: insertedDataPoints.map((p) => ({
         timestamp: p.timestamp,
@@ -464,7 +467,12 @@ router.get("/activities/stats/sport", async (req: Request, res: Response) => {
     const activities = await db
       .select()
       .from(activitiesTable)
-      .where(eq(activitiesTable.sport, sport));
+      .where(
+        and(
+          eq(activitiesTable.sport, sport),
+          eq(activitiesTable.excludedFromStats, false),
+        ),
+      );
 
     const recentActivities = activities.filter(
       (a) => a.startTime >= fourWeeksAgo,
@@ -501,7 +509,10 @@ router.get("/activities/stats/sport", async (req: Request, res: Response) => {
 
 router.get("/activities/stats", async (req: Request, res: Response) => {
   try {
-    const activities = await db.select().from(activitiesTable);
+    const activities = await db
+      .select()
+      .from(activitiesTable)
+      .where(eq(activitiesTable.excludedFromStats, false));
 
     const totalActivities = activities.length;
     const totalDistanceMeters = activities.reduce(
@@ -591,6 +602,7 @@ router.get("/activities/:id", async (req: Request, res: Response) => {
       avgVerticalRatio: activity.avgVerticalRatio,
       avgStepLengthMm: activity.avgStepLengthMm,
       fileObjectPath: activity.fileObjectPath,
+      excludedFromStats: activity.excludedFromStats,
       createdAt: activity.createdAt,
       dataPoints: dataPoints.map((p) => ({
         timestamp: p.timestamp,
@@ -632,6 +644,8 @@ router.patch(
     if (body.data.sport !== undefined) updates.sport = body.data.sport;
     if ("name" in body.data) updates.name = body.data.name ?? null;
     if ("notes" in body.data) updates.notes = body.data.notes ?? null;
+    if (body.data.excludedFromStats !== undefined)
+      updates.excludedFromStats = body.data.excludedFromStats;
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No fields to update" });
@@ -639,7 +653,10 @@ router.patch(
     }
 
     const [previous] = await db
-      .select({ sport: activitiesTable.sport })
+      .select({
+        sport: activitiesTable.sport,
+        excludedFromStats: activitiesTable.excludedFromStats,
+      })
       .from(activitiesTable)
       .where(eq(activitiesTable.id, params.data.id))
       .limit(1);
@@ -709,6 +726,7 @@ router.patch(
       avgVerticalRatio: updated.avgVerticalRatio,
       avgStepLengthMm: updated.avgStepLengthMm,
       fileObjectPath: updated.fileObjectPath,
+      excludedFromStats: updated.excludedFromStats,
       createdAt: updated.createdAt,
       dataPoints: dataPoints.map((p) => ({
         timestamp: p.timestamp,

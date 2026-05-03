@@ -5,6 +5,7 @@ import {
   timestamp,
   real,
   integer,
+  boolean,
   foreignKey,
   unique,
 } from "drizzle-orm/pg-core";
@@ -36,6 +37,7 @@ export const activitiesTable = pgTable("activities", {
   avgStepLengthMm: real("avg_step_length_mm"),
   fileObjectPath: text("file_object_path"),
   fileHash: text("file_hash"),
+  excludedFromStats: boolean("excluded_from_stats").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

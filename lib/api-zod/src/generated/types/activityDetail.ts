@@ -51,6 +51,7 @@ export interface ActivityDetail {
   avgStepLengthMm: number | null;
   /** @nullable */
   fileObjectPath: string | null;
+  excludedFromStats: boolean;
   createdAt: Date;
   dataPoints: DataPoint[];
 }

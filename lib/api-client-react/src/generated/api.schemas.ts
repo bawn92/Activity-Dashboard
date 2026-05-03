@@ -22,6 +22,7 @@ export interface UpdateActivityBody {
   name?: string | null;
   /** @nullable */
   notes?: string | null;
+  excludedFromStats?: boolean;
 }
 
 export interface ActivitySummary {
@@ -66,6 +67,7 @@ export interface ActivitySummary {
   avgVerticalRatio: number | null;
   /** @nullable */
   avgStepLengthMm: number | null;
+  excludedFromStats: boolean;
   createdAt: string;
 }
 
@@ -133,6 +135,7 @@ export interface ActivityDetail {
   avgStepLengthMm: number | null;
   /** @nullable */
   fileObjectPath: string | null;
+  excludedFromStats: boolean;
   createdAt: string;
   dataPoints: DataPoint[];
 }

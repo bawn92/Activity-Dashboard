@@ -15,4 +15,5 @@ export interface UpdateActivityBody {
   name?: string | null;
   /** @nullable */
   notes?: string | null;
+  excludedFromStats?: boolean;
 }

@@ -42,6 +42,7 @@ export const ListActivitiesResponseItem = zod.object({
   avgStanceTimeMs: zod.number().nullable(),
   avgVerticalRatio: zod.number().nullable(),
   avgStepLengthMm: zod.number().nullable(),
+  excludedFromStats: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
 export const ListActivitiesResponse = zod.array(ListActivitiesResponseItem);
@@ -160,6 +161,7 @@ export const GetActivityResponse = zod.object({
   avgVerticalRatio: zod.number().nullable(),
   avgStepLengthMm: zod.number().nullable(),
   fileObjectPath: zod.string().nullable(),
+  excludedFromStats: zod.boolean(),
   createdAt: zod.coerce.date(),
   dataPoints: zod.array(
     zod.object({
@@ -189,6 +191,7 @@ export const UpdateActivityBody = zod
     sport: zod.string().optional(),
     name: zod.string().nullish(),
     notes: zod.string().nullish(),
+    excludedFromStats: zod.boolean().optional(),
   })
   .describe("Fields that can be updated on an activity");
 
@@ -216,6 +219,7 @@ export const UpdateActivityResponse = zod.object({
   avgVerticalRatio: zod.number().nullable(),
   avgStepLengthMm: zod.number().nullable(),
   fileObjectPath: zod.string().nullable(),
+  excludedFromStats: zod.boolean(),
   createdAt: zod.coerce.date(),
   dataPoints: zod.array(
     zod.object({

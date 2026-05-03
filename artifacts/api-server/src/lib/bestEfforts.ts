@@ -164,7 +164,12 @@ export async function recomputeBestEffortsForSport(sport: string): Promise<void>
   const activities = await db
     .select({ id: activitiesTable.id })
     .from(activitiesTable)
-    .where(eq(activitiesTable.sport, sport));
+    .where(
+      and(
+        eq(activitiesTable.sport, sport),
+        eq(activitiesTable.excludedFromStats, false),
+      ),
+    );
 
   // Track best time + activity id per distance.
   const best = new Map<number, { duration: number; activityId: number }>();

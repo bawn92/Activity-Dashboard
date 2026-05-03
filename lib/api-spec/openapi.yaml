@@ -381,6 +381,8 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+        excludedFromStats:
+          type: boolean
 
     ActivitySummary:
       type: object
@@ -430,6 +432,8 @@ components:
           type: ["number", "null"]
         avgStepLengthMm:
           type: ["number", "null"]
+        excludedFromStats:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -454,6 +458,7 @@ components:
         - avgStanceTimeMs
         - avgVerticalRatio
         - avgStepLengthMm
+        - excludedFromStats
         - createdAt
 
     DataPoint:
@@ -539,6 +544,8 @@ components:
           type: ["number", "null"]
         fileObjectPath:
           type: ["string", "null"]
+        excludedFromStats:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -568,6 +575,7 @@ components:
         - avgVerticalRatio
         - avgStepLengthMm
         - fileObjectPath
+        - excludedFromStats
         - createdAt
         - dataPoints
 
