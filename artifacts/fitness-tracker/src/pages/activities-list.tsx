@@ -74,6 +74,8 @@ function StatsOverview() {
   );
 }
 
+const LIST_PAGE_SIZE = 50;
+
 function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
   const {
     data,
@@ -84,6 +86,7 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
   } = useInfiniteListActivities();
 
   const [, setLocation] = useLocation();
+  const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +116,16 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
       (a: ActivitySummary) => a.startTime?.slice(0, 10) === dateFilter,
     );
   }, [allActivities, dateFilter]);
+
+  useEffect(() => {
+    setVisibleCount(LIST_PAGE_SIZE);
+  }, [dateFilter]);
+
+  const visible = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount],
+  );
+  const canLoadMore = visibleCount < filtered.length;
 
   if (isLoading) {
     return (
@@ -167,7 +180,7 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
       )}
 
       <div className="flex flex-col gap-6" data-testid="activities-list">
-        {filtered.map((activity: ActivitySummary) => (
+        {visible.map((activity: ActivitySummary) => (
           <Link key={activity.id} href={`/activities/${activity.id}`} className="block">
             <div
               className="group flex items-center justify-between p-5 bg-card border border-border rounded-xl shadow-card hover:border-primary/40 transition-all duration-200 cursor-pointer"
@@ -203,15 +216,31 @@ function ActivitiesList({ dateFilter }: { dateFilter: string | null }) {
         ))}
       </div>
 
-      <div ref={sentinelRef} className="py-6 flex justify-center">
+      <div ref={sentinelRef} className="py-6 flex flex-col items-center gap-3">
         {isFetchingNextPage ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />
             Loading more…
           </div>
-        ) : !hasNextPage && allActivities.length > 0 ? (
+        ) : canLoadMore ? (
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleCount((c) => Math.min(filtered.length, c + LIST_PAGE_SIZE))
+              }
+              className="label-mono px-5 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+              data-testid="button-load-more"
+            >
+              Load more
+            </button>
+            <p className="text-xs text-muted-foreground label-mono">
+              Showing {visible.length} of {filtered.length}
+            </p>
+          </>
+        ) : !hasNextPage && filtered.length > 0 ? (
           <p className="text-sm text-muted-foreground label-mono">
-            All {allActivities.length} activities loaded
+            All {filtered.length} activities loaded
           </p>
         ) : null}
       </div>

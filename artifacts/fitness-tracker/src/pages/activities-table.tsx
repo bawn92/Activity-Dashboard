@@ -143,10 +143,12 @@ function SortHeader({
   );
 }
 
-const PAGE_SIZE = 250;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 250] as const;
+const DEFAULT_PAGE_SIZE = 50;
 
 export default function ActivitiesTablePage() {
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const tableTopRef = useRef<HTMLDivElement>(null);
   const { data: activitiesAll, isLoading } = useListAllActivities();
   const activities = activitiesAll;
@@ -287,11 +289,11 @@ export default function ActivitiesTablePage() {
     sortDir,
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
   const pagedRows = useMemo(
-    () => filteredSorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
-    [filteredSorted, safePage],
+    () => filteredSorted.slice(safePage * pageSize, safePage * pageSize + pageSize),
+    [filteredSorted, safePage, pageSize],
   );
 
   useEffect(() => {
@@ -723,8 +725,29 @@ export default function ActivitiesTablePage() {
               </Table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 label-mono text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4 label-mono text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <label htmlFor="page-size-select" className="whitespace-nowrap">
+                  Rows per page
+                </label>
+                <select
+                  id="page-size-select"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(0);
+                  }}
+                  className="bg-card border border-border rounded-md px-2 py-1.5 text-foreground"
+                  data-testid="pagination-size"
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-3">
                 <Button
                   variant="outline"
                   className="border-border"
@@ -734,7 +757,7 @@ export default function ActivitiesTablePage() {
                 >
                   Previous
                 </Button>
-                <span data-testid="pagination-info">
+                <span data-testid="pagination-info" className="whitespace-nowrap">
                   Page {safePage + 1} of {totalPages}
                 </span>
                 <Button
@@ -747,7 +770,7 @@ export default function ActivitiesTablePage() {
                   Next
                 </Button>
               </div>
-            )}
+            </div>
 
             <AlertDialog
               open={pendingDeleteId != null}
