@@ -1200,7 +1200,7 @@ export default function AgentPage() {
 **Current Goals (2026)**
 - Primary: aerobic base + durability for long-distance events
 - Secondary: 12,000 km total distance this year
-- Tertiary: sub-20 min 5K (or equivalent power PR on bike)
+- Tertiary: sub-18 min 5K (or equivalent power PR on bike)
 - Lifestyle: train sustainably around SF life (hills, work, weather)
 
 **Training Preferences**

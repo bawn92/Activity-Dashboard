@@ -22,7 +22,7 @@
 ## Current Goals (2026)
 - Primary: Build aerobic base + durability for long-distance events
 - Secondary: Hit 12,000 km total distance this year
-- Tertiary: Sub-20 min 5K (or equivalent power PR on bike)
+- Tertiary: Sub-18 min 5K (or equivalent power PR on bike)
 - Lifestyle: Train sustainably around San Francisco life (hills, work, weather)
 
 ## Training Preferences
