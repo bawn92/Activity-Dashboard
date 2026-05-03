@@ -1041,6 +1041,8 @@ export default function AgentPage() {
     }
   }, []);
 
+  const suppressNextAutoScrollRef = useRef(false);
+
   const handleSelectThread = useCallback(
     (id: number) => {
       // Cancel any in-flight stream so its updates don't bleed into the
@@ -1052,8 +1054,14 @@ export default function AgentPage() {
       setHistoryRounds([]);
       setBusy(false);
       setDrawerOpen(false);
+      const isMobile =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 767px)").matches;
+      if (isMobile) {
+        suppressNextAutoScrollRef.current = true;
+      }
       void loadThread(id);
-      if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      if (isMobile) {
         requestAnimationFrame(() => {
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
@@ -1162,6 +1170,13 @@ export default function AgentPage() {
   }, []);
 
   useEffect(() => {
+    if (suppressNextAutoScrollRef.current) {
+      suppressNextAutoScrollRef.current = false;
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
     scrollToBottom();
   }, [rounds, historyRounds, scrollToBottom]);
 
