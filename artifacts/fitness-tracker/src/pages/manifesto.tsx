@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Footer } from "@/components/layout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ArrowLeft } from "lucide-react";
+import { getBackTarget } from "@/hooks/use-previous-location";
 
 function usePageTitle(title: string) {
   useEffect(() => {
@@ -66,6 +67,20 @@ export default function ManifestoPage() {
       `}</style>
 
       <div className="min-h-[100dvh] bg-background text-foreground">
+
+        {(() => {
+          const back = getBackTarget("/");
+          return (
+            <Link
+              href={back.href}
+              className="fixed top-4 right-4 z-50 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background/70 backdrop-blur text-xs label-mono text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              data-testid="manifesto-back"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              {back.label}
+            </Link>
+          );
+        })()}
 
         {/* Hero */}
         <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-6 py-24 overflow-hidden">
