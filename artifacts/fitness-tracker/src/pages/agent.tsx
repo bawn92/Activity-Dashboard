@@ -1053,6 +1053,11 @@ export default function AgentPage() {
       setBusy(false);
       setDrawerOpen(false);
       void loadThread(id);
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
     },
     [loadThread],
   );
