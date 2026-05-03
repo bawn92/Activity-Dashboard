@@ -765,6 +765,47 @@ function ThinkingPanel({
   );
 }
 
+function StreamedAnswer({ text }: { text: string }) {
+  const initialFullRef = useRef(text.length > 0);
+  const [shown, setShown] = useState<string>(initialFullRef.current ? text : "");
+  const targetRef = useRef(text);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    targetRef.current = text;
+  }, [text]);
+
+  useEffect(() => {
+    if (initialFullRef.current) return;
+    let cancelled = false;
+    let last = performance.now();
+    const CHARS_PER_MS = 0.18;
+
+    const tick = (now: number) => {
+      if (cancelled) return;
+      const dt = now - last;
+      last = now;
+      setShown((prev) => {
+        const tgt = targetRef.current;
+        if (prev.length >= tgt.length) return prev;
+        let step = Math.max(1, Math.floor(dt * CHARS_PER_MS));
+        const slice = tgt.slice(prev.length, prev.length + step + 240);
+        const nl = slice.indexOf("\n");
+        if (nl >= 0 && nl < step + 80) step = nl + 1;
+        return tgt.slice(0, Math.min(tgt.length, prev.length + step));
+      });
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  return <ReactMarkdown>{shown || "\u200b"}</ReactMarkdown>;
+}
+
 function messagesToRounds(messages: CoachMessage[]): ChatRound[] {
   const rounds: ChatRound[] = [];
   let pendingUser: CoachMessage | null = null;
@@ -1793,7 +1834,7 @@ Ask me anything — I'll reference these and your real training data.`;
                               Coach
                             </span>
                             <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                              <ReactMarkdown>{round.answer}</ReactMarkdown>
+                              <StreamedAnswer text={round.answer} />
                             </div>
                           </div>
                         ) : null}
