@@ -1170,7 +1170,12 @@ export default function AgentPage() {
   }, []);
 
   useEffect(() => {
+    const hasContent = rounds.length + historyRounds.length > 0;
     if (suppressNextAutoScrollRef.current) {
+      if (!hasContent) {
+        // Wait for the real messages to arrive before consuming the flag.
+        return;
+      }
       suppressNextAutoScrollRef.current = false;
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
