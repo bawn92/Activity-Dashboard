@@ -8,6 +8,7 @@ import mcpRouter from "./mcp";
 import agentRouter from "./agent";
 import authRouter from "./auth";
 import coachRouter from "./coach";
+import interestRouter from "./interest";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(globeRouter);
 router.use("/mcp", mcpRouter);
 router.use(agentRouter);
 router.use(coachRouter);
+router.use(interestRouter);
 
 export default router;

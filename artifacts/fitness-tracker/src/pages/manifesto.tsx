@@ -2,8 +2,115 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Footer } from "@/components/layout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sparkles, ArrowLeft } from "lucide-react";
+import { Sparkles, ArrowLeft, Loader2, Check } from "lucide-react";
 import { getBackTarget } from "@/hooks/use-previous-location";
+
+function manifestoApiBase(): string {
+  return (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+}
+
+function RegisterInterestForm() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<
+    | { kind: "idle" }
+    | { kind: "submitting" }
+    | { kind: "success"; alreadyRegistered: boolean }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (status.kind === "submitting" || status.kind === "success") return;
+    const trimmed = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setStatus({ kind: "error", message: "Please enter a valid email address." });
+      return;
+    }
+    setStatus({ kind: "submitting" });
+    try {
+      const res = await fetch(`${manifestoApiBase()}/api/interest`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        alreadyRegistered?: boolean;
+      };
+      if (!res.ok) {
+        setStatus({
+          kind: "error",
+          message: data.error ?? "Could not register interest. Please try again.",
+        });
+        return;
+      }
+      setStatus({
+        kind: "success",
+        alreadyRegistered: Boolean(data.alreadyRegistered),
+      });
+    } catch {
+      setStatus({
+        kind: "error",
+        message: "Network error. Please try again.",
+      });
+    }
+  }
+
+  if (status.kind === "success") {
+    return (
+      <div
+        className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground"
+        data-testid="register-interest-success"
+      >
+        <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+        <span>
+          {status.alreadyRegistered
+            ? "You're already on the list. We'll be in touch when there's room."
+            : "Thanks. You're on the list and we'll be in touch when there's room."}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (status.kind === "error") setStatus({ kind: "idle" });
+          }}
+          placeholder="your@email.com"
+          className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition"
+          data-testid="register-interest-email"
+        />
+        <button
+          type="submit"
+          disabled={status.kind === "submitting"}
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary/10 text-primary border border-primary/20 text-sm font-medium hover:bg-primary/15 transition-colors whitespace-nowrap disabled:opacity-60"
+          data-testid="register-interest-submit"
+        >
+          {status.kind === "submitting" ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            "Register interest"
+          )}
+        </button>
+      </div>
+      {status.kind === "error" && (
+        <p className="label-mono text-xs text-destructive" data-testid="register-interest-error">
+          {status.message}
+        </p>
+      )}
+    </form>
+  );
+}
 
 function usePageTitle(title: string) {
   useEffect(() => {
@@ -222,19 +329,7 @@ export default function ManifestoPage() {
                   fitness.md is a private, invite-only project for now. If it sounds like something
                   you'd want to keep, register your interest and we'll be in touch when there's room.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="email"
-                    placeholder="your@email.com"
-                    className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition"
-                  />
-                  <button
-                    type="button"
-                    className="px-6 py-3 rounded-xl bg-primary/10 text-primary border border-primary/20 text-sm font-medium hover:bg-primary/15 transition-colors whitespace-nowrap"
-                  >
-                    Register interest
-                  </button>
-                </div>
+                <RegisterInterestForm />
                 <p className="mt-3 label-mono text-xs text-muted-foreground/40">
                   No marketing. No funnel. Just a quiet note if and when a spot opens.
                 </p>
