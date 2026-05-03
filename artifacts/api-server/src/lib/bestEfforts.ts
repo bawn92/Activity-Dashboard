@@ -226,7 +226,7 @@ export async function updateBestEffortsForActivity(
  */
 export async function getBestEffortsForSport(
   sport: string,
-): Promise<Array<{ distanceMeters: number; label: string; durationSeconds: number | null }>> {
+): Promise<Array<{ distanceMeters: number; label: string; durationSeconds: number | null; activityId: number | null }>> {
   const benchmarks = getBenchmarksForSport(sport);
   if (benchmarks.length === 0) return [];
 
@@ -250,6 +250,7 @@ export async function getBestEffortsForSport(
       distanceMeters: b.meters,
       label: b.label,
       durationSeconds: row?.durationSeconds ?? null,
+      activityId: row?.activityId ?? null,
     };
   });
 }

@@ -605,10 +605,13 @@ components:
           type: string
         durationSeconds:
           type: ["number", "null"]
+        activityId:
+          type: ["integer", "null"]
       required:
         - distanceMeters
         - label
         - durationSeconds
+        - activityId
 
     SportPeriodStats:
       type: object

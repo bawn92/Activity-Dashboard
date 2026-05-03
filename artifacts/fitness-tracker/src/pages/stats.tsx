@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,46 +53,6 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-function Last4WeeksCard({ stats }: { stats: SportStats["last4Weeks"] }) {
-  const weeks = 4;
-  const avgActivities = stats.activityCount / weeks;
-  const avgDistance = stats.totalDistanceMeters / weeks;
-  const avgDuration = stats.totalDurationSeconds / weeks;
-  const avgElev = stats.totalElevGainMeters / weeks;
-
-  return (
-    <Card className="bg-card border-border shadow-card">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium text-muted-foreground label-mono">
-          Last 4 Weeks
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-        <StatCard
-          label="Activities/week"
-          value={avgActivities.toFixed(1)}
-          sub={`${stats.activityCount} total`}
-        />
-        <StatCard
-          label="Avg Distance/week"
-          value={formatDistance(avgDistance)}
-          sub={`${formatDistance(stats.totalDistanceMeters)} total`}
-        />
-        <StatCard
-          label="Avg Time/week"
-          value={formatDuration(avgDuration)}
-          sub={`${formatDuration(stats.totalDurationSeconds)} total`}
-        />
-        <StatCard
-          label="Avg Elevation/week"
-          value={formatElevation(avgElev)}
-          sub={`${formatElevation(stats.totalElevGainMeters)} total`}
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
 function AllTimeCard({ stats }: { stats: SportStats["allTime"] }) {
   return (
     <Card className="bg-card border-border shadow-card">
@@ -127,13 +88,27 @@ function BestEffortsCard({ efforts }: { efforts: SportStats["bestEfforts"] }) {
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4">
-            {efforts.map((effort) => (
-              <StatCard
-                key={effort.label}
-                label={effort.label}
-                value={formatBestEffort(effort.durationSeconds)}
-              />
-            ))}
+            {efforts.map((effort) => {
+              const card = (
+                <StatCard
+                  label={effort.label}
+                  value={formatBestEffort(effort.durationSeconds)}
+                />
+              );
+              if (effort.activityId == null) {
+                return <div key={effort.label}>{card}</div>;
+              }
+              return (
+                <Link
+                  key={effort.label}
+                  href={`/activities/${effort.activityId}`}
+                  className="rounded-md -m-2 p-2 hover:bg-muted/40 transition-colors no-underline"
+                  data-testid={`best-effort-link-${effort.label}`}
+                >
+                  {card}
+                </Link>
+              );
+            })}
           </div>
         )}
       </CardContent>

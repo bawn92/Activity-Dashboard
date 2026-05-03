@@ -123,6 +123,7 @@ export const GetSportStatsResponse = zod.object({
       distanceMeters: zod.number(),
       label: zod.string(),
       durationSeconds: zod.number().nullable(),
+      activityId: zod.number().nullable(),
     }),
   ),
 });

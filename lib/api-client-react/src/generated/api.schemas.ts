@@ -156,6 +156,8 @@ export interface BestEffort {
   label: string;
   /** @nullable */
   durationSeconds: number | null;
+  /** @nullable */
+  activityId: number | null;
 }
 
 export interface SportPeriodStats {
