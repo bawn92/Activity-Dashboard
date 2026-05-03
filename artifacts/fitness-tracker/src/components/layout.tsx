@@ -107,7 +107,16 @@ export function Layout({
       <header className={headerClass} ref={menuRef}>
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5 hover:opacity-75 transition-opacity" data-testid="link-home">
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 hover:opacity-75 transition-opacity"
+              data-testid="link-home"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.location.pathname === "/") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+            >
               <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
                 <ActivityIcon className="w-4 h-4 text-primary" />
               </div>
