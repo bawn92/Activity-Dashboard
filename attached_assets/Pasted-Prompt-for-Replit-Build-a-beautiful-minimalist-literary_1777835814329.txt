@@ -1,0 +1,71 @@
+Prompt for Replit:
+Build a beautiful, minimalist, literary-style single-page landing page for a fitness journaling app.
+Page Goal:
+Make visitors pause and start thinking about their own fitness life as a personal Markdown file (fitness.md), just like they might keep a soul.md or personal journal. It should feel poetic, reflective, and inspiring — not salesy or bro-gym. Trigger introspection.
+Route: This page should live at /why or /manifesto or /fitness. The "Sign In" button on other pages (and the hero) will link to this landing page. Keep the existing /sign-in route unchanged for direct access.
+Tone & Style:
+
+Poetic, calm, introspective, slightly cinematic
+Deep, thoughtful language (inspired by your real Fitness.md)
+Clean, elegant typography with lots of breathing room
+Dark/light mode friendly, soft gradients, subtle motion
+
+Content Structure:
+
+Hero Section (full height)
+Headline: "Your body is writing a story. Will you read it?"
+Poetic subtext:
+"Every quiet mile in the fog.
+Every easy breath you chose to protect.
+Every time you showed up when no one was watching.
+This is not just training — this is your body’s autobiography."
+Big CTA button: "Begin Writing My Fitness.md" → links to /sign-in
+Small text: "Free • Private • Yours forever"
+
+Soul.md × Fitness.md Parallel
+Side-by-side or elegant connector:
+Left: soul.md — "You already document your mind, values, and growth."
+Right: fitness.md — "Now give your body the same honesty and care."
+
+
+Living Example – A Real Fitness.md
+Title: "Fitness.md — My Training Philosophy & Manifesto"
+Show selected powerful excerpts from this real manifesto (use the content I provide below). Display them as elegant, card-style principles with light animations on hover.
+Include:
+Core Identity: The Consistent Builder
+Key principles: Consistency > Intensity, Easy Days Are Sacred, Durability First, Joyful Suffering, Data-Driven but Human
+A short note: "This philosophy was written by someone training in San Francisco — running hills, swimming at Bay Club, lifting in a building gym. It is lived, not generic."
+
+
+Reflection Prompt Section
+Big question block:
+"What would your fitness.md say?What is your core identity as a mover?
+What principles have you discovered through your own failures and breakthroughs?
+What does consistency look like in your life?"
+Optional small input: "I want to write my fitness.md" + email (for waitlist/interest)
+
+Closing
+Final poetic line: "The page is mostly blank right now. Only you can fill it."
+Strong CTA: "Start My Fitness.md →" (links to /sign-in)
+
+
+Technical Requirements:
+
+Modern React + Tailwind CSS (or plain HTML + Tailwind if simpler)
+Fully responsive (mobile-first)
+Fast, clean, no clutter
+Beautiful typography (use system fonts or suggest good ones like Inter + a serif for headings)
+Subtle scroll animations / fade-ins
+Make the principles section feel like turning pages in a personal notebook
+SEO-friendly title: "fitness.md — Write the Story of Your Body"
+
+Use the exact Fitness.md content below as source material for the examples:
+textFitness.md — My Training Philosophy & Manifesto
+Core Identity: The Consistent Builder
+
+1. Consistency > Intensity
+2. Easy Days Are Sacred
+3. Durability First
+4. Joyful Suffering
+5. Data-Driven but Human
+Make the whole page feel like a love letter to movement and self-knowledge.
