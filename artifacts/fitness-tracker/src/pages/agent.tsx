@@ -1190,13 +1190,35 @@ export default function AgentPage() {
     const userText = "Read my fitness.md and keep it in mind for our chat.";
     const cannedAnswer = `Got it. I've read your **fitness.md** and will keep these front-of-mind:
 
+**Philosophy**
 - **Consistency > Intensity** — 4–5 sessions per week beats hero days.
 - **Easy Days Are Sacred** — default to Zone 2 / conversational pace; earn the hard efforts.
 - **Durability First** — strength 2x/week, mobility, recovery — injury is the ultimate setback.
 - **Data-Driven but Human** — numbers inform, intuition decides.
 - **Joyful Suffering** — challenging, not miserable.
 
-**2026 goals on file:** aerobic base for long-distance, 12,000 km total, sub-20 min 5K (or equivalent bike PR), trained sustainably around SF life.
+**Current Goals (2026)**
+- Primary: aerobic base + durability for long-distance events
+- Secondary: 12,000 km total distance this year
+- Tertiary: sub-20 min 5K (or equivalent power PR on bike)
+- Lifestyle: train sustainably around SF life (hills, work, weather)
+
+**Training Preferences**
+- Sports: Running (primary), Cycling, Swimming
+- Style: Polarized (80/20 easy/hard)
+- Weekly structure: 4–6 sessions, 1 full rest day
+- Strength: 2x/week (core, hips, posterior chain)
+
+**Key Metrics I Care About**
+- Weekly volume (km + hours)
+- Chronic Training Load trend
+- Easy vs Hard ratio
+- Consistency (sessions per week)
+- Injury-free streak
+
+**What Has Worked in the Past**
+- Consistent easy volume → big fitness jumps
+- Structured blocks with clear goals
 
 Ask me anything — I'll reference these and your real training data.`;
 
