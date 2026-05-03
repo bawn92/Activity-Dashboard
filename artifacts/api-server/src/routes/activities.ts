@@ -25,6 +25,7 @@ import { ObjectStorageService } from "../lib/objectStorage";
 import {
   getBestEffortsForSport,
   updateBestEffortsForActivity,
+  recomputeBestEffortsForSport,
 } from "../lib/bestEfforts";
 import { eq, desc } from "drizzle-orm";
 
@@ -637,6 +638,12 @@ router.patch(
       return;
     }
 
+    const [previous] = await db
+      .select({ sport: activitiesTable.sport })
+      .from(activitiesTable)
+      .where(eq(activitiesTable.id, params.data.id))
+      .limit(1);
+
     const [updated] = await db
       .update(activitiesTable)
       .set(updates)
@@ -646,6 +653,26 @@ router.patch(
     if (!updated) {
       res.status(404).json({ error: "Activity not found" });
       return;
+    }
+
+    // If the sport was reclassified (e.g. run -> cycle), the best-efforts
+    // cache is now stale for both sports: the old sport may still credit
+    // this activity (or even rank it as the winner), and the new sport
+    // hasn't seen it yet. Rebuild both caches so leaderboards are correct.
+    if (
+      previous &&
+      body.data.sport !== undefined &&
+      previous.sport !== updated.sport
+    ) {
+      try {
+        await recomputeBestEffortsForSport(previous.sport);
+        await recomputeBestEffortsForSport(updated.sport);
+      } catch (err) {
+        req.log.error(
+          { err, activityId: updated.id, from: previous.sport, to: updated.sport },
+          "Failed to recompute best efforts after sport reclassification",
+        );
+      }
     }
 
     const dataPoints = await db
