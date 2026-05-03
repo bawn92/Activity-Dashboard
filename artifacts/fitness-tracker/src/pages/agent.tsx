@@ -1840,7 +1840,7 @@ Ask me anything — I'll reference these and your real training data.`;
                               Coach
                             </span>
                             <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                              <StreamedAnswer text={round.answer} animate={isLive} />
+                              <StreamedAnswer text={round.answer} animate />
                             </div>
                           </div>
                         ) : null}
