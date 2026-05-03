@@ -9,7 +9,7 @@ const gunzipAsync = promisify(gunzip);
 // Cap on decompressed .fit size: a Garmin .fit usually < 5MB, so 50MB is
 // more than safe and prevents an accidental gzip bomb from blowing memory.
 const MAX_DECOMPRESSED_SIZE = 50 * 1024 * 1024;
-import { db, activitiesTable, activityDataPointsTable, bestEffortsTable } from "@workspace/db";
+import { db, activitiesTable, activityDataPointsTable } from "@workspace/db";
 import {
   GetActivityParams,
   DeleteActivityParams,
@@ -24,10 +24,9 @@ import { parseTcxBuffer } from "../lib/tcxParser";
 import { ObjectStorageService } from "../lib/objectStorage";
 import {
   getBestEffortsForSport,
-  recomputeBestEffortsForSport,
   updateBestEffortsForActivity,
 } from "../lib/bestEfforts";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -638,13 +637,6 @@ router.patch(
       return;
     }
 
-    // Capture the previous sport before updating so that if the sport
-    // changes we can invalidate the cache for both the old and new sport.
-    const [previous] = await db
-      .select({ sport: activitiesTable.sport })
-      .from(activitiesTable)
-      .where(eq(activitiesTable.id, params.data.id));
-
     const [updated] = await db
       .update(activitiesTable)
       .set(updates)
@@ -654,21 +646,6 @@ router.patch(
     if (!updated) {
       res.status(404).json({ error: "Activity not found" });
       return;
-    }
-
-    if (previous && previous.sport !== updated.sport) {
-      // Sport changed: the activity must be removed from the old sport's
-      // best efforts and considered for the new sport's. A full recompute
-      // for both sports is the simplest correct option.
-      try {
-        await recomputeBestEffortsForSport(previous.sport);
-        await recomputeBestEffortsForSport(updated.sport);
-      } catch (err) {
-        req.log.error(
-          { err, oldSport: previous.sport, newSport: updated.sport },
-          "Failed to recompute best efforts after sport change",
-        );
-      }
     }
 
     const dataPoints = await db
@@ -726,45 +703,20 @@ router.delete("/activities/:id", requireAllowedUser, async (req: Request, res: R
     return;
   }
 
-  // Check first whether this activity actually owns any best-effort cache
-  // rows. If it doesn't, deletion can't change the cache and we can skip
-  // the (expensive) recompute entirely.
-  const [activity] = await db
-    .select({ id: activitiesTable.id, sport: activitiesTable.sport })
-    .from(activitiesTable)
-    .where(eq(activitiesTable.id, params.data.id));
+  const [deleted] = await db
+    .delete(activitiesTable)
+    .where(eq(activitiesTable.id, params.data.id))
+    .returning({ id: activitiesTable.id });
 
-  if (!activity) {
+  if (!deleted) {
     res.status(404).json({ error: "Activity not found" });
     return;
   }
 
-  const heldBests = await db
-    .select({ id: bestEffortsTable.id })
-    .from(bestEffortsTable)
-    .where(
-      and(
-        eq(bestEffortsTable.sport, activity.sport),
-        eq(bestEffortsTable.activityId, activity.id),
-      ),
-    )
-    .limit(1);
-
-  await db.delete(activitiesTable).where(eq(activitiesTable.id, activity.id));
-
-  // Reply immediately. If this activity held a best, refresh the cache in
-  // the background so the next stats fetch is correct without keeping the
-  // user waiting on a full sport-wide rescan.
+  // Best-efforts cache is only refreshed on upload. The cache may now
+  // reference this deleted activity until a new upload triggers a recompute
+  // for the same sport, which is an acceptable tradeoff for instant deletes.
   res.status(204).send();
-
-  if (heldBests.length > 0) {
-    void recomputeBestEffortsForSport(activity.sport).catch((err) => {
-      req.log.error(
-        { err, sport: activity.sport },
-        "Background best-efforts recompute failed after delete",
-      );
-    });
-  }
 });
 
 export default router;
