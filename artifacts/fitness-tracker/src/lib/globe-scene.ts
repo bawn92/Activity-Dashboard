@@ -207,7 +207,10 @@ export function mountGlobeScene(
   // in the space below the header.
   function applyMobileOffset() {
     const isMobile = window.innerWidth < 640;
-    controls.target.set(0, isMobile ? 0.25 : 0, 0);
+    // Desktop: push the globe to the right of frame so the title overlay on
+    // the left has breathing room (matches the reference layout). Mobile:
+    // keep it centred horizontally but nudged down to clear the header.
+    controls.target.set(isMobile ? 0 : -0.45, isMobile ? 0.25 : 0, 0);
     controls.update();
   }
   applyMobileOffset();
@@ -454,11 +457,25 @@ export function mountGlobeScene(
 
   setLineResolutions();
 
-  // ── Initial orientation: north-up with Galway's longitude facing camera ─────
-  // The camera sits on the +Z axis. A pure Y-axis rotation of -(longitude)
-  // spins the globe so Galway's longitude column faces the viewer while
-  // keeping the north pole pointing straight up — the standard map orientation.
-  globeGroup.rotation.y = -(data.start.lon * DEG2RAD);
+  // ── Initial orientation: Galway on the left, north hemisphere tilted in ────
+  // Two rotations, applied in this order:
+  //   1. Spin around world Y so a meridian ~40° east of Galway faces the
+  //      camera — this places Galway visibly to the left of centre.
+  //   2. Tilt around world X so the north pole leans toward the camera by
+  //      ~25°, exposing more of the northern hemisphere where the route lives.
+  // Composing as quaternions (instead of Euler rotation) keeps the tilt
+  // around world axes regardless of the spin amount.
+  const VIEW_LON_OFFSET_DEG = 40;
+  const VIEW_TILT_DEG = 25;
+  const ySpin = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    -((data.start.lon + VIEW_LON_OFFSET_DEG) * DEG2RAD),
+  );
+  const xTilt = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(1, 0, 0),
+    VIEW_TILT_DEG * DEG2RAD,
+  );
+  globeGroup.quaternion.copy(xTilt).multiply(ySpin);
 
   // ── Animation loop ─────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
