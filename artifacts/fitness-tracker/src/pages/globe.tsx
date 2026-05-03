@@ -60,7 +60,7 @@ export default function GlobePage() {
   }
 
   return (
-    <Layout headerVariant="black">
+    <Layout headerVariant="black" hideFooter>
       <div className="relative bg-[#050508] text-white" style={{ height: "calc(100dvh - 3.5rem)" }}>
         <div ref={canvasHostRef} className="absolute inset-0 z-0" aria-hidden={isPending || isError} />
 

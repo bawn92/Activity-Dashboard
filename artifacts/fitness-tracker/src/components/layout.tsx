@@ -57,9 +57,11 @@ const navLinks = [
 export function Layout({
   children,
   headerVariant = "default",
+  hideFooter = false,
 }: {
   children: React.ReactNode;
   headerVariant?: "default" | "black";
+  hideFooter?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
@@ -178,7 +180,7 @@ export function Layout({
       <main className="flex-1">
         {children}
       </main>
-      <Footer />
+      {!hideFooter && <Footer />}
     </div>
   );
 }
