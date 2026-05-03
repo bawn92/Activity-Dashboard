@@ -216,7 +216,7 @@ function WrongEmailAutoSignOut() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={ActivitiesListPage} />
+      <Route path="/" component={AgentPage} />
       <Route path="/upload" component={UploadPage} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />

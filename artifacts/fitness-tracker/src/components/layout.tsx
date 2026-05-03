@@ -45,10 +45,10 @@ function AuthControl() {
 }
 
 const navLinks = [
-  { href: "/", label: "Activities", icon: null },
+  { href: "/", label: "Coach", icon: <MessageSquareText className="w-4 h-4 opacity-70" aria-hidden /> },
+  { href: "/activities", label: "Activities", icon: null },
   { href: "/table", label: "Table", icon: null },
   { href: "/globe", label: "Globe", icon: <Globe2 className="w-4 h-4 opacity-70" aria-hidden /> },
-  { href: "/agent", label: "Coach", icon: <MessageSquareText className="w-4 h-4 opacity-70" aria-hidden /> },
   { href: "/calendar", label: "Calendar", icon: <CalendarDays className="w-4 h-4 opacity-70" aria-hidden /> },
   { href: "/stats", label: "Stats", icon: <BarChart3 className="w-4 h-4 opacity-70" aria-hidden /> },
   { href: "/upload", label: "Upload", icon: <Upload className="w-4 h-4 opacity-70" aria-hidden /> },
@@ -112,7 +112,11 @@ export function Layout({
               <span className={`font-medium tracking-tight ${brandClass}`}>Evolve Log</span>
             </Link>
             <nav className="hidden sm:flex items-center gap-1 label-mono text-sm">
-              <Link href="/" className={navLinkClass} data-testid="link-nav-activities">
+              <Link href="/" className={navLinkIconClass} data-testid="link-nav-agent">
+                <MessageSquareText className="w-3.5 h-3.5 opacity-80" aria-hidden />
+                Coach
+              </Link>
+              <Link href="/activities" className={navLinkClass} data-testid="link-nav-activities">
                 Activities
               </Link>
               <Link href="/table" className={navLinkClass} data-testid="link-nav-table">
@@ -121,10 +125,6 @@ export function Layout({
               <Link href="/globe" className={navLinkIconClass} data-testid="link-nav-globe">
                 <Globe2 className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Globe
-              </Link>
-              <Link href="/agent" className={navLinkIconClass} data-testid="link-nav-agent">
-                <MessageSquareText className="w-3.5 h-3.5 opacity-80" aria-hidden />
-                Coach
               </Link>
               <Link href="/calendar" className={navLinkIconClass} data-testid="link-nav-calendar">
                 <CalendarDays className="w-3.5 h-3.5 opacity-80" aria-hidden />
