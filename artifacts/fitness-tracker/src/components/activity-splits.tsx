@@ -32,13 +32,22 @@ function toDisplayValue(paceSecPerKm: number, category: SportCategory): number {
   return paceSecPerKm;
 }
 
+const MAX_REASONABLE_DISTANCE_M = 1_000_000_000;
+const MAX_SPLITS = 2000;
+
 function computeSplits(
   dataPoints: DataPoint[],
   category: SportCategory,
   splitDistance: number,
 ): Split[] {
   const pts = [...dataPoints]
-    .filter((p) => p.distance != null)
+    .filter(
+      (p) =>
+        p.distance != null &&
+        Number.isFinite(p.distance) &&
+        p.distance >= 0 &&
+        p.distance <= MAX_REASONABLE_DISTANCE_M,
+    )
     .sort((a, b) => a.distance! - b.distance!);
 
   if (pts.length < 2) return [];
@@ -47,7 +56,7 @@ function computeSplits(
   if (maxDistance < splitDistance / 2) return [];
 
   const minSegment = Math.min(100, splitDistance / 2);
-  const numSplits = Math.ceil(maxDistance / splitDistance);
+  const numSplits = Math.min(Math.ceil(maxDistance / splitDistance), MAX_SPLITS);
   const splits: Split[] = [];
   let prevPt = pts[0];
 

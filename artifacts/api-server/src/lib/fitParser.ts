@@ -168,7 +168,12 @@ export async function parseFitBuffer(buffer: Buffer): Promise<ParsedFitData> {
               lat,
               lng,
               speed: speedRaw != null ? Number(speedRaw) : null,
-              distance: r.distance != null ? Number(r.distance) : null,
+              distance: (() => {
+                if (r.distance == null) return null;
+                const d = Number(r.distance);
+                if (!Number.isFinite(d) || d < 0 || d > 1_000_000_000) return null;
+                return d;
+              })(),
               power: r.power != null ? Number(r.power) : null,
             };
           });
