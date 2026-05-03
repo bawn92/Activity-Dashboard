@@ -201,7 +201,7 @@ export function mountGlobeScene(
   controls.maxDistance = 8;
   controls.enablePan = false;
   controls.autoRotate = true;
-  controls.autoRotateSpeed = 0.4;
+  controls.autoRotateSpeed = 0.15;
   controls.addEventListener("start", () => { controls.autoRotate = false; });
 
   // Aim the camera straight at Galway. After the globeGroup's Y-spin (set
