@@ -100,6 +100,9 @@ export default function ManifestoPage() {
               becoming, one workout at a time.
             </p>
             <div className="flex flex-col items-center gap-4">
+              <p className="label-mono text-xs sm:text-sm text-muted-foreground/80 tracking-wide">
+                better log → better coaching → better training → richer fitness
+              </p>
               <button
                 type="button"
                 onClick={() =>
@@ -269,8 +272,10 @@ export default function ManifestoPage() {
                 the smarter your agent coach can respond. The coach reads your full history, understands
                 your unique context, and gives sharper, more personalized guidance. You then add those
                 insights back into your log, which makes the next round of advice even better. Over time
-                this creates a powerful recursive cycle: better log → better coaching → better training
-                → richer log.
+                this creates a powerful recursive cycle:
+              </p>
+              <p className="label-mono text-sm sm:text-base text-foreground/80 tracking-wide text-center py-2">
+                better log → better coaching → better training → richer fitness
               </p>
             </div>
 
