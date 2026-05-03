@@ -3,11 +3,12 @@ import { Layout } from "@/components/layout";
 import { formatDistance, formatDuration } from "@/lib/format";
 import { useLocation } from "wouter";
 import { CalendarDays } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-const CELL_SIZE = 13;
+const CELL_SIZE_DESKTOP = 13;
+const CELL_SIZE_MOBILE = 18;
 const CELL_GAP = 2;
-const STEP = CELL_SIZE + CELL_GAP;
 
 const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -90,18 +91,21 @@ function formatTooltipDate(iso: string): string {
 function HeatmapSkeleton() {
   const cols = 53;
   const rows = 7;
+  const isMobile = useIsMobile();
+  const cellSize = isMobile ? CELL_SIZE_MOBILE : CELL_SIZE_DESKTOP;
+  const step = cellSize + CELL_GAP;
   return (
     <div className="overflow-x-auto pb-2">
-      <div style={{ width: cols * STEP + 32 }} className="relative">
+      <div style={{ width: cols * step + 32 }} className="relative">
         <div className="flex gap-[2px] ml-8 mb-1">
           {Array.from({ length: cols }).map((_, i) => (
-            <div key={i} style={{ width: CELL_SIZE }} className="h-3" />
+            <div key={i} style={{ width: cellSize }} className="h-3" />
           ))}
         </div>
         <div className="flex gap-[2px]">
           <div className="flex flex-col gap-[2px] mr-1">
             {WEEKDAY_LABELS.map((label, i) => (
-              <div key={i} style={{ width: 28, height: CELL_SIZE }} className="flex items-center justify-end pr-1">
+              <div key={i} style={{ width: 28, height: cellSize }} className="flex items-center justify-end pr-1">
                 <span className="label-mono text-[10px] text-muted-foreground/50">{label}</span>
               </div>
             ))}
@@ -111,7 +115,7 @@ function HeatmapSkeleton() {
               {Array.from({ length: rows }).map((_, ri) => (
                 <div
                   key={ri}
-                  style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                  style={{ width: cellSize, height: cellSize }}
                   className="rounded-sm bg-border/40 animate-pulse"
                 />
               ))}
@@ -133,33 +137,70 @@ interface YearHeatmapProps {
 function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps) {
   const { weeks, monthLabels } = useMemo(() => buildYearGrid(year), [year]);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const isMobile = useIsMobile();
+  const cellSize = isMobile ? CELL_SIZE_MOBILE : CELL_SIZE_DESKTOP;
+  const step = cellSize + CELL_GAP;
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  function handleMouseEnter(e: React.MouseEvent, date: string) {
-    if (!date) return;
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+  // Dismiss the pinned mobile tooltip when tapping outside the heatmap.
+  useEffect(() => {
+    if (!isMobile || !tooltip) return;
+    function onDocPointer(e: PointerEvent) {
+      const root = containerRef.current;
+      if (root && !root.contains(e.target as Node)) setTooltip(null);
+    }
+    document.addEventListener("pointerdown", onDocPointer);
+    return () => document.removeEventListener("pointerdown", onDocPointer);
+  }, [isMobile, tooltip]);
+
+  function showTooltipForCell(target: HTMLElement, date: string) {
+    const rect = target.getBoundingClientRect();
     setTooltip({
-      x: rect.left + CELL_SIZE / 2,
+      x: rect.left + cellSize / 2,
       y: rect.top,
       date,
       bucket: buckets.get(date) ?? null,
     });
   }
 
+  function handleMouseEnter(e: React.MouseEvent, date: string) {
+    if (!date || isMobile) return;
+    showTooltipForCell(e.currentTarget as HTMLElement, date);
+  }
+
+  function handleCellClickInternal(e: React.MouseEvent, date: string) {
+    if (!date) return;
+    const bucket = buckets.get(date);
+    const hasAny = !!bucket && bucket.count > 0;
+    if (!isMobile) {
+      if (hasAny) onCellClick(date);
+      return;
+    }
+    // Mobile: first tap pins tooltip, second tap on same cell navigates.
+    if (tooltip && tooltip.date === date) {
+      if (hasAny) onCellClick(date);
+      setTooltip(null);
+      return;
+    }
+    showTooltipForCell(e.currentTarget as HTMLElement, date);
+  }
+
   return (
     <div className="mb-8 last:mb-0">
       <div className="label-mono text-sm font-semibold text-foreground mb-3">{year}</div>
       <div
+        ref={containerRef}
         className="overflow-x-auto pb-2 heatmap-container relative"
-        onMouseLeave={() => setTooltip(null)}
+        onMouseLeave={() => { if (!isMobile) setTooltip(null); }}
       >
-        <div style={{ width: weeks.length * STEP + 32, minWidth: "min-content" }}>
+        <div style={{ width: weeks.length * step + 32, minWidth: "min-content" }}>
           {/* Month labels */}
           <div className="flex ml-8 mb-1 relative" style={{ height: 16 }}>
             {monthLabels.map(({ label, weekIndex }) => (
               <span
                 key={`${label}-${weekIndex}`}
                 className="label-mono text-[10px] text-muted-foreground absolute"
-                style={{ left: weekIndex * STEP }}
+                style={{ left: weekIndex * step }}
               >
                 {label}
               </span>
@@ -170,7 +211,7 @@ function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps)
             {/* Weekday labels */}
             <div className="flex flex-col gap-[2px] mr-1" style={{ width: 28 }}>
               {WEEKDAY_LABELS.map((label, i) => (
-                <div key={i} style={{ height: CELL_SIZE }} className="flex items-center justify-end pr-1">
+                <div key={i} style={{ height: cellSize }} className="flex items-center justify-end pr-1">
                   <span className="label-mono text-[10px] text-muted-foreground">{label}</span>
                 </div>
               ))}
@@ -183,21 +224,25 @@ function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps)
                   const bucket = date ? buckets.get(date) : undefined;
                   const count = bucket?.count ?? 0;
                   const isEmpty = !date;
+                  const isSelected = !!date && tooltip?.date === date;
                   return (
                     <div
                       key={di}
-                      style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                      style={{ width: cellSize, height: cellSize }}
                       className={[
                         "rounded-sm transition-opacity",
                         isEmpty
                           ? "bg-transparent"
                           : getIntensityClass(count, maxCount),
-                        !isEmpty && count > 0
+                        !isEmpty
                           ? "cursor-pointer hover:opacity-80"
+                          : "",
+                        isSelected
+                          ? "ring-2 ring-primary ring-offset-1 ring-offset-card"
                           : "",
                       ].join(" ")}
                       onMouseEnter={(e) => handleMouseEnter(e, date)}
-                      onClick={() => onCellClick(date)}
+                      onClick={(e) => handleCellClickInternal(e, date)}
                     />
                   );
                 })}
@@ -209,7 +254,10 @@ function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps)
         {/* Tooltip */}
         {tooltip && (
           <div
-            className="fixed z-50 pointer-events-none bg-popover border border-border rounded-lg px-3 py-2 shadow-lg text-xs label-mono"
+            className={[
+              "fixed z-50 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg text-xs label-mono",
+              isMobile ? "" : "pointer-events-none",
+            ].join(" ")}
             style={{
               left: tooltip.x,
               top: tooltip.y - 8,
@@ -228,6 +276,15 @@ function YearHeatmap({ year, buckets, maxCount, onCellClick }: YearHeatmapProps)
                 )}
                 {tooltip.bucket.totalDuration > 0 && (
                   <div className="text-muted-foreground">{formatDuration(tooltip.bucket.totalDuration)}</div>
+                )}
+                {isMobile && (
+                  <button
+                    type="button"
+                    onClick={() => { onCellClick(tooltip.date); setTooltip(null); }}
+                    className="mt-2 w-full text-center text-primary hover:underline label-mono text-xs py-1 border-t border-border pt-2"
+                  >
+                    View activities →
+                  </button>
                 )}
               </>
             ) : (
@@ -333,7 +390,7 @@ export default function CalendarPage() {
                 {[0, 0.2, 0.5, 0.75, 1].map((ratio, i) => (
                   <div
                     key={i}
-                    style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                    style={{ width: CELL_SIZE_DESKTOP, height: CELL_SIZE_DESKTOP }}
                     className={`rounded-sm ${getIntensityClass(ratio === 0 ? 0 : Math.ceil(ratio * 4), 4)}`}
                   />
                 ))}
