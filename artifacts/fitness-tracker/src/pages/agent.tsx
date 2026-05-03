@@ -1704,6 +1704,20 @@ Ask me anything — I'll reference these and your real training data.`;
                           <Sparkles className="h-3 w-3" />
                           Read my fitness.md
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setDrawerOpen(true)}
+                          className="md:hidden inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background hover:bg-muted px-3 py-1.5 text-xs label-mono transition-colors"
+                          data-testid="button-open-conversations-empty"
+                        >
+                          <MessagesSquare className="h-3 w-3" />
+                          Past conversations
+                          {threads.length > 0 ? (
+                            <span className="ml-0.5 rounded-full bg-primary/15 text-primary px-1.5 py-px text-[10px] leading-none">
+                              {threads.length}
+                            </span>
+                          ) : null}
+                        </button>
                       </div>
                     </div>
                   ) : (
