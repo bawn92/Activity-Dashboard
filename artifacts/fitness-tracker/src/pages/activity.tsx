@@ -198,7 +198,7 @@ export default function ActivityDetail() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <Link href="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-4 transition-colors">
+            <Link href="/activities" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-4 transition-colors">
               <ArrowLeft className="w-4 h-4 mr-1" /> Back to activities
             </Link>
             <div className="flex items-center gap-3">
