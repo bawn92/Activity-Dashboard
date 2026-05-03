@@ -1674,24 +1674,11 @@ Ask me anything — I'll reference these and your real training data.`;
                   ) : empty ? (
                     <div className="py-8 text-center flex flex-col items-center gap-4">
                       {canChat ? (
-                        <>
-                          <div className="text-sm text-muted-foreground max-w-md">
-                            Try: &ldquo;What was my total running distance last
-                            month?&rdquo; or &ldquo;Summarize my last 7 days by
-                            sport.&rdquo;
-                          </div>
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            <button
-                              type="button"
-                              onClick={simulateFitnessRead}
-                              disabled={busy}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background hover:bg-muted px-3 py-1.5 text-xs label-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Sparkles className="h-3 w-3" />
-                              Read my fitness.md
-                            </button>
-                          </div>
-                        </>
+                        <div className="text-sm text-muted-foreground max-w-md">
+                          Try: &ldquo;What was my total running distance last
+                          month?&rdquo; or &ldquo;Summarize my last 7 days by
+                          sport.&rdquo;
+                        </div>
                       ) : threads.length === 0 ? (
                         <div className="text-sm text-muted-foreground">
                           No conversations have been started yet.
@@ -1701,6 +1688,17 @@ Ask me anything — I'll reference these and your real training data.`;
                           Pick a conversation from the sidebar to read it.
                         </div>
                       )}
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        <button
+                          type="button"
+                          onClick={simulateFitnessRead}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background hover:bg-muted px-3 py-1.5 text-xs label-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Read my fitness.md
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     allRounds.map((round) => (
