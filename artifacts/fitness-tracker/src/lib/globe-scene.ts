@@ -169,7 +169,9 @@ export function mountGlobeScene(
     container.clientWidth / Math.max(container.clientHeight, 1),
     0.08, 100,
   );
-  camera.position.set(0, 0, 3.4);
+  // Camera position is set further down once we know Galway's world position
+  // — we want the camera to look straight at Galway from outside the sphere.
+  const CAM_DISTANCE = 3.4;
 
   let renderer: THREE.WebGLRenderer;
   try {
@@ -202,28 +204,24 @@ export function mountGlobeScene(
   controls.autoRotateSpeed = 0.4;
   controls.addEventListener("start", () => { controls.autoRotate = false; });
 
-  // On mobile the header overlay covers the top portion of the screen,
-  // so shift the orbit target down slightly to visually center the globe
-  // in the space below the header.
-  //
-  // The target is also nudged UP (positive Y) on both layouts. Because the
-  // camera sits at y=0 and looks toward the target, raising the target tilts
-  // the camera upward — bringing the northern hemisphere (where Galway and
-  // the running routes live, ~53°N) into the centre of the viewport while
-  // keeping the globe itself perfectly north-up (pole at top, equator
-  // horizontal). This is purely a viewport framing change; the globe's
-  // orientation, auto-rotate, and drag behaviour are untouched.
-  const NORTH_BIAS = 0.22;
-  function applyMobileOffset() {
-    const isMobile = window.innerWidth < 640;
-    // Desktop: push the globe to the right of frame so the title overlay on
-    // the left has breathing room (matches the reference layout). Mobile:
-    // keep it centred horizontally but nudged down to clear the header.
-    const baseY = isMobile ? 0.25 : 0;
-    controls.target.set(isMobile ? 0 : -0.45, baseY + NORTH_BIAS, 0);
-    controls.update();
-  }
-  applyMobileOffset();
+  // Aim the camera straight at Galway. After the globeGroup's Y-spin (set
+  // further down) Galway sits on the YZ plane at (0, sin(lat), cos(lat)).
+  // Placing the camera along that same outward direction at CAM_DISTANCE,
+  // and setting the orbit target to Galway's surface position, makes Galway
+  // the centre of the view. The globe's own rotation is unchanged, so the
+  // north pole stays oriented "up" in world space — it will sit toward the
+  // top of the rendered view, just no longer at perfect 12 o'clock since
+  // we're looking obliquely down at 53°N from above-and-in-front.
+  const galwayLatRad = data.start.lat * DEG2RAD;
+  const galwayWorld = new THREE.Vector3(
+    0,
+    Math.sin(galwayLatRad),
+    Math.cos(galwayLatRad),
+  );
+  camera.position.copy(galwayWorld).multiplyScalar(CAM_DISTANCE);
+  controls.target.copy(galwayWorld);
+  controls.update();
+
 
   addStarField(scene);
 
@@ -468,12 +466,10 @@ export function mountGlobeScene(
   setLineResolutions();
 
   // ── Initial orientation: Galway in front, north pole at top ───────────────
-  // Pure Y-axis spin so the globe loads north-up (pole at top, equator
-  // horizontal). The spin places Galway's longitude meridian on the +Z side
-  // of the YZ plane, putting Galway directly in front of the camera. The
-  // viewport is then framed to favour the northern hemisphere by raising the
-  // orbit target above the equator (see `applyMobileOffset`), not by
-  // tilting the globe itself — so the pole stays at the top of the view.
+  // Pure Y-axis spin so Galway's longitude meridian sits on +Z. The camera
+  // (above) is then placed along Galway's outward normal so the view loads
+  // looking straight down at Galway. The globe itself is not tilted, so its
+  // north pole remains "up" in world space.
   const ySpin = new THREE.Quaternion().setFromAxisAngle(
     new THREE.Vector3(0, 1, 0),
     -(Math.PI / 2 + data.start.lon * DEG2RAD),
@@ -515,7 +511,6 @@ export function mountGlobeScene(
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
     setLineResolutions();
-    applyMobileOffset();
   };
   window.addEventListener("resize", onResize);
 
