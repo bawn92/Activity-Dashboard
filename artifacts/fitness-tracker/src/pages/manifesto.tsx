@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link } from "wouter";
+import { Footer } from "@/components/layout";
 
 function usePageTitle(title: string) {
   useEffect(() => {
@@ -298,17 +299,7 @@ export default function ManifestoPage() {
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="py-8 px-6 border-t border-border">
-          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="label-mono text-xs text-muted-foreground/50">
-              fitness.md — Write the Story of Your Body
-            </p>
-            <p className="label-mono text-xs text-muted-foreground/30">
-              Evolve Log
-            </p>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   );

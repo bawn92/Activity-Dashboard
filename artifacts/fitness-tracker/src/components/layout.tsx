@@ -178,6 +178,22 @@ export function Layout({
       <main className="flex-1">
         {children}
       </main>
+      <Footer />
     </div>
+  );
+}
+
+export function Footer() {
+  return (
+    <footer className="py-8 px-6 border-t border-border">
+      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p className="label-mono text-xs text-muted-foreground/50">
+          fitness.md — Write the Story of Your Body
+        </p>
+        <p className="label-mono text-xs text-muted-foreground/30">
+          Evolve Log
+        </p>
+      </div>
+    </footer>
   );
 }
