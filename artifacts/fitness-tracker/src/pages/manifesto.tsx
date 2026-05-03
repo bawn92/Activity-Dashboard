@@ -100,7 +100,7 @@ export default function ManifestoPage() {
               becoming, one workout at a time.
             </p>
             <div className="flex flex-col items-center gap-4">
-              <p className="label-mono text-xs sm:text-sm text-muted-foreground/80 tracking-wide">
+              <p className="label-mono text-xs sm:text-sm text-muted-foreground/80 tracking-wide mb-6 sm:mb-8">
                 better log → better coaching → better training → richer fitness
               </p>
               <button
