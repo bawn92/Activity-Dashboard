@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { useListActivities, useDeleteActivity, getListActivitiesQueryKey } from "@workspace/api-client-react";
+import { useListAllActivities, useDeleteActivity, getListActivitiesQueryKey } from "@workspace/api-client-react";
 import type { ActivitySummary } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -148,7 +148,7 @@ const PAGE_SIZE = 250;
 export default function ActivitiesTablePage() {
   const [page, setPage] = useState(0);
   const tableTopRef = useRef<HTMLDivElement>(null);
-  const { data: activitiesAll, isLoading } = useListActivities();
+  const { data: activitiesAll, isLoading } = useListAllActivities();
   const activities = activitiesAll;
 
   const queryClient = useQueryClient();
