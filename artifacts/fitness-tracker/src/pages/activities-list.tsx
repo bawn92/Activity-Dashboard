@@ -2,10 +2,11 @@ import { useListActivities, useGetActivityStats } from "@workspace/api-client-re
 import { Layout } from "@/components/layout";
 import { formatDistance, formatDuration, formatDate } from "@/lib/format";
 import { Link, useLocation } from "wouter";
-import { Activity, Clock, Route, ChevronRight, ActivitySquare, X, CalendarDays } from "lucide-react";
+import { Activity, Clock, Route, ChevronRight, ActivitySquare, X, CalendarDays, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { getBackTarget } from "@/hooks/use-previous-location";
 
 function StatsOverview() {
   const { data: stats, isLoading } = useGetActivityStats();
@@ -194,9 +195,20 @@ export default function ActivitiesListPage() {
     return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
   }, [location]);
 
+  const [backTarget] = useState(() => {
+    const t = getBackTarget("", "");
+    // Only surface a back link when the user came from a non-activities page.
+    return t.href && t.href !== "/activities" ? t : null;
+  });
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
+        {backTarget && (
+          <Link href={backTarget.href} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-4 transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" /> {backTarget.label}
+          </Link>
+        )}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-medium tracking-tight" data-testid="page-title-activities">
             Activities
