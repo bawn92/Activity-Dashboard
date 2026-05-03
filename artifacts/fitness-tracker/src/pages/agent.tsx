@@ -932,7 +932,7 @@ function ThreadList({
                       }}
                       aria-label="Delete conversation"
                       data-testid={`button-delete-thread-${t.id}`}
-                      className="shrink-0 p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
