@@ -457,23 +457,21 @@ export function mountGlobeScene(
 
   setLineResolutions();
 
-  // ── Initial orientation: Galway on the left, north hemisphere tilted in ────
-  // Two rotations, applied in this order:
-  //   1. Spin around world Y so a meridian ~40° east of Galway faces the
-  //      camera — this places Galway visibly to the left of centre.
-  //   2. Tilt around world X so the north pole leans toward the camera by
-  //      ~25°, exposing more of the northern hemisphere where the route lives.
-  // Composing as quaternions (instead of Euler rotation) keeps the tilt
-  // around world axes regardless of the spin amount.
-  const VIEW_LON_OFFSET_DEG = 40;
-  const VIEW_TILT_DEG = 25;
+  // ── Initial orientation: camera looking straight down at Galway ────────────
+  // Two rotations, applied in this order, place Galway at the closest point
+  // on the sphere to the camera (which sits on +Z):
+  //   1. Spin around world Y so Galway's longitude meridian lies on the YZ
+  //      plane with positive Z — moves Galway from its native +X-ish spot to
+  //      directly in front.
+  //   2. Tilt around world X by Galway's latitude so the point drops from
+  //      the northern arc down to dead centre of the visible disc.
   const ySpin = new THREE.Quaternion().setFromAxisAngle(
     new THREE.Vector3(0, 1, 0),
-    -((data.start.lon + VIEW_LON_OFFSET_DEG) * DEG2RAD),
+    -(Math.PI / 2 + data.start.lon * DEG2RAD),
   );
   const xTilt = new THREE.Quaternion().setFromAxisAngle(
     new THREE.Vector3(1, 0, 0),
-    VIEW_TILT_DEG * DEG2RAD,
+    data.start.lat * DEG2RAD,
   );
   globeGroup.quaternion.copy(xTilt).multiply(ySpin);
 
