@@ -154,7 +154,6 @@ function SportSection({ sport }: { sport: CanonicalSport }) {
 
   return (
     <div className="space-y-4">
-      <Last4WeeksCard stats={data.last4Weeks} />
       <AllTimeCard stats={data.allTime} />
       {!isSwimming && <BestEffortsCard efforts={data.bestEfforts} />}
     </div>
