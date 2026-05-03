@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, Upload, LogIn, LogOut, Menu, X } from "lucide-react";
+import { Activity as ActivityIcon, Globe2, MessageSquareText, CalendarDays, BarChart3, Upload, LogIn, LogOut, Menu, X, List, Table2 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -46,8 +46,8 @@ function AuthControl() {
 
 const navLinks = [
   { href: "/", label: "Coach", icon: <MessageSquareText className="w-4 h-4 opacity-70" aria-hidden /> },
-  { href: "/activities", label: "Activities", icon: null },
-  { href: "/table", label: "Table", icon: null },
+  { href: "/activities", label: "Activities", icon: <List className="w-4 h-4 opacity-70" aria-hidden /> },
+  { href: "/table", label: "Table", icon: <Table2 className="w-4 h-4 opacity-70" aria-hidden /> },
   { href: "/globe", label: "Globe", icon: <Globe2 className="w-4 h-4 opacity-70" aria-hidden /> },
   { href: "/calendar", label: "Calendar", icon: <CalendarDays className="w-4 h-4 opacity-70" aria-hidden /> },
   { href: "/stats", label: "Stats", icon: <BarChart3 className="w-4 h-4 opacity-70" aria-hidden /> },
@@ -116,10 +116,12 @@ export function Layout({
                 <MessageSquareText className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Coach
               </Link>
-              <Link href="/activities" className={navLinkClass} data-testid="link-nav-activities">
+              <Link href="/activities" className={navLinkIconClass} data-testid="link-nav-activities">
+                <List className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Activities
               </Link>
-              <Link href="/table" className={navLinkClass} data-testid="link-nav-table">
+              <Link href="/table" className={navLinkIconClass} data-testid="link-nav-table">
+                <Table2 className="w-3.5 h-3.5 opacity-80" aria-hidden />
                 Table
               </Link>
               <Link href="/globe" className={navLinkIconClass} data-testid="link-nav-globe">
