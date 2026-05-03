@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAllowedStatus } from "@/hooks/use-allowed-status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -102,6 +103,8 @@ export default function ActivityDetail() {
 
   const deleteMutation = useDeleteActivity();
   const updateMutation = useUpdateActivity();
+  const allowedStatus = useAllowedStatus();
+  const canEdit = allowedStatus.state === "allowed";
 
   const [editOpen, setEditOpen] = useState(false);
   const [editSport, setEditSport] = useState("");
@@ -217,15 +220,17 @@ export default function ActivityDetail() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="border-border text-foreground hover:bg-muted"
-              onClick={openEdit}
-              data-testid="button-edit"
-            >
-              <Pencil className="w-4 h-4 mr-2" />
-              Edit
-            </Button>
+            {canEdit && (
+              <Button
+                variant="outline"
+                className="border-border text-foreground hover:bg-muted"
+                onClick={openEdit}
+                data-testid="button-edit"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
 
             <Link href={`/activities/${id}/share`}>
               <Button variant="outline" className="border-border text-foreground hover:bg-muted">
@@ -234,28 +239,30 @@ export default function ActivityDetail() {
               </Button>
             </Link>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground" data-testid="button-delete">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="bg-popover border-border">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete this activity and all associated data points.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="border-border hover:bg-card">Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          {canEdit && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground" data-testid="button-delete">
+                  <Trash2 className="w-4 h-4 mr-2" />
                   Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-popover border-border">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete this activity and all associated data points.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="border-border hover:bg-card">Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           </div>
         </div>
 

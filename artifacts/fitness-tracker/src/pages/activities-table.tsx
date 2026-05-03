@@ -41,6 +41,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ActivitySquare, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Trash2, X } from "lucide-react";
+import { useAllowedStatus } from "@/hooks/use-allowed-status";
 
 const ALL_SPORTS = "__all__";
 
@@ -146,6 +147,8 @@ export default function ActivitiesTablePage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const deleteMutation = useDeleteActivity();
+  const allowedStatus = useAllowedStatus();
+  const canEdit = allowedStatus.state === "allowed";
 
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
@@ -643,7 +646,7 @@ export default function ActivitiesTablePage() {
                       dir={sortDir}
                       onClick={() => handleSort("avgHeartRate")}
                     />
-                    <TableHead className="text-right w-[40px]"> </TableHead>
+                    {canEdit && <TableHead className="text-right w-[40px]"> </TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -668,16 +671,18 @@ export default function ActivitiesTablePage() {
                         <TableCell className="label-mono">
                           {a.avgHeartRate != null ? `${Math.round(a.avgHeartRate)} bpm` : "—"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <button
-                            type="button"
-                            aria-label={`Delete ${a.sport || "activity"} on ${formatDate(a.startTime)}`}
-                            onClick={() => setPendingDeleteId(a.id)}
-                            className="text-muted-foreground/40 hover:text-destructive transition-colors"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </TableCell>
+                        {canEdit && (
+                          <TableCell className="text-right">
+                            <button
+                              type="button"
+                              aria-label={`Delete ${a.sport || "activity"} on ${formatDate(a.startTime)}`}
+                              onClick={() => setPendingDeleteId(a.id)}
+                              className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
