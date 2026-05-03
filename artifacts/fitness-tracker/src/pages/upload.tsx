@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 function UploadSection() {
   const [, setLocation] = useLocation();
   const goToSignIn = () =>
-    setLocation(`/sign-in?redirect=${encodeURIComponent("/upload")}`);
+    setLocation(`/manifesto?redirect=${encodeURIComponent("/upload")}`);
 
   return (
     <>

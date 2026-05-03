@@ -253,7 +253,7 @@ export function BatchUploadZone({ onUnauthenticated }: BatchUploadZoneProps = {}
           <p className="text-xs text-muted-foreground text-center max-w-xs">
             You need to be signed in to upload activities.
           </p>
-          <Link href="/sign-in">
+          <Link href="/manifesto">
             <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
               Sign in
             </span>

@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
+import ManifestoPage from "@/pages/manifesto";
 import UploadPage from "@/pages/upload";
 import ActivitiesListPage from "@/pages/activities-list";
 import ActivitiesTablePage from "@/pages/activities-table";
@@ -219,10 +220,21 @@ function PreviousLocationTracker() {
   return null;
 }
 
+function RedirectToManifesto() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/manifesto", { replace: true });
+  }, [setLocation]);
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={AgentPage} />
+      <Route path="/manifesto" component={ManifestoPage} />
+      <Route path="/why" component={RedirectToManifesto} />
+      <Route path="/fitness" component={RedirectToManifesto} />
       <Route path="/upload" component={UploadPage} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />

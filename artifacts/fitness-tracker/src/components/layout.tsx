@@ -16,7 +16,7 @@ function AuthControl() {
     <>
       <Show when="signed-out">
         <Link
-          href="/sign-in"
+          href="/manifesto"
           className="inline-flex items-center gap-1.5 label-mono text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-md transition-colors"
           data-testid="sign-in-link"
         >

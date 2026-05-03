@@ -1779,7 +1779,7 @@ Ask me anything — I'll reference these and your real training data.`;
                             <span className="text-foreground/80">
                               Please sign in to chat with your coach.
                             </span>
-                            <Link href="/sign-in">
+                            <Link href="/manifesto">
                               <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
                                 Sign in
                               </span>
@@ -1837,7 +1837,7 @@ Ask me anything — I'll reference these and your real training data.`;
                       Sign in to chat with your coach. You can still browse and
                       read all past conversations.
                     </span>
-                    <Link href="/sign-in">
+                    <Link href="/manifesto">
                       <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs label-mono hover:bg-primary/90 transition-colors cursor-pointer">
                         Sign in
                       </span>
