@@ -25,12 +25,19 @@ export function useAllowedStatus(): AllowedStatus {
     },
     enabled: isLoaded,
     staleTime: 30_000,
+    refetchInterval: (query) => {
+      const result = query.state.data;
+      if (user && result && !result.allowed && result.reason === "not_signed_in") {
+        return 2_000;
+      }
+      return false;
+    },
   });
 
   if (!isLoaded || isLoading) return { state: "loading" };
   if (!user) return { state: "not_signed_in" };
   if (!data) return { state: "loading" };
   if (data.allowed) return { state: "allowed" };
-  if (data.reason === "not_signed_in") return { state: "not_signed_in" };
+  if (data.reason === "not_signed_in") return { state: "loading" };
   return { state: "wrong_email" };
 }
