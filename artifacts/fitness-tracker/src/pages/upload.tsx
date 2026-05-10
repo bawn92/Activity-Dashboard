@@ -2,21 +2,27 @@ import { Layout } from "@/components/layout";
 import { UploadZone } from "@/components/upload-zone";
 import { BatchUploadZone } from "@/components/batch-upload-zone";
 import { useLocation } from "wouter";
+import { useAllowedStatus } from "@/hooks/use-allowed-status";
 
 function UploadSection() {
   const [, setLocation] = useLocation();
-  const goToSignIn = () =>
-    setLocation(`/manifesto?redirect=${encodeURIComponent("/upload")}`);
+  const status = useAllowedStatus();
+
+  const onUnauthenticated =
+    status.state === "not_signed_in"
+      ? () =>
+          setLocation(`/manifesto?redirect=${encodeURIComponent("/upload")}`)
+      : undefined;
 
   return (
     <>
-      <UploadZone onUnauthenticated={goToSignIn} />
+      <UploadZone onUnauthenticated={onUnauthenticated} />
       <div className="flex items-center gap-4 my-8">
         <div className="flex-1 h-px bg-border" />
         <span className="label-mono text-muted-foreground text-[11px]">or</span>
         <div className="flex-1 h-px bg-border" />
       </div>
-      <BatchUploadZone onUnauthenticated={goToSignIn} />
+      <BatchUploadZone onUnauthenticated={onUnauthenticated} />
     </>
   );
 }
