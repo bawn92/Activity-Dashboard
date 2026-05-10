@@ -38,8 +38,14 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const useClerkProxy =
+  process.env.NODE_ENV === "production" && !!process.env.CLERK_SECRET_KEY;
+
 app.use(
   clerkMiddleware((req) => {
+    if (!useClerkProxy) {
+      return { publishableKey: process.env.CLERK_PUBLISHABLE_KEY };
+    }
     const host = getClerkProxyHost(req) ?? "";
     const xfProto = req.headers["x-forwarded-proto"];
     const protocol =

@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -34,9 +35,21 @@ router.get("/auth/allowed", async (req: Request, res: Response) => {
     if (primaryEmail === allowedEmail) {
       res.json({ allowed: true, reason: null });
     } else {
+      logger.warn(
+        {
+          userId: auth.userId,
+          primaryEmail,
+          allowedEmail,
+          hasUser: !!user,
+          emailCount: user.emailAddresses.length,
+          primaryEmailId: user.primaryEmailAddressId,
+        },
+        "auth/allowed: wrong_email",
+      );
       res.json({ allowed: false, reason: "wrong_email" });
     }
-  } catch {
+  } catch (err) {
+    logger.error({ err, userId: auth.userId }, "auth/allowed: getUser failed");
     res.status(500).json({ error: "Failed to verify user" });
   }
 });
