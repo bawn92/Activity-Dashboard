@@ -1894,6 +1894,20 @@ Ask me anything — I'll reference these and your real training data.`;
                       </Button>
                     </div>
                   </div>
+                ) : status.state === "loading" ? (
+                  <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-3 flex items-center gap-3 flex-wrap">
+                    <Loader2 className="h-4 w-4 text-muted-foreground shrink-0 animate-spin" />
+                    <span className="text-sm text-foreground/80 flex-1 min-w-[180px]">
+                      Checking authorization…
+                    </span>
+                  </div>
+                ) : status.state === "wrong_email" ? (
+                  <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-3 flex items-center gap-3 flex-wrap">
+                    <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground/80 flex-1 min-w-[180px]">
+                      This account isn't permitted to chat with the coach.
+                    </span>
+                  </div>
                 ) : (
                   <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-3 flex items-center gap-3 flex-wrap">
                     <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
