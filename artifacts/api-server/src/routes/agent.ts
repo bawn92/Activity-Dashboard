@@ -406,19 +406,38 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
 
     // If the cursor run ended without producing any usable content, surface a
     // visible error to the client instead of silently sending an empty `done`
-    // (which makes the chat appear to hang). Include the last status message
-    // when available so the user has a hint about what went wrong.
+    // (which makes the chat appear to hang). The Cursor SDK status messages
+    // and RunResult don't carry a reason, so try Agent.get() to pull the
+    // agent's `summary` field — which often contains the actual failure
+    // explanation visible in Cursor's dashboard.
     if (finalAnswer.trim().length === 0) {
-      const lastStatus = statusMessages[statusMessages.length - 1];
+      let agentSummary: string | undefined;
+      try {
+        const info = await Agent.get(agent.agentId, {
+          apiKey: process.env.CURSOR_API_KEY,
+        });
+        agentSummary = info.summary?.trim() || undefined;
+      } catch (err) {
+        const m = err instanceof Error ? err.message : String(err);
+        reqLog.warn({ err: m, agentId: agent.agentId }, "agent: Agent.get failed");
+      }
+      const dashboardUrl = `https://cursor.com/agents?id=${agent.agentId}`;
       const detail =
         result.status === "error"
-          ? "the coach run ended in error"
-          : `the coach run finished (${result.status}) without producing a reply`;
-      const message = lastStatus
-        ? `${detail}: ${lastStatus}`
-        : `${detail}.`;
+          ? "The coach run ended in error"
+          : `The coach run finished (${result.status}) without producing a reply`;
+      const parts = [`${detail}.`];
+      if (agentSummary) parts.push(`Cursor reports: ${agentSummary}`);
+      parts.push(`See: ${dashboardUrl}`);
+      const message = parts.join(" ");
       reqLog.warn(
-        { runId: run.id, status: result.status, statusMessages },
+        {
+          runId: run.id,
+          agentId: agent.agentId,
+          status: result.status,
+          statusMessages,
+          agentSummary,
+        },
         "agent: empty final answer, surfacing error to client",
       );
       writeSse(res, "error", { message });
