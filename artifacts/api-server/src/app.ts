@@ -2,7 +2,6 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -42,12 +41,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   clerkMiddleware((req) => {
     const host = getClerkProxyHost(req) ?? "";
-    const protocol = req.headers["x-forwarded-proto"] || "https";
+    const xfProto = req.headers["x-forwarded-proto"];
+    const protocol =
+      (Array.isArray(xfProto) ? xfProto[0] : xfProto)?.split(",")[0]?.trim() ||
+      "https";
     return {
-      publishableKey: publishableKeyFromHost(
-        host,
-        process.env.CLERK_PUBLISHABLE_KEY,
-      ),
+      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
       proxyUrl: host ? `${protocol}://${host}${CLERK_PROXY_PATH}` : undefined,
     };
   }),
