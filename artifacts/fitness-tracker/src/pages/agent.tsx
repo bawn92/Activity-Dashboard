@@ -1663,14 +1663,6 @@ Ask me anything — I'll reference these and your real training data.`;
     [threads, activeThreadId],
   );
 
-  if (status.state === "loading") {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl" />
-      </Layout>
-    );
-  }
-
   const sidebar = (
     <ThreadList
       threads={threads}
