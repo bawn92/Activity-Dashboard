@@ -193,6 +193,7 @@ function WrongEmailAutoSignOut() {
     );
     if (
       status.state === "wrong_email" &&
+      user &&
       !didSignOutRef.current &&
       !onPublicReadRoute
     ) {

@@ -31,5 +31,6 @@ export function useAllowedStatus(): AllowedStatus {
   if (!user) return { state: "not_signed_in" };
   if (!data) return { state: "loading" };
   if (data.allowed) return { state: "allowed" };
+  if (data.reason === "not_signed_in") return { state: "not_signed_in" };
   return { state: "wrong_email" };
 }
