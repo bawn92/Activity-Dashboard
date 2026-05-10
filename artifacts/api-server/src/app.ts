@@ -40,12 +40,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
+  clerkMiddleware((req) => {
+    const host = getClerkProxyHost(req) ?? "";
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    return {
+      publishableKey: publishableKeyFromHost(
+        host,
+        process.env.CLERK_PUBLISHABLE_KEY,
+      ),
+      proxyUrl: host ? `${protocol}://${host}${CLERK_PROXY_PATH}` : undefined,
+    };
+  }),
 );
 
 app.use("/api", router);
