@@ -41,6 +41,17 @@ app.use(express.urlencoded({ extended: true }));
 const useClerkProxy =
   process.env.NODE_ENV === "production" && !!process.env.CLERK_SECRET_KEY;
 
+logger.info(
+  {
+    nodeEnv: process.env.NODE_ENV,
+    hasClerkSecret: !!process.env.CLERK_SECRET_KEY,
+    hasClerkPub: !!process.env.CLERK_PUBLISHABLE_KEY,
+    pubPrefix: process.env.CLERK_PUBLISHABLE_KEY?.slice(0, 8),
+    useClerkProxy,
+  },
+  "clerk middleware boot",
+);
+
 app.use(
   clerkMiddleware((req) => {
     if (!useClerkProxy) {
