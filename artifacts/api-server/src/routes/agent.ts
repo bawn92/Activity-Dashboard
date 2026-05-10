@@ -258,17 +258,30 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
     const toolNames: string[] = [];
     let messageCount = 0;
     const typeCounts: Record<string, number> = {};
+    const statusMessages: string[] = [];
 
     for await (const msg of run.stream()) {
       messageCount += 1;
       typeCounts[msg.type] = (typeCounts[msg.type] ?? 0) + 1;
       try {
-        reqLog.debug(
-          { msgType: msg.type, snippet: JSON.stringify(msg).slice(0, 400) },
+        reqLog.info(
+          { msgType: msg.type, snippet: JSON.stringify(msg).slice(0, 1200) },
           "agent: stream msg",
         );
       } catch {
         /* ignore */
+      }
+
+      if (msg.type === "status") {
+        const snippet = (() => {
+          try {
+            return JSON.stringify(msg).slice(0, 1200);
+          } catch {
+            return String(msg).slice(0, 1200);
+          }
+        })();
+        statusMessages.push(snippet);
+        continue;
       }
 
       if (msg.type === "thinking") {
@@ -370,6 +383,7 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
         accumulatedPreview: accumulated.slice(0, 400),
         resultLen: resultText.length,
         resultPreview: resultText.slice(0, 400),
+        statusMessages,
       },
       "agent: run finished",
     );
@@ -388,6 +402,27 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
         "agent: streamed assistant text was empty/trivial, falling back to result.result",
       );
       writeSse(res, "replace", { text: resultText });
+    }
+
+    // If the cursor run ended without producing any usable content, surface a
+    // visible error to the client instead of silently sending an empty `done`
+    // (which makes the chat appear to hang). Include the last status message
+    // when available so the user has a hint about what went wrong.
+    if (finalAnswer.trim().length === 0) {
+      const lastStatus = statusMessages[statusMessages.length - 1];
+      const detail =
+        result.status === "error"
+          ? "the coach run ended in error"
+          : `the coach run finished (${result.status}) without producing a reply`;
+      const message = lastStatus
+        ? `${detail}: ${lastStatus}`
+        : `${detail}.`;
+      reqLog.warn(
+        { runId: run.id, status: result.status, statusMessages },
+        "agent: empty final answer, surfacing error to client",
+      );
+      writeSse(res, "error", { message });
+      return;
     }
 
     // Persist assistant reply and (if first exchange) generate title before
