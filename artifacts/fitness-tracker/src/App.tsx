@@ -31,7 +31,37 @@ const queryClient = new QueryClient({
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
+function publishableKeyFromHost(
+  host: string | undefined,
+  fallback: string | undefined,
+): string | undefined {
+  if (!host) return fallback;
+  const bare = host.split(":")[0]?.toLowerCase();
+  if (!bare) return fallback;
+  if (
+    bare === "localhost" ||
+    bare.endsWith(".replit.dev") ||
+    bare.endsWith(".repl.co") ||
+    bare.endsWith(".kirk.replit.dev")
+  ) {
+    return fallback;
+  }
+  const encoded = btoa(`clerk.${bare}$`)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return `pk_live_${encoded}`;
+}
+
+const envPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
+  | string
+  | undefined;
+
+const clerkPubKey =
+  publishableKeyFromHost(
+    typeof window !== "undefined" ? window.location.hostname : undefined,
+    envPubKey,
+  ) ?? envPubKey;
 
 if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");

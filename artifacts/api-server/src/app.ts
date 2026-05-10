@@ -41,6 +41,25 @@ app.use(express.urlencoded({ extended: true }));
 const useClerkProxy =
   process.env.NODE_ENV === "production" && !!process.env.CLERK_SECRET_KEY;
 
+function publishableKeyFromHost(
+  host: string | undefined,
+  fallback: string | undefined,
+): string | undefined {
+  if (!host) return fallback;
+  const bare = host.split(":")[0]?.toLowerCase();
+  if (!bare) return fallback;
+  if (
+    bare === "localhost" ||
+    bare.endsWith(".replit.dev") ||
+    bare.endsWith(".repl.co") ||
+    bare.endsWith(".kirk.replit.dev")
+  ) {
+    return fallback;
+  }
+  const encoded = Buffer.from(`clerk.${bare}$`, "utf8").toString("base64url");
+  return `pk_live_${encoded}`;
+}
+
 logger.info(
   {
     nodeEnv: process.env.NODE_ENV,
@@ -54,16 +73,19 @@ logger.info(
 
 app.use(
   clerkMiddleware((req) => {
-    if (!useClerkProxy) {
-      return { publishableKey: process.env.CLERK_PUBLISHABLE_KEY };
-    }
     const host = getClerkProxyHost(req) ?? "";
+    const publishableKey =
+      publishableKeyFromHost(host, process.env.CLERK_PUBLISHABLE_KEY) ??
+      process.env.CLERK_PUBLISHABLE_KEY;
+    if (!useClerkProxy) {
+      return { publishableKey };
+    }
     const xfProto = req.headers["x-forwarded-proto"];
     const protocol =
       (Array.isArray(xfProto) ? xfProto[0] : xfProto)?.split(",")[0]?.trim() ||
       "https";
     return {
-      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+      publishableKey,
       proxyUrl: host ? `${protocol}://${host}${CLERK_PROXY_PATH}` : undefined,
     };
   }),
