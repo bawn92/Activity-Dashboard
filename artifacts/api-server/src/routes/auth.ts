@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -11,9 +12,29 @@ const router: IRouter = Router();
  * "not signed in", "signed in but wrong email", and "signed in and allowed".
  */
 router.get("/auth/allowed", async (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   const auth = getAuth(req);
 
   if (!auth?.userId) {
+    const cookieHeader = req.headers.cookie || "";
+    const cookieNames = cookieHeader
+      .split(";")
+      .map((c) => c.split("=")[0]?.trim())
+      .filter(Boolean);
+    logger.warn(
+      {
+        reason: "not_signed_in",
+        host: req.headers.host,
+        xfHost: req.headers["x-forwarded-host"],
+        xfProto: req.headers["x-forwarded-proto"],
+        cookieNames,
+        hasSecret: !!process.env.CLERK_SECRET_KEY,
+        hasPub: !!process.env.CLERK_PUBLISHABLE_KEY,
+        pubPrefix: process.env.CLERK_PUBLISHABLE_KEY?.slice(0, 8),
+        nodeEnv: process.env.NODE_ENV,
+      },
+      "auth/allowed: getAuth returned no userId",
+    );
     res.json({ allowed: false, reason: "not_signed_in" });
     return;
   }
