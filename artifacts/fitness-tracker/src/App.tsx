@@ -66,6 +66,7 @@ const clerkPubKey =
 if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
 }
+const requiredClerkPubKey = clerkPubKey;
 
 const clerkProxyUrl = (import.meta.env.VITE_CLERK_PROXY_URL as string) || undefined;
 
@@ -287,7 +288,7 @@ function ClerkProviderWithRoutes() {
 
   return (
     <ClerkProvider
-      publishableKey={clerkPubKey}
+      publishableKey={requiredClerkPubKey}
       proxyUrl={clerkProxyUrl}
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
