@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,7 +110,9 @@ function parseSseFrame(raw: string): { event: string; data: string } | null {
   return { event, data: dataLines.join("\n") };
 }
 
-function nextFrameBoundary(buffer: string): { end: number; advance: number } | null {
+function nextFrameBoundary(
+  buffer: string,
+): { end: number; advance: number } | null {
   const lf = buffer.indexOf("\n\n");
   const crlf = buffer.indexOf("\r\n\r\n");
   if (lf === -1 && crlf === -1) return null;
@@ -274,10 +282,7 @@ function describeAsSql(
         "SUM(distance_meters) AS total_distance_meters",
         "SUM(duration_seconds) AS total_duration_seconds",
       );
-      const lines = [
-        `SELECT ${select.join(",\n       ")}`,
-        "FROM activities",
-      ];
+      const lines = [`SELECT ${select.join(",\n       ")}`, "FROM activities"];
       if (where.length) lines.push(`WHERE ${where.join("\n  AND ")}`);
       if (groupExpr) {
         lines.push(`GROUP BY ${groupExpr}`, `ORDER BY ${groupExpr};`);
@@ -298,9 +303,7 @@ function describeAsSql(
           ? Math.floor(args.dataPointsLimit)
           : 200;
       const limit = Math.min(Math.max(rawLimit, 1), 500);
-      const lines = [
-        `SELECT * FROM activities WHERE id = ${id} LIMIT 1;`,
-      ];
+      const lines = [`SELECT * FROM activities WHERE id = ${id} LIMIT 1;`];
       if (include) {
         lines.push(
           `SELECT * FROM activity_data_points\nWHERE activity_id = ${id}\nORDER BY timestamp DESC\nLIMIT ${limit};`,
@@ -489,7 +492,10 @@ function previewRecords(value: unknown): JsonRecord[] {
   return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
-function summarizeRange(values: number[], formatter: (value: number) => string): string {
+function summarizeRange(
+  values: number[],
+  formatter: (value: number) => string,
+): string {
   if (values.length === 0) return "-";
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -513,7 +519,10 @@ function ActivityPreviewTable({ activities }: { activities: JsonRecord[] }) {
         </thead>
         <tbody>
           {activities.map((activity, index) => (
-            <tr key={`${activity.id ?? index}`} className="border-t border-border/50">
+            <tr
+              key={`${activity.id ?? index}`}
+              className="border-t border-border/50"
+            >
               <td className="px-2 py-1.5 whitespace-nowrap">
                 {formatDateLabel(getActivityStart(activity))}
               </td>
@@ -568,14 +577,20 @@ function ActivitiesResultPreview({ activities }: { activities: JsonRecord[] }) {
     <div className="mt-2 rounded-xl border border-border/60 bg-card/50 p-2">
       <div className="grid grid-cols-3 gap-1.5">
         <PreviewStat label="Rows" value={formatInteger(activities.length)} />
-        <PreviewStat label="Distance" value={formatDistanceMeters(totalDistance)} />
-        <PreviewStat label="Duration" value={formatDurationSeconds(totalDuration)} />
+        <PreviewStat
+          label="Distance"
+          value={formatDistanceMeters(totalDistance)}
+        />
+        <PreviewStat
+          label="Duration"
+          value={formatDurationSeconds(totalDuration)}
+        />
       </div>
       {shown.length > 0 ? <ActivityPreviewTable activities={shown} /> : null}
       {activities.length > shown.length ? (
         <div className="mt-1 text-[10px] text-muted-foreground">
-          Showing {shown.length} of {activities.length} activities. Open raw payload
-          for the full result.
+          Showing {shown.length} of {activities.length} activities. Open raw
+          payload for the full result.
         </div>
       ) : null}
     </div>
@@ -592,18 +607,26 @@ function TrainingStatsResultPreview({ data }: { data: JsonRecord }) {
         <div className="grid grid-cols-3 gap-1.5">
           <PreviewStat
             label="Activities"
-            value={formatInteger(firstValue(data, ["activityCount", "activity_count"]))}
+            value={formatInteger(
+              firstValue(data, ["activityCount", "activity_count"]),
+            )}
           />
           <PreviewStat
             label="Distance"
             value={formatDistanceMeters(
-              firstValue(data, ["totalDistanceMeters", "total_distance_meters"]),
+              firstValue(data, [
+                "totalDistanceMeters",
+                "total_distance_meters",
+              ]),
             )}
           />
           <PreviewStat
             label="Duration"
             value={formatDurationSeconds(
-              firstValue(data, ["totalDurationSeconds", "total_duration_seconds"]),
+              firstValue(data, [
+                "totalDurationSeconds",
+                "total_duration_seconds",
+              ]),
             )}
           />
         </div>
@@ -641,14 +664,19 @@ function TrainingStatsResultPreview({ data }: { data: JsonRecord }) {
                   ? bucket.sport
                   : firstValue(bucket, ["bucketStart", "bucket_start"]);
               return (
-                <tr key={`${bucketValue ?? index}`} className="border-t border-border/50">
+                <tr
+                  key={`${bucketValue ?? index}`}
+                  className="border-t border-border/50"
+                >
                   <td className="px-2 py-1.5">
                     {groupBy === "sport"
                       ? (asString(bucketValue) ?? "-")
                       : formatBucketLabel(bucketValue, groupBy)}
                   </td>
                   <td className="px-2 py-1.5 text-right">
-                    {formatInteger(firstValue(bucket, ["activityCount", "activity_count"]))}
+                    {formatInteger(
+                      firstValue(bucket, ["activityCount", "activity_count"]),
+                    )}
                   </td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     {formatDistanceMeters(
@@ -674,7 +702,8 @@ function TrainingStatsResultPreview({ data }: { data: JsonRecord }) {
       </div>
       {buckets.length > 8 ? (
         <div className="mt-1 text-[10px] text-muted-foreground">
-          Showing 8 of {buckets.length} buckets. Open raw payload for the full result.
+          Showing 8 of {buckets.length} buckets. Open raw payload for the full
+          result.
         </div>
       ) : null}
     </div>
@@ -688,7 +717,8 @@ function ActivityDetailResultPreview({
   activity: JsonRecord;
   dataPoints: JsonRecord[];
 }) {
-  const title = asString(activity.name) ?? `Activity ${String(activity.id ?? "")}`;
+  const title =
+    asString(activity.name) ?? `Activity ${String(activity.id ?? "")}`;
   const hrValues = dataPoints
     .map((point) => asNumber(firstValue(point, ["heartRate", "heart_rate"])))
     .filter((value): value is number => value !== null);
@@ -706,7 +736,10 @@ function ActivityDetailResultPreview({
           {title}
         </div>
         <div className="text-[10px] text-muted-foreground">
-          {[asString(activity.sport), formatDateLabel(getActivityStart(activity))]
+          {[
+            asString(activity.sport),
+            formatDateLabel(getActivityStart(activity)),
+          ]
             .filter(Boolean)
             .join(" - ")}
         </div>
@@ -720,8 +753,14 @@ function ActivityDetailResultPreview({
           label="Duration"
           value={formatDurationSeconds(getActivityDuration(activity))}
         />
-        <PreviewStat label="Avg HR" value={formatHeartRate(getActivityHr(activity))} />
-        <PreviewStat label="Avg power" value={formatWatts(getActivityPower(activity))} />
+        <PreviewStat
+          label="Avg HR"
+          value={formatHeartRate(getActivityHr(activity))}
+        />
+        <PreviewStat
+          label="Avg power"
+          value={formatWatts(getActivityPower(activity))}
+        />
         <PreviewStat
           label="Norm power"
           value={formatWatts(getActivityNormalizedPower(activity))}
@@ -733,7 +772,10 @@ function ActivityDetailResultPreview({
         <PreviewStat label="Samples" value={formatInteger(dataPoints.length)} />
         <PreviewStat
           label="HR range"
-          value={summarizeRange(hrValues, (value) => `${Math.round(value)} bpm`)}
+          value={summarizeRange(
+            hrValues,
+            (value) => `${Math.round(value)} bpm`,
+          )}
         />
       </div>
       {dataPoints.length > 0 ? (
@@ -746,11 +788,17 @@ function ActivityDetailResultPreview({
           />
           <PreviewStat
             label="Power range"
-            value={summarizeRange(powerValues, (value) => `${Math.round(value)} W`)}
+            value={summarizeRange(
+              powerValues,
+              (value) => `${Math.round(value)} W`,
+            )}
           />
           <PreviewStat
             label="Altitude"
-            value={summarizeRange(altitudeValues, (value) => `${Math.round(value)} m`)}
+            value={summarizeRange(
+              altitudeValues,
+              (value) => `${Math.round(value)} m`,
+            )}
           />
         </div>
       ) : null}
@@ -797,8 +845,10 @@ function effectiveToolName(tool: ToolState): string {
 }
 
 function phaseFor(round: ChatRound): { label: string; icon: typeof Brain } {
-  if (round.status === "done") return { label: "Analysis complete", icon: CheckCircle2 };
-  if (round.status === "error") return { label: "Analysis failed", icon: Sparkles };
+  if (round.status === "done")
+    return { label: "Analysis complete", icon: CheckCircle2 };
+  if (round.status === "error")
+    return { label: "Analysis failed", icon: Sparkles };
 
   const lastBubble = round.bubbles[round.bubbles.length - 1];
   if (round.answer) return { label: "Writing your answer", icon: Sparkles };
@@ -839,13 +889,7 @@ function relativeTime(iso: string): string {
   return `${diffMonth}mo ago`;
 }
 
-function ThinkingBubble({
-  active,
-  text,
-}: {
-  active: boolean;
-  text: string;
-}) {
+function ThinkingBubble({ active, text }: { active: boolean; text: string }) {
   const trimmed = text.trim();
   const display =
     trimmed.length > 220 ? `…${trimmed.slice(trimmed.length - 220)}` : trimmed;
@@ -872,7 +916,9 @@ function ThinkingBubble({
         }
         className={cn(
           "shrink-0 mt-0.5 rounded-full p-1",
-          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+          active
+            ? "bg-primary/15 text-primary"
+            : "bg-muted text-muted-foreground",
         )}
       >
         <Brain className="h-3 w-3" />
@@ -969,7 +1015,9 @@ function ToolBubble({ tool }: { tool: ToolState }) {
           <span className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground">
             {sql ? "Query" : "Tool"}
           </span>
-          <span className="font-mono text-[11px] text-foreground/90">{nice}</span>
+          <span className="font-mono text-[11px] text-foreground/90">
+            {nice}
+          </span>
           {wasWrapped ? (
             <span className="label-mono text-[9px] text-muted-foreground/70">
               via {tool.name}
@@ -995,9 +1043,7 @@ function ToolBubble({ tool }: { tool: ToolState }) {
               >
                 <span className="text-muted-foreground">{k}:</span>
                 <span className="text-foreground/90 truncate max-w-[160px]">
-                  {typeof v === "object"
-                    ? JSON.stringify(v)
-                    : String(v)}
+                  {typeof v === "object" ? JSON.stringify(v) : String(v)}
                 </span>
               </span>
             ))}
@@ -1118,7 +1164,9 @@ function ThinkingPanel({
         <Brain className="h-3 w-3" />
         <span>
           Thought for {elapsedSec}s
-          {toolCount > 0 ? ` · ${toolCount} tool${toolCount === 1 ? "" : "s"}` : ""}
+          {toolCount > 0
+            ? ` · ${toolCount} tool${toolCount === 1 ? "" : "s"}`
+            : ""}
         </span>
         <ChevronRight className="h-3 w-3" />
       </button>
@@ -1245,7 +1293,10 @@ function splitMarkdownTables(text: string): MarkdownTableSegment[] {
     ) {
       const rows: string[][] = [];
       let j = i + 2;
-      while (j < lines.length && looksLikeTableRow(lines[j] ?? "", header.length)) {
+      while (
+        j < lines.length &&
+        looksLikeTableRow(lines[j] ?? "", header.length)
+      ) {
         rows.push(splitPipeRow(lines[j] ?? ""));
         j += 1;
       }
@@ -1294,7 +1345,10 @@ function MarkdownTable({
           {rows.map((row, rowIndex) => (
             <tr key={rowIndex} className="border-t border-border/60">
               {row.map((cell, cellIndex) => (
-                <td key={`${rowIndex}-${cellIndex}`} className="px-3 py-2 align-top">
+                <td
+                  key={`${rowIndex}-${cellIndex}`}
+                  className="px-3 py-2 align-top"
+                >
                   {cell}
                 </td>
               ))}
@@ -1308,7 +1362,9 @@ function MarkdownTable({
 
 function StreamedAnswer({ text, animate }: { text: string; animate: boolean }) {
   const initialFullRef = useRef(animate ? false : text.length > 0);
-  const [shown, setShown] = useState<string>(initialFullRef.current ? text : "");
+  const [shown, setShown] = useState<string>(
+    initialFullRef.current ? text : "",
+  );
   const targetRef = useRef(text);
   const rafRef = useRef<number | null>(null);
 
@@ -1447,7 +1503,9 @@ function ThreadList({
   onToggleFavourite: (id: number) => void;
   onDelete: (id: number) => void;
 }) {
-  const [pendingDelete, setPendingDelete] = useState<ThreadSummary | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ThreadSummary | null>(
+    null,
+  );
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border/60 flex items-center justify-between gap-2">
@@ -1504,7 +1562,9 @@ function ThreadList({
                     className={cn(
                       "shrink-0 p-1 rounded transition-colors",
                       canFavourite ? "hover:bg-muted" : "cursor-default",
-                      t.isFavourite ? "text-amber-500" : "text-muted-foreground/40",
+                      t.isFavourite
+                        ? "text-amber-500"
+                        : "text-muted-foreground/40",
                     )}
                   >
                     <Star
@@ -1556,8 +1616,10 @@ function ThreadList({
             <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete
-              {pendingDelete ? ` "${pendingDelete.title}"` : " this conversation"}
-              {" "}and all of its messages. This action cannot be undone.
+              {pendingDelete
+                ? ` "${pendingDelete.title}"`
+                : " this conversation"}{" "}
+              and all of its messages. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1597,7 +1659,9 @@ export default function AgentPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
+    null,
+  );
 
   const loadThreads = useCallback(async () => {
     try {
@@ -1730,42 +1794,44 @@ export default function AgentPage() {
     [threads, activeThreadId, loadThread],
   );
 
-  const handleToggleFavourite = useCallback(
-    async (id: number) => {
-      // Optimistic update
-      setThreads((ts) =>
-        ts.map((t) => (t.id === id ? { ...t, isFavourite: !t.isFavourite } : t)),
-      );
-      try {
-        const res = await fetch(`${apiBase()}/api/coach/threads/${id}/favourite`, {
+  const handleToggleFavourite = useCallback(async (id: number) => {
+    // Optimistic update
+    setThreads((ts) =>
+      ts.map((t) => (t.id === id ? { ...t, isFavourite: !t.isFavourite } : t)),
+    );
+    try {
+      const res = await fetch(
+        `${apiBase()}/api/coach/threads/${id}/favourite`,
+        {
           method: "PATCH",
           credentials: "include",
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { thread: ThreadSummary };
+      setThreads((ts) => {
+        const next = ts.map((t) => (t.id === id ? data.thread : t));
+        return [...next].sort((a, b) => {
+          if (a.isFavourite !== b.isFavourite) return a.isFavourite ? -1 : 1;
+          return (
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { thread: ThreadSummary };
-        setThreads((ts) => {
-          const next = ts.map((t) => (t.id === id ? data.thread : t));
-          return [...next].sort((a, b) => {
-            if (a.isFavourite !== b.isFavourite) return a.isFavourite ? -1 : 1;
-            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-          });
-        });
-      } catch (e) {
-        // Revert
-        setThreads((ts) =>
-          ts.map((t) =>
-            t.id === id ? { ...t, isFavourite: !t.isFavourite } : t,
-          ),
-        );
-        toast({
-          title: "Couldn't update favourite",
-          description: e instanceof Error ? e.message : String(e),
-          variant: "destructive",
-        });
-      }
-    },
-    [],
-  );
+      });
+    } catch (e) {
+      // Revert
+      setThreads((ts) =>
+        ts.map((t) =>
+          t.id === id ? { ...t, isFavourite: !t.isFavourite } : t,
+        ),
+      );
+      toast({
+        title: "Couldn't update favourite",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1854,9 +1920,7 @@ Ask me anything — I'll reference these and your real training data.`;
       userText,
       thinking: "Pulling up your training philosophy and goals…",
       tools: {},
-      bubbles: [
-        { kind: "thinking", id: "thinking", createdAt: startedAt },
-      ],
+      bubbles: [{ kind: "thinking", id: "thinking", createdAt: startedAt }],
       answer: "",
       status: "streaming",
       startedAt,
@@ -1971,10 +2035,7 @@ Ask me anything — I'll reference these and your real training data.`;
       const decoder = new TextDecoder();
       let buffer = "";
 
-      const ensureBubble = (
-        kind: Bubble["kind"],
-        idHint?: string,
-      ): void => {
+      const ensureBubble = (kind: Bubble["kind"], idHint?: string): void => {
         updateRound(roundId, (r) => {
           if (kind === "thinking") {
             const has = r.bubbles.some((b) => b.kind === "thinking");
@@ -1994,12 +2055,18 @@ Ask me anything — I'll reference these and your real training data.`;
               ...r,
               bubbles: [
                 ...r.bubbles,
-                { kind: "answer-start", id: "answer-start", createdAt: Date.now() },
+                {
+                  kind: "answer-start",
+                  id: "answer-start",
+                  createdAt: Date.now(),
+                },
               ],
             };
           }
           if (kind === "tool" && idHint) {
-            const has = r.bubbles.some((b) => b.kind === "tool" && b.id === idHint);
+            const has = r.bubbles.some(
+              (b) => b.kind === "tool" && b.id === idHint,
+            );
             if (has) return r;
             return {
               ...r,
@@ -2042,13 +2109,15 @@ Ask me anything — I'll reference these and your real training data.`;
           case "tool": {
             const id = String(payload.id ?? "");
             const name = String(payload.name ?? "tool");
-            const status = (payload.status === "done" ||
-            payload.status === "error" ||
-            payload.status === "pending"
-              ? payload.status
-              : payload.resultPreview
-                ? "done"
-                : "pending") as ToolState["status"];
+            const status = (
+              payload.status === "done" ||
+              payload.status === "error" ||
+              payload.status === "pending"
+                ? payload.status
+                : payload.resultPreview
+                  ? "done"
+                  : "pending"
+            ) as ToolState["status"];
             const argsPreview =
               typeof payload.argsPreview === "string"
                 ? payload.argsPreview
@@ -2063,7 +2132,9 @@ Ask me anything — I'll reference these and your real training data.`;
               const prev = r.tools[id];
               const startedAt = prev?.startedAt ?? Date.now();
               const endedAt =
-                status !== "pending" ? (prev?.endedAt ?? Date.now()) : prev?.endedAt;
+                status !== "pending"
+                  ? (prev?.endedAt ?? Date.now())
+                  : prev?.endedAt;
               return {
                 ...r,
                 tools: {
@@ -2097,7 +2168,9 @@ Ask me anything — I'll reference these and your real training data.`;
           }
           case "error": {
             const message =
-              typeof payload.message === "string" ? payload.message : "Agent error";
+              typeof payload.message === "string"
+                ? payload.message
+                : "Agent error";
             throw new Error(message);
           }
           case "persist_error": {
@@ -2302,7 +2375,9 @@ Ask me anything — I'll reference these and your real training data.`;
                     "h-8 w-8",
                     activeThread.isFavourite && "text-amber-500",
                   )}
-                  aria-label={activeThread.isFavourite ? "Unfavourite" : "Favourite"}
+                  aria-label={
+                    activeThread.isFavourite ? "Unfavourite" : "Favourite"
+                  }
                 >
                   <Star
                     className={cn(
@@ -2447,7 +2522,10 @@ Ask me anything — I'll reference these and your real training data.`;
                         className="gap-2"
                       >
                         {busy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          <Loader2
+                            className="h-4 w-4 animate-spin"
+                            aria-hidden
+                          />
                         ) : (
                           <Send className="h-4 w-4" aria-hidden />
                         )}

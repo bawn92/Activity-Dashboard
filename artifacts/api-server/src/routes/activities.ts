@@ -112,7 +112,11 @@ async function persistActivity(
     }
   }
 
-  return { status: "created", activityId: newActivity.id, sport: parsed.activity.sport };
+  return {
+    status: "created",
+    activityId: newActivity.id,
+    sport: parsed.activity.sport ?? "unknown",
+  };
 }
 
 router.get("/activities", async (req: Request, res: Response) => {

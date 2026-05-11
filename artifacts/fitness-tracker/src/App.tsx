@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -68,7 +72,8 @@ if (!clerkPubKey) {
 }
 const requiredClerkPubKey = clerkPubKey;
 
-const clerkProxyUrl = (import.meta.env.VITE_CLERK_PROXY_URL as string) || undefined;
+const clerkProxyUrl =
+  (import.meta.env.VITE_CLERK_PROXY_URL as string) || undefined;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -98,7 +103,8 @@ const clerkAppearance = {
   },
   elements: {
     rootBox: "w-full flex justify-center",
-    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-card",
+    cardBox:
+      "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-card",
     card: "!shadow-none !border-0 !bg-transparent !rounded-none",
     footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
     headerTitle: "text-foreground font-medium tracking-tight",
@@ -113,7 +119,8 @@ const clerkAppearance = {
     alertText: "text-foreground",
     logoBox: "flex items-center justify-center",
     logoImage: "w-10 h-10",
-    socialButtonsBlockButton: "border border-border bg-card hover:bg-muted/40 transition-colors",
+    socialButtonsBlockButton:
+      "border border-border bg-card hover:bg-muted/40 transition-colors",
     formButtonPrimary: "bg-primary hover:bg-primary/90 text-primary-foreground",
     formFieldInput: "bg-card border-border text-foreground",
     footerAction: "bg-muted/40",
@@ -190,7 +197,10 @@ function ClerkQueryClientCacheInvalidator() {
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
+      if (
+        prevUserIdRef.current !== undefined &&
+        prevUserIdRef.current !== userId
+      ) {
         qc.clear();
       }
       prevUserIdRef.current = userId;
