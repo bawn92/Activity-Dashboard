@@ -19,6 +19,13 @@ import CalendarPage from "@/pages/calendar";
 import StatsPage from "@/pages/stats";
 import { useAllowedStatus } from "@/hooks/use-allowed-status";
 import { usePreviousLocationTracker } from "@/hooks/use-previous-location";
+import {
+  captureDevBypassFromUrl,
+  installDevBypassFetch,
+} from "@/lib/dev-bypass";
+
+captureDevBypassFromUrl();
+installDevBypassFetch();
 
 const queryClient = new QueryClient({
   defaultOptions: {

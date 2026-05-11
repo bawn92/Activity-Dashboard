@@ -1,11 +1,17 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import { isDevBypass } from "../lib/devBypass";
 
 export async function requireAllowedUser(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  if (isDevBypass(req)) {
+    next();
+    return;
+  }
+
   const auth = getAuth(req);
 
   if (!auth?.userId) {

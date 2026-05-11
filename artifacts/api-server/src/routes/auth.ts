@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
 import { logger } from "../lib/logger";
+import { isDevBypass } from "../lib/devBypass";
 
 const router: IRouter = Router();
 
@@ -13,6 +14,12 @@ const router: IRouter = Router();
  */
 router.get("/auth/allowed", async (req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+
+  if (isDevBypass(req)) {
+    res.json({ allowed: true, reason: null });
+    return;
+  }
+
   const auth = getAuth(req);
 
   if (!auth?.userId) {

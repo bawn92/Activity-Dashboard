@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
+import { isDevBypassActive } from "@/lib/dev-bypass";
 
 export type AllowedStatus =
   | { state: "loading" }
@@ -13,6 +14,7 @@ function apiBase(): string {
 
 export function useAllowedStatus(): AllowedStatus {
   const { user, isLoaded } = useUser();
+  const bypass = isDevBypassActive();
 
   const { data, isLoading } = useQuery({
     queryKey: ["auth-allowed", user?.id ?? null],
@@ -34,6 +36,7 @@ export function useAllowedStatus(): AllowedStatus {
     },
   });
 
+  if (bypass) return { state: "allowed" };
   if (!isLoaded || isLoading) return { state: "loading" };
   if (!user) return { state: "not_signed_in" };
   if (!data) return { state: "loading" };
