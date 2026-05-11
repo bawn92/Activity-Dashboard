@@ -137,11 +137,9 @@ router.get("/activities", async (req: Request, res: Response) => {
         !Number.isInteger(parsedLimit) ||
         parsedLimit < 1)
     ) {
-      res
-        .status(400)
-        .json({
-          error: "Invalid 'limit' parameter: must be a positive integer",
-        });
+      res.status(400).json({
+        error: "Invalid 'limit' parameter: must be a positive integer",
+      });
       return;
     }
     if (
@@ -150,11 +148,9 @@ router.get("/activities", async (req: Request, res: Response) => {
         !Number.isInteger(parsedOffset) ||
         parsedOffset < 0)
     ) {
-      res
-        .status(400)
-        .json({
-          error: "Invalid 'offset' parameter: must be a non-negative integer",
-        });
+      res.status(400).json({
+        error: "Invalid 'offset' parameter: must be a non-negative integer",
+      });
       return;
     }
     const limit = rawLimit !== undefined ? Math.min(1000, parsedLimit) : 250;
