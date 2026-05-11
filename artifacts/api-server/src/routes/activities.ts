@@ -30,7 +30,10 @@ import {
 import { eq, desc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
 const objectStorageService = new ObjectStorageService();
 
 const BATCH_SIZE = 10;
@@ -63,7 +66,8 @@ async function persistActivity(
   const parsed = await parseBuffer(rawBuffer);
 
   const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-  const fileObjectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+  const fileObjectPath =
+    objectStorageService.normalizeObjectEntityPath(uploadURL);
   const putResponse = await fetch(uploadURL, {
     method: "PUT",
     headers: { "Content-Type": "application/octet-stream" },
@@ -86,7 +90,9 @@ async function persistActivity(
     // the orphan blob we just uploaded.
     const code = (err as { code?: string } | null)?.code;
     if (code === "23505") {
-      await objectStorageService.deleteObjectEntity(fileObjectPath).catch(() => {});
+      await objectStorageService
+        .deleteObjectEntity(fileObjectPath)
+        .catch(() => {});
       const [winner] = await db
         .select({ id: activitiesTable.id })
         .from(activitiesTable)
@@ -112,7 +118,11 @@ async function persistActivity(
     }
   }
 
-  return { status: "created", activityId: newActivity.id, sport: parsed.activity.sport };
+  return {
+    status: "created",
+    activityId: newActivity.id,
+    sport: parsed.activity.sport ?? "unknown",
+  };
 }
 
 router.get("/activities", async (req: Request, res: Response) => {
@@ -121,12 +131,26 @@ router.get("/activities", async (req: Request, res: Response) => {
     const rawOffset = req.query.offset;
     const parsedLimit = rawLimit !== undefined ? Number(rawLimit) : NaN;
     const parsedOffset = rawOffset !== undefined ? Number(rawOffset) : NaN;
-    if (rawLimit !== undefined && (!Number.isFinite(parsedLimit) || !Number.isInteger(parsedLimit) || parsedLimit < 1)) {
-      res.status(400).json({ error: "Invalid 'limit' parameter: must be a positive integer" });
+    if (
+      rawLimit !== undefined &&
+      (!Number.isFinite(parsedLimit) ||
+        !Number.isInteger(parsedLimit) ||
+        parsedLimit < 1)
+    ) {
+      res.status(400).json({
+        error: "Invalid 'limit' parameter: must be a positive integer",
+      });
       return;
     }
-    if (rawOffset !== undefined && (!Number.isFinite(parsedOffset) || !Number.isInteger(parsedOffset) || parsedOffset < 0)) {
-      res.status(400).json({ error: "Invalid 'offset' parameter: must be a non-negative integer" });
+    if (
+      rawOffset !== undefined &&
+      (!Number.isFinite(parsedOffset) ||
+        !Number.isInteger(parsedOffset) ||
+        parsedOffset < 0)
+    ) {
+      res.status(400).json({
+        error: "Invalid 'offset' parameter: must be a non-negative integer",
+      });
       return;
     }
     const limit = rawLimit !== undefined ? Math.min(1000, parsedLimit) : 250;
@@ -217,7 +241,10 @@ router.post(
       .limit(1);
 
     if (existing) {
-      req.log.info({ activityId: existing.id }, "Duplicate upload detected, returning existing activity");
+      req.log.info(
+        { activityId: existing.id },
+        "Duplicate upload detected, returning existing activity",
+      );
       const dataPoints = await db
         .select()
         .from(activityDataPointsTable)
@@ -270,7 +297,8 @@ router.post(
       parsed = await parseBuffer(req.file.buffer);
     } catch (parseErr) {
       req.log.error({ err: parseErr }, "Failed to parse activity file");
-      const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse file";
+      const msg =
+        parseErr instanceof Error ? parseErr.message : "Failed to parse file";
       res.status(422).json({ error: msg });
       return;
     }
@@ -278,7 +306,8 @@ router.post(
     let fileObjectPath: string | null = null;
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      fileObjectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      fileObjectPath =
+        objectStorageService.normalizeObjectEntityPath(uploadURL);
 
       const putResponse = await fetch(uploadURL, {
         method: "PUT",
@@ -291,7 +320,9 @@ router.post(
       }
     } catch (storageErr) {
       req.log.error({ err: storageErr }, "Object storage upload failed");
-      res.status(500).json({ error: "Failed to store the file. Please try again." });
+      res
+        .status(500)
+        .json({ error: "Failed to store the file. Please try again." });
       return;
     }
 
@@ -316,7 +347,10 @@ router.post(
     try {
       await updateBestEffortsForActivity(newActivity.id, newActivity.sport);
     } catch (err) {
-      req.log.error({ err, activityId: newActivity.id }, "Failed to update best efforts cache");
+      req.log.error(
+        { err, activityId: newActivity.id },
+        "Failed to update best efforts cache",
+      );
     }
 
     const insertedDataPoints = parsed.dataPoints.map((p, idx) => ({
@@ -425,7 +459,8 @@ router.post(
               maxOutputLength: MAX_DECOMPRESSED_SIZE,
             });
           } catch (gzErr) {
-            const msg = gzErr instanceof Error ? gzErr.message : "gunzip failed";
+            const msg =
+              gzErr instanceof Error ? gzErr.message : "gunzip failed";
             throw new Error(`Failed to decompress: ${msg}`);
           }
         } else {
@@ -478,7 +513,9 @@ router.post(
 router.get("/activities/stats/sport", async (req: Request, res: Response) => {
   const sport = req.query.sport;
   if (!sport || typeof sport !== "string") {
-    res.status(400).json({ error: "Missing or invalid 'sport' query parameter" });
+    res
+      .status(400)
+      .json({ error: "Missing or invalid 'sport' query parameter" });
     return;
   }
 
@@ -503,9 +540,18 @@ router.get("/activities/stats/sport", async (req: Request, res: Response) => {
     function aggregatePeriod(acts: typeof activities) {
       return {
         activityCount: acts.length,
-        totalDistanceMeters: acts.reduce((s, a) => s + (a.distanceMeters ?? 0), 0),
-        totalDurationSeconds: acts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0),
-        totalElevGainMeters: acts.reduce((s, a) => s + (a.totalElevGainMeters ?? 0), 0),
+        totalDistanceMeters: acts.reduce(
+          (s, a) => s + (a.distanceMeters ?? 0),
+          0,
+        ),
+        totalDurationSeconds: acts.reduce(
+          (s, a) => s + (a.durationSeconds ?? 0),
+          0,
+        ),
+        totalElevGainMeters: acts.reduce(
+          (s, a) => s + (a.totalElevGainMeters ?? 0),
+          0,
+        ),
       };
     }
 
@@ -550,10 +596,12 @@ router.get("/activities/stats", async (req: Request, res: Response) => {
     for (const a of activities) {
       sportCounts[a.sport] = (sportCounts[a.sport] ?? 0) + 1;
     }
-    const sportBreakdown = Object.entries(sportCounts).map(([sport, count]) => ({
-      sport,
-      count,
-    }));
+    const sportBreakdown = Object.entries(sportCounts).map(
+      ([sport, count]) => ({
+        sport,
+        count,
+      }),
+    );
 
     const avgDistanceMeters =
       totalActivities > 0 ? totalDistanceMeters / totalActivities : 0;
@@ -767,27 +815,33 @@ router.patch(
   },
 );
 
-router.delete("/activities/:id", requireAllowedUser, async (req: Request, res: Response) => {
-  const params = DeleteActivityParams.safeParse({ id: Number(req.params.id) });
-  if (!params.success) {
-    res.status(400).json({ error: "Invalid activity ID" });
-    return;
-  }
+router.delete(
+  "/activities/:id",
+  requireAllowedUser,
+  async (req: Request, res: Response) => {
+    const params = DeleteActivityParams.safeParse({
+      id: Number(req.params.id),
+    });
+    if (!params.success) {
+      res.status(400).json({ error: "Invalid activity ID" });
+      return;
+    }
 
-  const [deleted] = await db
-    .delete(activitiesTable)
-    .where(eq(activitiesTable.id, params.data.id))
-    .returning({ id: activitiesTable.id });
+    const [deleted] = await db
+      .delete(activitiesTable)
+      .where(eq(activitiesTable.id, params.data.id))
+      .returning({ id: activitiesTable.id });
 
-  if (!deleted) {
-    res.status(404).json({ error: "Activity not found" });
-    return;
-  }
+    if (!deleted) {
+      res.status(404).json({ error: "Activity not found" });
+      return;
+    }
 
-  // Best-efforts cache is only refreshed on upload. The cache may now
-  // reference this deleted activity until a new upload triggers a recompute
-  // for the same sport, which is an acceptable tradeoff for instant deletes.
-  res.status(204).send();
-});
+    // Best-efforts cache is only refreshed on upload. The cache may now
+    // reference this deleted activity until a new upload triggers a recompute
+    // for the same sport, which is an acceptable tradeoff for instant deletes.
+    res.status(204).send();
+  },
+);
 
 export default router;

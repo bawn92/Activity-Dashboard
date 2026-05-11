@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,7 +110,9 @@ function parseSseFrame(raw: string): { event: string; data: string } | null {
   return { event, data: dataLines.join("\n") };
 }
 
-function nextFrameBoundary(buffer: string): { end: number; advance: number } | null {
+function nextFrameBoundary(
+  buffer: string,
+): { end: number; advance: number } | null {
   const lf = buffer.indexOf("\n\n");
   const crlf = buffer.indexOf("\r\n\r\n");
   if (lf === -1 && crlf === -1) return null;
@@ -274,10 +282,7 @@ function describeAsSql(
         "SUM(distance_meters) AS total_distance_meters",
         "SUM(duration_seconds) AS total_duration_seconds",
       );
-      const lines = [
-        `SELECT ${select.join(",\n       ")}`,
-        "FROM activities",
-      ];
+      const lines = [`SELECT ${select.join(",\n       ")}`, "FROM activities"];
       if (where.length) lines.push(`WHERE ${where.join("\n  AND ")}`);
       if (groupExpr) {
         lines.push(`GROUP BY ${groupExpr}`, `ORDER BY ${groupExpr};`);
@@ -298,9 +303,7 @@ function describeAsSql(
           ? Math.floor(args.dataPointsLimit)
           : 200;
       const limit = Math.min(Math.max(rawLimit, 1), 500);
-      const lines = [
-        `SELECT * FROM activities WHERE id = ${id} LIMIT 1;`,
-      ];
+      const lines = [`SELECT * FROM activities WHERE id = ${id} LIMIT 1;`];
       if (include) {
         lines.push(
           `SELECT * FROM activity_data_points\nWHERE activity_id = ${id}\nORDER BY timestamp DESC\nLIMIT ${limit};`,
@@ -359,14 +362,493 @@ function prettyJson(value: unknown): string {
   }
 }
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function firstValue(record: JsonRecord, keys: string[]): unknown {
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function formatDistanceMeters(value: unknown): string {
+  const meters = asNumber(value);
+  if (meters === null) return "-";
+  if (Math.abs(meters) >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+  return `${Math.round(meters)} m`;
+}
+
+function formatDurationSeconds(value: unknown): string {
+  const seconds = asNumber(value);
+  if (seconds === null) return "-";
+  const rounded = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const secs = rounded % 60;
+  if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+  if (minutes > 0) return `${minutes}m ${secs.toString().padStart(2, "0")}s`;
+  return `${secs}s`;
+}
+
+function formatDateLabel(value: unknown): string {
+  const raw = asString(value);
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (!Number.isFinite(date.getTime())) return raw;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatBucketLabel(value: unknown, groupBy: string | null): string {
+  const raw = asString(value);
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (!Number.isFinite(date.getTime())) return raw;
+  if (groupBy === "month") {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  }
+  if (groupBy === "week") {
+    return `Week of ${new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+    }).format(date)}`;
+  }
+  return formatDateLabel(raw);
+}
+
+function formatInteger(value: unknown): string {
+  const number = asNumber(value);
+  return number === null ? "-" : Math.round(number).toLocaleString();
+}
+
+function formatWatts(value: unknown): string {
+  const watts = asNumber(value);
+  return watts === null ? "-" : `${Math.round(watts)} W`;
+}
+
+function formatHeartRate(value: unknown): string {
+  const bpm = asNumber(value);
+  return bpm === null ? "-" : `${Math.round(bpm)} bpm`;
+}
+
+function getActivityDistance(activity: JsonRecord): unknown {
+  return firstValue(activity, ["distanceMeters", "distance_meters"]);
+}
+
+function getActivityDuration(activity: JsonRecord): unknown {
+  return firstValue(activity, ["durationSeconds", "duration_seconds"]);
+}
+
+function getActivityStart(activity: JsonRecord): unknown {
+  return firstValue(activity, ["startTime", "start_time"]);
+}
+
+function getActivityElevGain(activity: JsonRecord): unknown {
+  return firstValue(activity, [
+    "totalElevGainMeters",
+    "total_elev_gain_meters",
+  ]);
+}
+
+function getActivityHr(activity: JsonRecord): unknown {
+  return firstValue(activity, ["avgHeartRate", "avg_heart_rate"]);
+}
+
+function getActivityPower(activity: JsonRecord): unknown {
+  return firstValue(activity, ["avgPower", "avg_power"]);
+}
+
+function getActivityNormalizedPower(activity: JsonRecord): unknown {
+  return firstValue(activity, ["normalizedPower", "normalized_power"]);
+}
+
+function previewRecords(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function summarizeRange(
+  values: number[],
+  formatter: (value: number) => string,
+): string {
+  if (values.length === 0) return "-";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (Math.round(min) === Math.round(max)) return formatter(min);
+  return `${formatter(min)} - ${formatter(max)}`;
+}
+
+function ActivityPreviewTable({ activities }: { activities: JsonRecord[] }) {
+  return (
+    <div className="mt-2 overflow-x-auto rounded-lg border border-border/60 bg-background/50">
+      <table className="w-full min-w-[520px] text-left text-[11px]">
+        <thead className="bg-muted/40 text-muted-foreground">
+          <tr>
+            <th className="px-2 py-1.5 font-medium">Date</th>
+            <th className="px-2 py-1.5 font-medium">Sport</th>
+            <th className="px-2 py-1.5 font-medium text-right">Distance</th>
+            <th className="px-2 py-1.5 font-medium text-right">Duration</th>
+            <th className="px-2 py-1.5 font-medium text-right">HR</th>
+            <th className="px-2 py-1.5 font-medium text-right">Power</th>
+          </tr>
+        </thead>
+        <tbody>
+          {activities.map((activity, index) => (
+            <tr
+              key={`${activity.id ?? index}`}
+              className="border-t border-border/50"
+            >
+              <td className="px-2 py-1.5 whitespace-nowrap">
+                {formatDateLabel(getActivityStart(activity))}
+              </td>
+              <td className="px-2 py-1.5 capitalize">
+                {asString(activity.sport) ?? "-"}
+              </td>
+              <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                {formatDistanceMeters(getActivityDistance(activity))}
+              </td>
+              <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                {formatDurationSeconds(getActivityDuration(activity))}
+              </td>
+              <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                {formatHeartRate(getActivityHr(activity))}
+              </td>
+              <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                {formatWatts(getActivityPower(activity))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PreviewStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/60 px-2 py-1.5">
+      <div className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 text-[12px] font-medium text-foreground/90">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ActivitiesResultPreview({ activities }: { activities: JsonRecord[] }) {
+  const totalDistance = activities.reduce(
+    (sum, activity) => sum + (asNumber(getActivityDistance(activity)) ?? 0),
+    0,
+  );
+  const totalDuration = activities.reduce(
+    (sum, activity) => sum + (asNumber(getActivityDuration(activity)) ?? 0),
+    0,
+  );
+  const shown = activities.slice(0, 6);
+
+  return (
+    <div className="mt-2 rounded-xl border border-border/60 bg-card/50 p-2">
+      <div className="grid grid-cols-3 gap-1.5">
+        <PreviewStat label="Rows" value={formatInteger(activities.length)} />
+        <PreviewStat
+          label="Distance"
+          value={formatDistanceMeters(totalDistance)}
+        />
+        <PreviewStat
+          label="Duration"
+          value={formatDurationSeconds(totalDuration)}
+        />
+      </div>
+      {shown.length > 0 ? <ActivityPreviewTable activities={shown} /> : null}
+      {activities.length > shown.length ? (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          Showing {shown.length} of {activities.length} activities. Open raw
+          payload for the full result.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TrainingStatsResultPreview({ data }: { data: JsonRecord }) {
+  const buckets = previewRecords(data.buckets);
+  const groupBy = asString(data.groupBy) ?? "none";
+
+  if (buckets.length === 0) {
+    return (
+      <div className="mt-2 rounded-xl border border-border/60 bg-card/50 p-2">
+        <div className="grid grid-cols-3 gap-1.5">
+          <PreviewStat
+            label="Activities"
+            value={formatInteger(
+              firstValue(data, ["activityCount", "activity_count"]),
+            )}
+          />
+          <PreviewStat
+            label="Distance"
+            value={formatDistanceMeters(
+              firstValue(data, [
+                "totalDistanceMeters",
+                "total_distance_meters",
+              ]),
+            )}
+          />
+          <PreviewStat
+            label="Duration"
+            value={formatDurationSeconds(
+              firstValue(data, [
+                "totalDurationSeconds",
+                "total_duration_seconds",
+              ]),
+            )}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const bucketLabel =
+    groupBy === "sport" ? "Sport" : groupBy === "month" ? "Month" : "Week";
+
+  return (
+    <div className="mt-2 rounded-xl border border-border/60 bg-card/50 p-2">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+          {groupBy} breakdown
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {buckets.length} rows
+        </span>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border/60 bg-background/50">
+        <table className="w-full min-w-[420px] text-left text-[11px]">
+          <thead className="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-2 py-1.5 font-medium">{bucketLabel}</th>
+              <th className="px-2 py-1.5 font-medium text-right">Activities</th>
+              <th className="px-2 py-1.5 font-medium text-right">Distance</th>
+              <th className="px-2 py-1.5 font-medium text-right">Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.slice(0, 8).map((bucket, index) => {
+              const bucketValue =
+                groupBy === "sport"
+                  ? bucket.sport
+                  : firstValue(bucket, ["bucketStart", "bucket_start"]);
+              return (
+                <tr
+                  key={`${bucketValue ?? index}`}
+                  className="border-t border-border/50"
+                >
+                  <td className="px-2 py-1.5">
+                    {groupBy === "sport"
+                      ? (asString(bucketValue) ?? "-")
+                      : formatBucketLabel(bucketValue, groupBy)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right">
+                    {formatInteger(
+                      firstValue(bucket, ["activityCount", "activity_count"]),
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                    {formatDistanceMeters(
+                      firstValue(bucket, [
+                        "totalDistanceMeters",
+                        "total_distance_meters",
+                      ]),
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                    {formatDurationSeconds(
+                      firstValue(bucket, [
+                        "totalDurationSeconds",
+                        "total_duration_seconds",
+                      ]),
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {buckets.length > 8 ? (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          Showing 8 of {buckets.length} buckets. Open raw payload for the full
+          result.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ActivityDetailResultPreview({
+  activity,
+  dataPoints,
+}: {
+  activity: JsonRecord;
+  dataPoints: JsonRecord[];
+}) {
+  const title =
+    asString(activity.name) ?? `Activity ${String(activity.id ?? "")}`;
+  const hrValues = dataPoints
+    .map((point) => asNumber(firstValue(point, ["heartRate", "heart_rate"])))
+    .filter((value): value is number => value !== null);
+  const powerValues = dataPoints
+    .map((point) => asNumber(point.power))
+    .filter((value): value is number => value !== null);
+  const altitudeValues = dataPoints
+    .map((point) => asNumber(point.altitude))
+    .filter((value): value is number => value !== null);
+
+  return (
+    <div className="mt-2 rounded-xl border border-border/60 bg-card/50 p-2">
+      <div className="mb-2">
+        <div className="text-[12px] font-medium text-foreground/90 truncate">
+          {title}
+        </div>
+        <div className="text-[10px] text-muted-foreground">
+          {[
+            asString(activity.sport),
+            formatDateLabel(getActivityStart(activity)),
+          ]
+            .filter(Boolean)
+            .join(" - ")}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+        <PreviewStat
+          label="Distance"
+          value={formatDistanceMeters(getActivityDistance(activity))}
+        />
+        <PreviewStat
+          label="Duration"
+          value={formatDurationSeconds(getActivityDuration(activity))}
+        />
+        <PreviewStat
+          label="Avg HR"
+          value={formatHeartRate(getActivityHr(activity))}
+        />
+        <PreviewStat
+          label="Avg power"
+          value={formatWatts(getActivityPower(activity))}
+        />
+        <PreviewStat
+          label="Norm power"
+          value={formatWatts(getActivityNormalizedPower(activity))}
+        />
+        <PreviewStat
+          label="Elev gain"
+          value={formatDistanceMeters(getActivityElevGain(activity))}
+        />
+        <PreviewStat label="Samples" value={formatInteger(dataPoints.length)} />
+        <PreviewStat
+          label="HR range"
+          value={summarizeRange(
+            hrValues,
+            (value) => `${Math.round(value)} bpm`,
+          )}
+        />
+      </div>
+      {dataPoints.length > 0 ? (
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          <PreviewStat
+            label="Stream window"
+            value={`${formatDateLabel(dataPoints[0]?.timestamp)} - ${formatDateLabel(
+              dataPoints[dataPoints.length - 1]?.timestamp,
+            )}`}
+          />
+          <PreviewStat
+            label="Power range"
+            value={summarizeRange(
+              powerValues,
+              (value) => `${Math.round(value)} W`,
+            )}
+          />
+          <PreviewStat
+            label="Altitude"
+            value={summarizeRange(
+              altitudeValues,
+              (value) => `${Math.round(value)} m`,
+            )}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolResultPreview({
+  toolName,
+  data,
+}: {
+  toolName: string;
+  data: unknown;
+}) {
+  if (!isRecord(data)) return null;
+
+  if (toolName === "list_activities") {
+    const activities = previewRecords(data.activities);
+    if (activities.length === 0) return null;
+    return <ActivitiesResultPreview activities={activities} />;
+  }
+
+  if (toolName === "get_training_stats") {
+    return <TrainingStatsResultPreview data={data} />;
+  }
+
+  if (toolName === "get_activity_detail") {
+    const activity = isRecord(data.activity) ? data.activity : null;
+    if (!activity) return null;
+    return (
+      <ActivityDetailResultPreview
+        activity={activity}
+        dataPoints={previewRecords(data.dataPoints ?? data.data_points)}
+      />
+    );
+  }
+
+  return null;
+}
+
 function effectiveToolName(tool: ToolState): string {
   const inner = unwrapMcpToolCall(tool.name, tool.argsPreview);
   return inner?.name ?? tool.name;
 }
 
 function phaseFor(round: ChatRound): { label: string; icon: typeof Brain } {
-  if (round.status === "done") return { label: "Analysis complete", icon: CheckCircle2 };
-  if (round.status === "error") return { label: "Analysis failed", icon: Sparkles };
+  if (round.status === "done")
+    return { label: "Analysis complete", icon: CheckCircle2 };
+  if (round.status === "error")
+    return { label: "Analysis failed", icon: Sparkles };
 
   const lastBubble = round.bubbles[round.bubbles.length - 1];
   if (round.answer) return { label: "Writing your answer", icon: Sparkles };
@@ -407,13 +889,7 @@ function relativeTime(iso: string): string {
   return `${diffMonth}mo ago`;
 }
 
-function ThinkingBubble({
-  active,
-  text,
-}: {
-  active: boolean;
-  text: string;
-}) {
+function ThinkingBubble({ active, text }: { active: boolean; text: string }) {
   const trimmed = text.trim();
   const display =
     trimmed.length > 220 ? `…${trimmed.slice(trimmed.length - 220)}` : trimmed;
@@ -440,7 +916,9 @@ function ThinkingBubble({
         }
         className={cn(
           "shrink-0 mt-0.5 rounded-full p-1",
-          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+          active
+            ? "bg-primary/15 text-primary"
+            : "bg-muted text-muted-foreground",
         )}
       >
         <Brain className="h-3 w-3" />
@@ -537,7 +1015,9 @@ function ToolBubble({ tool }: { tool: ToolState }) {
           <span className="label-mono text-[9px] uppercase tracking-wide text-muted-foreground">
             {sql ? "Query" : "Tool"}
           </span>
-          <span className="font-mono text-[11px] text-foreground/90">{nice}</span>
+          <span className="font-mono text-[11px] text-foreground/90">
+            {nice}
+          </span>
           {wasWrapped ? (
             <span className="label-mono text-[9px] text-muted-foreground/70">
               via {tool.name}
@@ -563,9 +1043,7 @@ function ToolBubble({ tool }: { tool: ToolState }) {
               >
                 <span className="text-muted-foreground">{k}:</span>
                 <span className="text-foreground/90 truncate max-w-[160px]">
-                  {typeof v === "object"
-                    ? JSON.stringify(v)
-                    : String(v)}
+                  {typeof v === "object" ? JSON.stringify(v) : String(v)}
                 </span>
               </span>
             ))}
@@ -579,6 +1057,10 @@ function ToolBubble({ tool }: { tool: ToolState }) {
               ? (summary ?? "Tool returned an error")
               : (summary ?? "Result received")}
         </div>
+
+        {!pending && !error ? (
+          <ToolResultPreview toolName={effectiveName} data={unwrappedResult} />
+        ) : null}
 
         {(tool.argsPreview || tool.resultPreview) && !pending ? (
           <button
@@ -682,7 +1164,9 @@ function ThinkingPanel({
         <Brain className="h-3 w-3" />
         <span>
           Thought for {elapsedSec}s
-          {toolCount > 0 ? ` · ${toolCount} tool${toolCount === 1 ? "" : "s"}` : ""}
+          {toolCount > 0
+            ? ` · ${toolCount} tool${toolCount === 1 ? "" : "s"}`
+            : ""}
         </span>
         <ChevronRight className="h-3 w-3" />
       </button>
@@ -765,9 +1249,122 @@ function ThinkingPanel({
   );
 }
 
+type MarkdownTableSegment =
+  | { kind: "markdown"; text: string }
+  | { kind: "table"; header: string[]; rows: string[][] };
+
+function splitPipeRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+
+function isTableSeparator(line: string, expectedCells: number): boolean {
+  const cells = splitPipeRow(line);
+  if (cells.length !== expectedCells || cells.length < 2) return false;
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function looksLikeTableRow(line: string, expectedCells: number): boolean {
+  if (!line.includes("|") || line.trim().length === 0) return false;
+  return splitPipeRow(line).length === expectedCells;
+}
+
+function splitMarkdownTables(text: string): MarkdownTableSegment[] {
+  const lines = text.split(/\r?\n/);
+  const segments: MarkdownTableSegment[] = [];
+  const markdownBuffer: string[] = [];
+
+  const flushMarkdown = () => {
+    const markdown = markdownBuffer.join("\n");
+    markdownBuffer.length = 0;
+    if (markdown.trim().length > 0) {
+      segments.push({ kind: "markdown", text: markdown });
+    }
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const header = splitPipeRow(lines[i] ?? "");
+    const separator = lines[i + 1] ?? "";
+    if (
+      (lines[i] ?? "").includes("|") &&
+      header.length >= 2 &&
+      isTableSeparator(separator, header.length)
+    ) {
+      const rows: string[][] = [];
+      let j = i + 2;
+      while (
+        j < lines.length &&
+        looksLikeTableRow(lines[j] ?? "", header.length)
+      ) {
+        rows.push(splitPipeRow(lines[j] ?? ""));
+        j += 1;
+      }
+      if (rows.length > 0) {
+        flushMarkdown();
+        segments.push({ kind: "table", header, rows });
+        i = j;
+        continue;
+      }
+    }
+
+    markdownBuffer.push(lines[i] ?? "");
+    i += 1;
+  }
+
+  flushMarkdown();
+  return segments;
+}
+
+function MarkdownTable({
+  header,
+  rows,
+}: {
+  header: string[];
+  rows: string[][];
+}) {
+  return (
+    <div
+      className="my-3 overflow-x-auto rounded-lg border border-border/70"
+      data-testid="coach-markdown-table"
+    >
+      <table className="w-full min-w-[480px] text-left text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            {header.map((cell, index) => (
+              <th
+                key={`${cell}-${index}`}
+                className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              >
+                {cell}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-t border-border/60">
+              {row.map((cell, cellIndex) => (
+                <td
+                  key={`${rowIndex}-${cellIndex}`}
+                  className="px-3 py-2 align-top"
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function StreamedAnswer({ text, animate }: { text: string; animate: boolean }) {
   const initialFullRef = useRef(animate ? false : text.length > 0);
-  const [shown, setShown] = useState<string>(initialFullRef.current ? text : "");
+  const [shown, setShown] = useState<string>(
+    initialFullRef.current ? text : "",
+  );
   const targetRef = useRef(text);
   const rafRef = useRef<number | null>(null);
 
@@ -803,7 +1400,27 @@ function StreamedAnswer({ text, animate }: { text: string; animate: boolean }) {
     };
   }, []);
 
-  return <ReactMarkdown>{shown || "\u200b"}</ReactMarkdown>;
+  const segments = useMemo(() => splitMarkdownTables(shown), [shown]);
+
+  if (segments.length === 0) {
+    return <ReactMarkdown>{"\u200b"}</ReactMarkdown>;
+  }
+
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.kind === "markdown" ? (
+          <ReactMarkdown key={index}>{segment.text}</ReactMarkdown>
+        ) : (
+          <MarkdownTable
+            key={index}
+            header={segment.header}
+            rows={segment.rows}
+          />
+        ),
+      )}
+    </>
+  );
 }
 
 function messagesToRounds(messages: CoachMessage[]): ChatRound[] {
@@ -886,7 +1503,9 @@ function ThreadList({
   onToggleFavourite: (id: number) => void;
   onDelete: (id: number) => void;
 }) {
-  const [pendingDelete, setPendingDelete] = useState<ThreadSummary | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ThreadSummary | null>(
+    null,
+  );
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border/60 flex items-center justify-between gap-2">
@@ -943,7 +1562,9 @@ function ThreadList({
                     className={cn(
                       "shrink-0 p-1 rounded transition-colors",
                       canFavourite ? "hover:bg-muted" : "cursor-default",
-                      t.isFavourite ? "text-amber-500" : "text-muted-foreground/40",
+                      t.isFavourite
+                        ? "text-amber-500"
+                        : "text-muted-foreground/40",
                     )}
                   >
                     <Star
@@ -995,8 +1616,10 @@ function ThreadList({
             <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete
-              {pendingDelete ? ` "${pendingDelete.title}"` : " this conversation"}
-              {" "}and all of its messages. This action cannot be undone.
+              {pendingDelete
+                ? ` "${pendingDelete.title}"`
+                : " this conversation"}{" "}
+              and all of its messages. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1036,7 +1659,9 @@ export default function AgentPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
+    null,
+  );
 
   const loadThreads = useCallback(async () => {
     try {
@@ -1169,42 +1794,44 @@ export default function AgentPage() {
     [threads, activeThreadId, loadThread],
   );
 
-  const handleToggleFavourite = useCallback(
-    async (id: number) => {
-      // Optimistic update
-      setThreads((ts) =>
-        ts.map((t) => (t.id === id ? { ...t, isFavourite: !t.isFavourite } : t)),
-      );
-      try {
-        const res = await fetch(`${apiBase()}/api/coach/threads/${id}/favourite`, {
+  const handleToggleFavourite = useCallback(async (id: number) => {
+    // Optimistic update
+    setThreads((ts) =>
+      ts.map((t) => (t.id === id ? { ...t, isFavourite: !t.isFavourite } : t)),
+    );
+    try {
+      const res = await fetch(
+        `${apiBase()}/api/coach/threads/${id}/favourite`,
+        {
           method: "PATCH",
           credentials: "include",
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { thread: ThreadSummary };
+      setThreads((ts) => {
+        const next = ts.map((t) => (t.id === id ? data.thread : t));
+        return [...next].sort((a, b) => {
+          if (a.isFavourite !== b.isFavourite) return a.isFavourite ? -1 : 1;
+          return (
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { thread: ThreadSummary };
-        setThreads((ts) => {
-          const next = ts.map((t) => (t.id === id ? data.thread : t));
-          return [...next].sort((a, b) => {
-            if (a.isFavourite !== b.isFavourite) return a.isFavourite ? -1 : 1;
-            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-          });
-        });
-      } catch (e) {
-        // Revert
-        setThreads((ts) =>
-          ts.map((t) =>
-            t.id === id ? { ...t, isFavourite: !t.isFavourite } : t,
-          ),
-        );
-        toast({
-          title: "Couldn't update favourite",
-          description: e instanceof Error ? e.message : String(e),
-          variant: "destructive",
-        });
-      }
-    },
-    [],
-  );
+      });
+    } catch (e) {
+      // Revert
+      setThreads((ts) =>
+        ts.map((t) =>
+          t.id === id ? { ...t, isFavourite: !t.isFavourite } : t,
+        ),
+      );
+      toast({
+        title: "Couldn't update favourite",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1293,9 +1920,7 @@ Ask me anything — I'll reference these and your real training data.`;
       userText,
       thinking: "Pulling up your training philosophy and goals…",
       tools: {},
-      bubbles: [
-        { kind: "thinking", id: "thinking", createdAt: startedAt },
-      ],
+      bubbles: [{ kind: "thinking", id: "thinking", createdAt: startedAt }],
       answer: "",
       status: "streaming",
       startedAt,
@@ -1410,10 +2035,7 @@ Ask me anything — I'll reference these and your real training data.`;
       const decoder = new TextDecoder();
       let buffer = "";
 
-      const ensureBubble = (
-        kind: Bubble["kind"],
-        idHint?: string,
-      ): void => {
+      const ensureBubble = (kind: Bubble["kind"], idHint?: string): void => {
         updateRound(roundId, (r) => {
           if (kind === "thinking") {
             const has = r.bubbles.some((b) => b.kind === "thinking");
@@ -1433,12 +2055,18 @@ Ask me anything — I'll reference these and your real training data.`;
               ...r,
               bubbles: [
                 ...r.bubbles,
-                { kind: "answer-start", id: "answer-start", createdAt: Date.now() },
+                {
+                  kind: "answer-start",
+                  id: "answer-start",
+                  createdAt: Date.now(),
+                },
               ],
             };
           }
           if (kind === "tool" && idHint) {
-            const has = r.bubbles.some((b) => b.kind === "tool" && b.id === idHint);
+            const has = r.bubbles.some(
+              (b) => b.kind === "tool" && b.id === idHint,
+            );
             if (has) return r;
             return {
               ...r,
@@ -1481,13 +2109,15 @@ Ask me anything — I'll reference these and your real training data.`;
           case "tool": {
             const id = String(payload.id ?? "");
             const name = String(payload.name ?? "tool");
-            const status = (payload.status === "done" ||
-            payload.status === "error" ||
-            payload.status === "pending"
-              ? payload.status
-              : payload.resultPreview
-                ? "done"
-                : "pending") as ToolState["status"];
+            const status = (
+              payload.status === "done" ||
+              payload.status === "error" ||
+              payload.status === "pending"
+                ? payload.status
+                : payload.resultPreview
+                  ? "done"
+                  : "pending"
+            ) as ToolState["status"];
             const argsPreview =
               typeof payload.argsPreview === "string"
                 ? payload.argsPreview
@@ -1502,7 +2132,9 @@ Ask me anything — I'll reference these and your real training data.`;
               const prev = r.tools[id];
               const startedAt = prev?.startedAt ?? Date.now();
               const endedAt =
-                status !== "pending" ? (prev?.endedAt ?? Date.now()) : prev?.endedAt;
+                status !== "pending"
+                  ? (prev?.endedAt ?? Date.now())
+                  : prev?.endedAt;
               return {
                 ...r,
                 tools: {
@@ -1536,7 +2168,9 @@ Ask me anything — I'll reference these and your real training data.`;
           }
           case "error": {
             const message =
-              typeof payload.message === "string" ? payload.message : "Agent error";
+              typeof payload.message === "string"
+                ? payload.message
+                : "Agent error";
             throw new Error(message);
           }
           case "persist_error": {
@@ -1741,7 +2375,9 @@ Ask me anything — I'll reference these and your real training data.`;
                     "h-8 w-8",
                     activeThread.isFavourite && "text-amber-500",
                   )}
-                  aria-label={activeThread.isFavourite ? "Unfavourite" : "Favourite"}
+                  aria-label={
+                    activeThread.isFavourite ? "Unfavourite" : "Favourite"
+                  }
                 >
                   <Star
                     className={cn(
@@ -1886,7 +2522,10 @@ Ask me anything — I'll reference these and your real training data.`;
                         className="gap-2"
                       >
                         {busy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          <Loader2
+                            className="h-4 w-4 animate-spin"
+                            aria-hidden
+                          />
                         ) : (
                           <Send className="h-4 w-4" aria-hidden />
                         )}
