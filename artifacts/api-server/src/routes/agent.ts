@@ -1,42 +1,60 @@
-import {
-  Router,
-  type IRouter,
-  type Request,
-  type Response,
-} from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Agent, CursorAgentError } from "@cursor/sdk";
 import { logger } from "../lib/logger";
 import { requireAllowedUser } from "../middlewares/requireAllowedUser";
 import { db } from "@workspace/db";
 import { coachThreadsTable, coachMessagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import OpenAI from "openai";
+import type {
+  ChatCompletionAssistantMessageParam,
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+} from "openai/resources";
+import {
+  callTrainingTool,
+  trainingToolResultText,
+  TRAINING_TOOLS,
+} from "../lib/trainingTools";
 
 let openaiClient: OpenAI | null = null;
 function getOpenAI(): OpenAI | null {
-  if (
-    !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
-    !process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-  ) {
+  const explicitApiKey = process.env.OPENAI_API_KEY?.trim();
+  const integrationApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY?.trim();
+  const apiKey = explicitApiKey || integrationApiKey;
+  const baseURL =
+    process.env.OPENAI_BASE_URL?.trim() ||
+    (!explicitApiKey
+      ? process.env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim()
+      : "");
+
+  if (!apiKey) {
     return null;
   }
   if (!openaiClient) {
     openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey,
+      ...(baseURL ? { baseURL } : {}),
     });
   }
   return openaiClient;
 }
 
+function getCoachModel(): string {
+  return (
+    process.env.OPENAI_CHAT_MODEL ??
+    process.env.AI_INTEGRATIONS_OPENAI_MODEL ??
+    "gpt-5-mini"
+  );
+}
+
 const COACH_SYSTEM_BASE = `You are an expert endurance and strength coach helping the user interpret their own Strava-style activity data.
 
 Rules:
-- Always use the MCP tools (list_activities, get_training_stats, get_activity_detail) for factual metrics. Never invent distances, durations, counts, or personal records.
+- Always use the available workout data tools (list_activities, get_training_stats, get_activity_detail) for factual metrics. Never invent distances, durations, counts, or personal records.
 - Database timestamps are stored in UTC. Treat them as UTC silently — do not preface answers with assumptions, caveats, or notes about data format, schema, or what is/isn't available.
-- The backing schema uses PostgreSQL snake_case column names in tool JSON (e.g. start_time, distance_meters, duration_seconds, normalized_power). Activity streams live in activity_data_points when requested.
+- Tool results use the API's activity field names (e.g. startTime, distanceMeters, durationSeconds, normalizedPower). Activity streams live in activityDataPoints/dataPoints when requested.
 - Training Stress Score (TSS) is not persisted. Only mention this if the user explicitly asks about TSS; otherwise just answer using the metrics that are available.
 - Do not start replies with an "Assumption:" or "Note:" line. Skip preamble and answer the question directly.
 - Be concise, actionable, and encouraging.
@@ -62,7 +80,10 @@ function loadFitnessManifesto(): string | null {
       /* try next candidate */
     }
   }
-  logger.warn({ candidates }, "agent: fitness.md not found, coach will run without it");
+  logger.warn(
+    { candidates },
+    "agent: fitness.md not found, coach will run without it",
+  );
   return null;
 }
 
@@ -71,6 +92,19 @@ const FITNESS_MANIFESTO = loadFitnessManifesto();
 const COACH_SYSTEM = FITNESS_MANIFESTO
   ? `${COACH_SYSTEM_BASE}\n\n--- USER'S fitness.md ---\n\n${FITNESS_MANIFESTO}`
   : COACH_SYSTEM_BASE;
+
+const OPENAI_TRAINING_TOOLS: ChatCompletionTool[] = TRAINING_TOOLS.map(
+  (tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema,
+    },
+  }),
+);
+
+const MAX_TOOL_ROUNDS = 5;
 
 function writeSse(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -103,7 +137,7 @@ async function generateThreadTitle(
   }
   try {
     const response = await client.chat.completions.create({
-      model: "gpt-5-mini",
+      model: getCoachModel(),
       max_completion_tokens: 20,
       messages: [
         {
@@ -127,17 +161,13 @@ async function generateThreadTitle(
 const router: IRouter = Router();
 
 router.post("/agent", requireAllowedUser, async (req, res) => {
-  const required = [
-    "CURSOR_API_KEY",
-    "CURSOR_CLOUD_REPO_URL",
-    "PUBLIC_MCP_URL",
-    "MCP_SECRET",
-  ] as const;
-  for (const key of required) {
-    if (!process.env[key]) {
-      res.status(500).json({ error: `Missing environment variable: ${key}` });
-      return;
-    }
+  const client = getOpenAI();
+  if (!client) {
+    res.status(500).json({
+      error:
+        "Missing OpenAI API key. Set AI_INTEGRATIONS_OPENAI_API_KEY or OPENAI_API_KEY.",
+    });
+    return;
   }
 
   const body = req.body as {
@@ -157,7 +187,9 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
   }
 
   if (!userText) {
-    res.status(400).json({ error: "Provide prompt (string) or messages array" });
+    res
+      .status(400)
+      .json({ error: "Provide prompt (string) or messages array" });
     return;
   }
 
@@ -168,6 +200,8 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
   // of silently degrading to a non-persistent run.
   let activeThreadId: number | null = threadId;
   let isFirstMessage = false;
+  let priorMessages: Array<{ role: "user" | "assistant"; content: string }> =
+    [];
   if (activeThreadId !== null) {
     try {
       const [existingThread] = await db
@@ -183,6 +217,17 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
         .from(coachMessagesTable)
         .where(eq(coachMessagesTable.threadId, activeThreadId));
       isFirstMessage = existingMessages.length === 0;
+      priorMessages = existingMessages
+        .filter(
+          (
+            message,
+          ): message is typeof message & { role: "user" | "assistant" } =>
+            message.role === "user" || message.role === "assistant",
+        )
+        .map((message) => ({
+          role: message.role,
+          content: message.content,
+        }));
       await db.insert(coachMessagesTable).values({
         threadId: activeThreadId,
         role: "user",
@@ -194,46 +239,26 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
         .where(eq(coachThreadsTable.id, activeThreadId));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error({ err: message, threadId: activeThreadId }, "agent: failed to persist user message");
+      logger.error(
+        { err: message, threadId: activeThreadId },
+        "agent: failed to persist user message",
+      );
       res.status(500).json({ error: `Failed to persist message: ${message}` });
       return;
     }
-  }
-
-  const startingRef = process.env.CURSOR_CLOUD_REPO_REF?.trim() || "main";
-
-  let agent: Awaited<ReturnType<typeof Agent.create>>;
-  try {
-    agent = await Agent.create({
-      apiKey: process.env.CURSOR_API_KEY,
-      cloud: {
-        repos: [
-          {
-            url: process.env.CURSOR_CLOUD_REPO_URL!,
-            startingRef,
-          },
-        ],
-        skipReviewerRequest: true,
-      },
-      mcpServers: {
-        "strava-replit": {
-          type: "sse",
-          url: process.env.PUBLIC_MCP_URL!,
-          headers: {
-            Authorization: `Bearer ${process.env.MCP_SECRET}`,
-          },
-        },
-      },
-    });
-  } catch (err) {
-    const message =
-      err instanceof CursorAgentError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    res.status(502).json({ error: message });
-    return;
+  } else if (Array.isArray(body.messages) && body.messages.length > 1) {
+    priorMessages = body.messages
+      .slice(0, -1)
+      .filter(
+        (message): message is { role: "user" | "assistant"; content: string } =>
+          (message.role === "user" || message.role === "assistant") &&
+          typeof message.content === "string" &&
+          message.content.trim().length > 0,
+      )
+      .map((message) => ({
+        role: message.role,
+        content: message.content.trim(),
+      }));
   }
 
   res.status(200);
@@ -241,204 +266,118 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
-  if (typeof (res as Response & { flushHeaders?: () => void }).flushHeaders === "function") {
+  if (
+    typeof (res as Response & { flushHeaders?: () => void }).flushHeaders ===
+    "function"
+  ) {
     (res as Response & { flushHeaders: () => void }).flushHeaders();
   }
 
-  const fullPrompt = `${COACH_SYSTEM}\n\n---\n\nUser:\n${userText}`;
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: COACH_SYSTEM },
+    ...priorMessages.slice(-12).map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+    { role: "user", content: userText },
+  ];
 
   const reqLog = logger.child({ scope: "agent", userTextLen: userText.length });
-  reqLog.info({ promptPreview: userText.slice(0, 200) }, "agent: starting run");
+  reqLog.info(
+    {
+      promptPreview: userText.slice(0, 200),
+      model: getCoachModel(),
+      historyCount: priorMessages.length,
+    },
+    "agent: starting OpenAI run",
+  );
 
   try {
-    const run = await agent.send(fullPrompt);
-    reqLog.info({ runId: run.id }, "agent: run started");
     let accumulated = "";
-    let thinkingAccum = "";
     const toolNames: string[] = [];
-    let messageCount = 0;
-    const typeCounts: Record<string, number> = {};
-    const statusMessages: string[] = [];
+    let runId = "";
 
-    for await (const msg of run.stream()) {
-      messageCount += 1;
-      typeCounts[msg.type] = (typeCounts[msg.type] ?? 0) + 1;
-      try {
-        reqLog.info(
-          { msgType: msg.type, snippet: JSON.stringify(msg).slice(0, 1200) },
-          "agent: stream msg",
-        );
-      } catch {
-        /* ignore */
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+      const completion = await client.chat.completions.create({
+        model: getCoachModel(),
+        messages,
+        tools: OPENAI_TRAINING_TOOLS,
+        tool_choice: "auto",
+        max_completion_tokens: 900,
+      });
+      runId = runId || completion.id;
+      const assistant = completion.choices[0]?.message;
+      if (!assistant) {
+        throw new Error("OpenAI returned no assistant message");
       }
 
-      if (msg.type === "status") {
-        const snippet = (() => {
-          try {
-            return JSON.stringify(msg).slice(0, 1200);
-          } catch {
-            return String(msg).slice(0, 1200);
-          }
-        })();
-        statusMessages.push(snippet);
-        continue;
+      const toolCalls = assistant.tool_calls ?? [];
+      if (toolCalls.length === 0) {
+        accumulated = assistant.content ?? "";
+        if (accumulated.trim().length > 0) {
+          writeSse(res, "replace", { text: accumulated });
+        }
+        break;
       }
 
-      if (msg.type === "thinking") {
-        const t = typeof msg.text === "string" ? msg.text : "";
-        if (!t) {
+      messages.push({
+        role: "assistant",
+        content: assistant.content ?? null,
+        tool_calls: toolCalls,
+      } satisfies ChatCompletionAssistantMessageParam);
+
+      for (const toolCall of toolCalls) {
+        if (toolCall.type !== "function") {
           continue;
         }
-        if (!t.startsWith(thinkingAccum)) {
-          writeSse(res, "thinking_replace", { text: t });
-          thinkingAccum = t;
-        } else if (t.length > thinkingAccum.length) {
-          writeSse(res, "thinking_delta", {
-            text: t.slice(thinkingAccum.length),
-          });
-          thinkingAccum = t;
-        }
-        continue;
-      }
-
-      if (msg.type === "tool_call") {
-        if (msg.name) toolNames.push(msg.name);
+        const toolName = toolCall.function.name;
+        const argsRaw = toolCall.function.arguments;
+        toolNames.push(toolName);
         reqLog.info(
           {
-            tool: msg.name,
-            status: msg.status,
-            callId: msg.call_id,
-            argsPreview: jsonSnippet(msg.args, 200),
-            resultPreview: jsonSnippet(msg.result, 200),
+            tool: toolName,
+            callId: toolCall.id,
+            argsPreview: jsonSnippet(argsRaw, 200),
           },
-          "agent: tool_call",
+          "agent: OpenAI tool_call",
         );
         writeSse(res, "tool", {
-          id: msg.call_id,
-          name: msg.name,
-          status: msg.status,
-          argsPreview: jsonSnippet(msg.args, 4000),
-          resultPreview: jsonSnippet(msg.result, 8000),
+          id: toolCall.id,
+          name: toolName,
+          status: "pending",
+          argsPreview: jsonSnippet(argsRaw, 4000),
         });
-        continue;
-      }
 
-      if (msg.type === "assistant") {
-        for (const block of msg.message.content) {
-          if (block.type === "tool_use") {
-            toolNames.push(block.name);
-            reqLog.info(
-              {
-                tool: block.name,
-                callId: block.id,
-                argsPreview: jsonSnippet(block.input, 200),
-              },
-              "agent: assistant tool_use",
-            );
-            writeSse(res, "tool", {
-              id: block.id,
-              name: block.name,
-              status: "pending",
-              argsPreview: jsonSnippet(block.input, 4000),
-            });
-          }
-        }
+        const toolResult = await callTrainingTool(toolName, argsRaw);
+        const resultText = trainingToolResultText(toolResult);
+        writeSse(res, "tool", {
+          id: toolCall.id,
+          name: toolName,
+          status: toolResult.ok ? "done" : "error",
+          argsPreview: jsonSnippet(argsRaw, 4000),
+          resultPreview: jsonSnippet(
+            toolResult.ok ? toolResult.data : { error: toolResult.error },
+            8000,
+          ),
+        });
 
-        let piece = "";
-        for (const block of msg.message.content) {
-          if (block.type === "text") {
-            piece += block.text;
-          }
-        }
-        if (piece.length === 0) {
-          continue;
-        }
-        if (!piece.startsWith(accumulated)) {
-          writeSse(res, "replace", { text: piece });
-          accumulated = piece;
-        } else if (piece.length > accumulated.length) {
-          writeSse(res, "delta", {
-            text: piece.slice(accumulated.length),
-          });
-          accumulated = piece;
-        }
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: resultText,
+        });
       }
     }
 
-    const result = await run.wait();
-    const resultText =
-      typeof result.result === "string" ? result.result : "";
-    const trimmedAccum = accumulated.trim();
-    const trimmedResult = resultText.trim();
-
-    reqLog.info(
-      {
-        runId: run.id,
-        status: result.status,
-        messageCount,
-        typeCounts,
-        toolCount: toolNames.length,
-        toolNames,
-        accumulatedLen: accumulated.length,
-        accumulatedPreview: accumulated.slice(0, 400),
-        resultLen: resultText.length,
-        resultPreview: resultText.slice(0, 400),
-        statusMessages,
-      },
-      "agent: run finished",
-    );
-
-    const finalAnswer =
-      trimmedAccum.length < 5 && trimmedResult.length > trimmedAccum.length
-        ? resultText
-        : accumulated;
-
-    if (trimmedAccum.length < 5 && trimmedResult.length > trimmedAccum.length) {
+    if (accumulated.trim().length === 0) {
+      const message = "The coach run finished without producing a reply.";
       reqLog.warn(
         {
-          accumulatedLen: accumulated.length,
-          resultLen: resultText.length,
+          runId,
+          toolCount: toolNames.length,
+          toolNames,
         },
-        "agent: streamed assistant text was empty/trivial, falling back to result.result",
-      );
-      writeSse(res, "replace", { text: resultText });
-    }
-
-    // If the cursor run ended without producing any usable content, surface a
-    // visible error to the client instead of silently sending an empty `done`
-    // (which makes the chat appear to hang). The Cursor SDK status messages
-    // and RunResult don't carry a reason, so try Agent.get() to pull the
-    // agent's `summary` field — which often contains the actual failure
-    // explanation visible in Cursor's dashboard.
-    if (finalAnswer.trim().length === 0) {
-      let agentSummary: string | undefined;
-      try {
-        const info = await Agent.get(agent.agentId, {
-          apiKey: process.env.CURSOR_API_KEY,
-        });
-        agentSummary = info.summary?.trim() || undefined;
-      } catch (err) {
-        const m = err instanceof Error ? err.message : String(err);
-        reqLog.warn({ err: m, agentId: agent.agentId }, "agent: Agent.get failed");
-      }
-      const dashboardUrl = `https://cursor.com/agents?id=${agent.agentId}`;
-      const detail =
-        result.status === "error"
-          ? "The coach run ended in error"
-          : `The coach run finished (${result.status}) without producing a reply`;
-      const parts = [`${detail}.`];
-      if (agentSummary) parts.push(`Cursor reports: ${agentSummary}`);
-      parts.push(`See: ${dashboardUrl}`);
-      const message = parts.join(" ");
-      reqLog.warn(
-        {
-          runId: run.id,
-          agentId: agent.agentId,
-          status: result.status,
-          statusMessages,
-          agentSummary,
-        },
-        "agent: empty final answer, surfacing error to client",
+        "agent: empty final answer",
       );
       writeSse(res, "error", { message });
       return;
@@ -449,12 +388,12 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
     // The HTTP response has already started streaming SSE here, so we cannot
     // change the status code — but we surface persistence errors as an SSE
     // `persist_error` event and log them so failures are detectable.
-    if (activeThreadId !== null && finalAnswer.trim().length > 0) {
+    if (activeThreadId !== null && accumulated.trim().length > 0) {
       try {
         await db.insert(coachMessagesTable).values({
           threadId: activeThreadId,
           role: "assistant",
-          content: finalAnswer.trim(),
+          content: accumulated.trim(),
         });
         await db
           .update(coachThreadsTable)
@@ -462,7 +401,7 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
           .where(eq(coachThreadsTable.id, activeThreadId));
 
         if (isFirstMessage) {
-          const title = await generateThreadTitle(userText, finalAnswer.trim());
+          const title = await generateThreadTitle(userText, accumulated.trim());
           await db
             .update(coachThreadsTable)
             .set({ title, titlePending: false, updatedAt: new Date() })
@@ -480,25 +419,19 @@ router.post("/agent", requireAllowedUser, async (req, res) => {
     }
 
     writeSse(res, "done", {
-      status: result.status,
-      result: result.result,
-      runId: run.id,
+      status: "finished",
+      result: accumulated,
+      runId,
       toolCount: toolNames.length,
       toolNames,
       accumulatedLen: accumulated.length,
       threadId: activeThreadId,
     });
   } catch (err) {
-    const message =
-      err instanceof CursorAgentError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : String(err);
+    const message = err instanceof Error ? err.message : String(err);
     reqLog.error({ err: message }, "agent: run failed");
     writeSse(res, "error", { message });
   } finally {
-    await agent[Symbol.asyncDispose]().catch(() => {});
     res.end();
   }
 });
